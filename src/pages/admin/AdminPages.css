@@ -1,0 +1,448 @@
+/* ===== Admin Pages Styles ===== */
+
+/* Back Button */
+.admin-back-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #64748b;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+.admin-back-btn:hover {
+  background: #f1f5f9;
+  color: #1e293b;
+}
+
+/* Wizard Steps */
+.wizard-steps {
+  display: flex;
+  gap: 0;
+  margin-bottom: 2rem;
+  background: white;
+  border-radius: 14px;
+  padding: 0.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border: 1px solid #f1f5f9;
+  overflow-x: auto;
+}
+
+.wizard-step {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0.75rem 0.5rem;
+  border-radius: 10px;
+  transition: all 0.2s;
+  cursor: default;
+  min-width: 0;
+}
+
+.wizard-step.done {
+  cursor: pointer;
+}
+
+.wizard-step.active {
+  background: var(--color-primary);
+}
+
+.wizard-step-circle {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+  background: #e2e8f0;
+  color: #94a3b8;
+  transition: all 0.2s;
+}
+.wizard-step.active .wizard-step-circle {
+  background: rgba(255, 255, 255, 0.3);
+  color: white;
+}
+.wizard-step.done .wizard-step-circle {
+  background: #00CCA0;
+  color: white;
+}
+
+.wizard-step-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #94a3b8;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.wizard-step.active .wizard-step-label {
+  color: white;
+}
+.wizard-step.done .wizard-step-label {
+  color: #475569;
+}
+
+/* Form Cards */
+.admin-form-card {
+  padding: 2rem;
+}
+
+.admin-form-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 1.75rem;
+}
+
+.admin-form-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.admin-form-title {
+  font-family: var(--font-heading);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
+}
+
+.admin-form-subtitle {
+  font-size: 0.82rem;
+  color: #94a3b8;
+  margin: 2px 0 0;
+}
+
+.admin-form-actions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #f1f5f9;
+}
+
+/* Selected University Card */
+.selected-uni-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 1rem;
+  background: linear-gradient(135deg, rgba(58, 67, 145, 0.06) 0%, rgba(0, 204, 160, 0.06) 100%);
+  border-radius: 10px;
+  border: 1px solid rgba(58, 67, 145, 0.15);
+  margin-top: 1rem;
+  color: #3A4391;
+}
+.selected-uni-card strong {
+  display: block;
+  font-weight: 700;
+  color: #1e293b;
+  font-size: 0.95rem;
+}
+.selected-uni-card span {
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+/* Tags */
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: #eff6ff;
+  color: #3A4391;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: 1px solid #dbeafe;
+}
+.tag-chip button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #94a3b8;
+  padding: 0;
+  display: flex;
+  align-items: center;
+}
+.tag-chip button:hover {
+  color: #ef4444;
+}
+.tag-chip-static {
+  cursor: default;
+}
+
+/* Upload Zone */
+.admin-upload-zone {
+  border: 2px dashed #e2e8f0;
+  border-radius: 12px;
+  padding: 2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: #fafbfc;
+}
+.admin-upload-zone:hover {
+  border-color: var(--color-primary);
+  background: rgba(58, 67, 145, 0.02);
+}
+.admin-upload-zone-sm {
+  padding: 1.25rem;
+}
+
+.admin-upload-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  color: #94a3b8;
+}
+.admin-upload-placeholder span {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #64748b;
+}
+.admin-upload-placeholder small {
+  font-size: 0.75rem;
+}
+
+.admin-upload-preview {
+  position: relative;
+  display: inline-block;
+}
+.admin-upload-preview img {
+  max-height: 180px;
+  max-width: 100%;
+  object-fit: contain;
+  border-radius: 8px;
+}
+.admin-upload-remove {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #ef4444;
+  color: white;
+  border: 2px solid white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Checkboxes */
+.admin-checkbox-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid #f1f5f9;
+}
+.admin-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #475569;
+}
+.admin-checkbox input[type="checkbox"] {
+  accent-color: var(--color-primary);
+  width: 16px;
+  height: 16px;
+}
+
+/* Review Grid */
+.review-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+.review-item {
+  background: #f8fafc;
+  border-radius: 8px;
+  padding: 0.75rem;
+}
+.review-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+  letter-spacing: 0.03em;
+}
+.review-value {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #334155;
+}
+.review-block {
+  margin-top: 0.75rem;
+  background: #f8fafc;
+  border-radius: 8px;
+  padding: 0.75rem;
+}
+.review-value-long {
+  font-size: 0.85rem;
+  color: #475569;
+  line-height: 1.6;
+  margin-top: 4px;
+}
+.review-list {
+  margin: 4px 0 0;
+  padding-left: 1.25rem;
+  font-size: 0.85rem;
+  color: #475569;
+  line-height: 1.6;
+}
+
+/* Spinning animation */
+.spinning {
+  animation: spin 0.8s linear infinite;
+}
+
+/* Admin Filters */
+.admin-filters {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+.admin-search-box {
+  flex: 1;
+  min-width: 250px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 1rem;
+  background: white;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  color: #94a3b8;
+  transition: all 0.2s;
+}
+.admin-search-box:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-ultralight);
+}
+.admin-search-box input {
+  border: none;
+  outline: none;
+  font-size: 0.9rem;
+  padding: 0.75rem 0;
+  width: 100%;
+  color: #1e293b;
+  background: transparent;
+}
+.admin-filter-select {
+  min-width: 160px;
+  max-width: 200px;
+}
+
+/* Count Badge */
+.admin-count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: #eff6ff;
+  color: #3b82f6;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+/* Icon Button */
+.admin-icon-btn {
+  padding: 6px;
+  border-radius: 7px;
+  border: 1px solid #e2e8f0;
+  background: white;
+  cursor: pointer;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+.admin-icon-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: #eff6ff;
+}
+
+/* Expanded Panel */
+.admin-expanded-panel {
+  border-top: 2px solid var(--color-primary);
+  padding: 1.5rem;
+  background: white;
+}
+
+/* Admin expandable row */
+.admin-expandable-row:hover {
+  background: #fafbfc;
+}
+
+/* Admin Programs Tab */
+.admin-programs-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .wizard-steps {
+    gap: 0;
+  }
+  .wizard-step-label {
+    display: none;
+  }
+  .wizard-step {
+    padding: 0.6rem;
+  }
+  .admin-form-card {
+    padding: 1.25rem;
+  }
+  .review-grid {
+    grid-template-columns: 1fr;
+  }
+  .admin-filters {
+    flex-direction: column;
+  }
+  .admin-filter-select {
+    max-width: 100%;
+  }
+}

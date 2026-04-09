@@ -1,0 +1,134 @@
+import React, { Component, ErrorInfo } from 'react'
+import { Home, RefreshCw, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react'
+import '../../pages/errors/ErrorPages.css'
+
+interface Props {
+  children: React.ReactNode
+}
+
+interface State {
+  hasError: boolean
+  error: Error | null
+  errorInfo: ErrorInfo | null
+  showDetails: boolean
+}
+
+export default class ErrorBoundary extends Component<Props, State> {
+  constructor(props: Props) {
+    super(props)
+    this.state = {
+      hasError: false,
+      error: null,
+      errorInfo: null,
+      showDetails: false,
+    }
+  }
+
+  static getDerivedStateFromError(error: Error): Partial<State> {
+    return { hasError: true, error }
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    this.setState({ errorInfo })
+    // Log to console for debugging
+    console.error('[ErrorBoundary] Caught error:', error, errorInfo)
+  }
+
+  handleReload = () => {
+    window.location.reload()
+  }
+
+  handleGoHome = () => {
+    window.location.href = '/login'
+  }
+
+  toggleDetails = () => {
+    this.setState(prev => ({ showDetails: !prev.showDetails }))
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="error-page">
+          {/* Floating decorative shapes */}
+          <div className="error-floating-shapes">
+            <div className="error-shape error-shape-1" />
+            <div className="error-shape error-shape-2" />
+            <div className="error-shape error-shape-3" />
+            <div className="error-shape error-shape-4" />
+            <div className="error-shape error-shape-5" />
+          </div>
+
+          <div className="error-boundary-card">
+            {/* Logo */}
+            <div className="error-logo">
+              <div className="error-logo-icon">
+                <svg width="36" height="36" viewBox="0 0 48 48" fill="none">
+                  <rect width="48" height="48" rx="10" fill="var(--color-primary)" />
+                  <path d="M14 24L22 16L30 24L22 32L14 24Z" fill="#00CCA0" />
+                  <path d="M22 16L30 24L38 16" stroke="white" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+              </div>
+              <span className="error-logo-text">
+                Admission<span>Desk</span>
+              </span>
+            </div>
+
+            {/* Icon */}
+            <div className="error-icon-circle warning">
+              <AlertTriangle size={36} />
+            </div>
+
+            <h1 className="error-title">Something Went Wrong</h1>
+            <p className="error-description">
+              We're sorry — an unexpected error occurred. Our team has been notified.
+              Please try reloading the page or go back to the home screen.
+            </p>
+
+            {/* Actions */}
+            <div className="error-actions">
+              <button onClick={this.handleReload} className="error-btn-primary">
+                <RefreshCw size={18} />
+                Reload Page
+              </button>
+              <button onClick={this.handleGoHome} className="error-btn-secondary">
+                <Home size={18} />
+                Go Home
+              </button>
+            </div>
+
+            {/* Error details (for developers) */}
+            <button
+              onClick={this.toggleDetails}
+              className="error-details-toggle"
+            >
+              {this.state.showDetails ? (
+                <>
+                  <ChevronUp size={14} />
+                  Hide Technical Details
+                </>
+              ) : (
+                <>
+                  <ChevronDown size={14} />
+                  Show Technical Details
+                </>
+              )}
+            </button>
+
+            {this.state.showDetails && (
+              <div className="error-details-box">
+                <pre>
+                  {this.state.error?.toString()}
+                  {'\n\n'}
+                  {this.state.errorInfo?.componentStack}
+                </pre>
+              </div>
+            )}
+          </div>
+        </div>
+      )
+    }
+
+    return this.props.children
+  }
+}

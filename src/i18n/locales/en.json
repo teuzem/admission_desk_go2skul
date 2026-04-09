@@ -1,0 +1,777 @@
+{
+  "common": {
+    "appName": "Admission Desk",
+    "tagline": "Your gateway to world-class education",
+    "loading": "Loading...",
+    "save": "Save",
+    "cancel": "Cancel",
+    "done": "Done",
+    "back": "Back",
+    "next": "Next",
+    "submit": "Submit",
+    "upload": "Upload",
+    "search": "Search",
+    "filter": "Filter",
+    "clear": "Clear",
+    "select": "Select",
+    "confirm": "Confirm",
+    "delete": "Delete",
+    "edit": "Edit",
+    "view": "View",
+    "apply": "Apply",
+    "close": "Close",
+    "required": "Required",
+    "optional": "Optional",
+    "yes": "Yes",
+    "no": "No",
+    "or": "OR",
+    "email": "Email",
+    "password": "Password",
+    "firstName": "First Name",
+    "lastName": "Last Name",
+    "phone": "Phone",
+    "country": "Country",
+    "city": "City",
+    "website": "Website",
+    "home": "Home",
+    "profile": "Profile",
+    "logout": "Log Out",
+    "notifications": "Notifications",
+    "settings": "Settings",
+    "support": "Support",
+    "dashboard": "Dashboard",
+    "applications": "Applications",
+    "courses": "Courses",
+    "students": "Students",
+    "team": "Team",
+    "admin": "Admin",
+    "viewAll": "View All",
+    "more": "More",
+    "actions": "Actions",
+    "details": "Details",
+    "status": "Status",
+    "date": "Date",
+    "name": "Name",
+    "type": "Type",
+    "description": "Description",
+    "contact": "Contact",
+    "address": "Address",
+    "bio": "Bio",
+    "designation": "Designation",
+    "jobTitle": "Job Title",
+    "company": "Company",
+    "personalInfo": "Personal Information",
+    "agencyInfo": "Agency Information",
+    "quickInfo": "Quick Info",
+    "kycDetails": "KYC Details",
+    "regNumber": "Registration Number",
+    "incorpDate": "Incorporation Date",
+    "note": "Please note"
+  },
+  "auth": {
+    "login": {
+      "title": "Welcome Back!",
+      "subtitle": "Sign in to your account to continue",
+      "emailLabel": "Email",
+      "emailPlaceholder": "your.email@example.com",
+      "passwordLabel": "Password",
+      "rememberMe": "Remember me",
+      "forgotPassword": "Forgot password?",
+      "signIn": "Sign In",
+      "noAccount": "Don't have an account?",
+      "createAccount": "Create an account",
+      "continueWithGoogle": "Continue with Google",
+      "continueWithFacebook": "Continue with Facebook",
+      "invalidCredentials": "Invalid email or password. Please try again.",
+      "features": {
+        "universities": {
+          "title": "100+ Partner Universities",
+          "desc": "North America, Europe, Asia, Caribbean..."
+        },
+        "realtime": {
+          "title": "Real-Time Tracking",
+          "desc": "Visual application workflow"
+        },
+        "secure": {
+          "title": "Secure & Compliant",
+          "desc": "SSL encryption, GDPR compliant"
+        }
+      }
+    },
+    "signup": {
+      "title": "Create your Agent Account",
+      "subtitle": "Join our growing network of global recruitment partners",
+      "emailLabel": "Email Address",
+      "emailPlaceholder": "agent@agency.com",
+      "passwordLabel": "Create Password",
+      "confirmPasswordLabel": "Confirm Password",
+      "createAccount": "Create Account",
+      "alreadyAccount": "Already have an account?",
+      "signIn": "Sign In",
+      "passwordHint": "Minimum 8 characters, one uppercase, one number"
+    },
+    "verifyEmail": {
+      "title": "Check your inbox",
+      "subtitle": "We've sent a verification link to",
+      "instructions": "Click the link in the email to verify your account and continue the registration.",
+      "resend": "Resend email",
+      "resendSuccess": "Email resent! Check your inbox.",
+      "spam": "Didn't receive it? Check your spam folder.",
+      "backToLogin": "Back to Login"
+    },
+    "emailVerified": {
+      "title": "Email Verified!",
+      "subtitle": "Your email has been successfully confirmed.",
+      "cta": "Let's complete your profile",
+      "continue": "Continue Registration"
+    },
+    "forgotPassword": {
+      "title": "Reset your password",
+      "subtitle": "Enter your email and we'll send you a reset link.",
+      "emailLabel": "Email Address",
+      "sendLink": "Send Reset Link",
+      "backToLogin": "Back to Login",
+      "success": "Check your inbox! A password reset link has been sent.",
+      "notFound": "No account found with this email address."
+    },
+    "resetPassword": {
+      "title": "Set a new password",
+      "subtitle": "Your new password must be at least 8 characters.",
+      "newPassword": "New Password",
+      "confirmPassword": "Confirm New Password",
+      "setPassword": "Set New Password",
+      "success": "Password updated successfully!",
+      "mismatch": "Passwords do not match."
+    },
+    "adminLogin": {
+      "title": "Admin Portal",
+      "subtitle": "Restricted access — Admission Desk administrators only",
+      "badge": "Secure Admin Access"
+    }
+  },
+  "signup_wizard": {
+    "step1": {
+      "title": "Select Partner Institutions",
+      "subtitle": "Please select the institutions you would like to partner with:",
+      "instructions": {
+        "title": "Instructions",
+        "text": "This is your first step in joining our global network of leaders in global student mobility. Please complete this quick 4-step process and we'll evaluate your application. Select which GUS institution you are applying to partner with. You can revisit this form as many times as you'd like, and can also apply to represent any GUS institution.",
+        "note": "The onboarding form needs to be completed by the decision-maker of your company, as it requires confirmation of critical information. Initiating a contract with Quallege Group will automatically initiate contracts with all",
+        "link": "universities associated",
+        "withGroup": "with the group!"
+      },
+      "filters": {
+        "region": "Region",
+        "country": "Country",
+        "searchPlaceholder": "Search for an institution...",
+        "allRegions": "All Regions",
+        "allCountries": "All Countries"
+      },
+      "selected": "{{count}} Institution(s) Selected",
+      "noResults": "No institutions match your search.",
+      "availableInstitutions": "Available Institutions"
+    },
+    "step2": {
+      "title": "Agent Information",
+      "subtitle": "Please enter your information:",
+      "step": "2/4",
+      "fields": {
+        "firstName": "First Name",
+        "lastName": "Last Name",
+        "emailId": "Email ID",
+        "mobileNumber": "Mobile Number",
+        "registeredCompanyName": "Registered Company Name (As on business licence)",
+        "tradingName": "Trading Name",
+        "companyEmail": "Company Email ID",
+        "officeAddress": "Office Address (Physical Location)",
+        "officeCountry": "Office Country",
+        "officeCity": "Office City",
+        "postalCode": "Office Postal Code",
+        "accountType": "Account Type",
+        "website": "Website",
+        "role": "Role (Designation)",
+        "jobRole": "Select Job Role/Function",
+        "jobRolePlaceholder": "Search for a role or select from common roles below:",
+        "recruitmentRegion": "Select Recruitment Region",
+        "representsHQ": "Do you represent your office headquarters?"
+      },
+      "accountTypes": ["Direct Agent", "Counsellor", "Sub-Agent", "IELTS Centre"],
+      "jobRoles": {
+        "recruitment": "Recruitment",
+        "admissions": "Admissions",
+        "counselling": "Counselling",
+        "management": "Management",
+        "marketing": "Marketing",
+        "other": "Other"
+      },
+      "recruitmentRegions": {
+        "africa": "Africa",
+        "asia": "Asia",
+        "europe": "Europe",
+        "middleEast": "Middle East",
+        "northAmerica": "North America",
+        "southAmerica": "South America",
+        "oceania": "Oceania"
+      }
+    },
+    "step3": {
+      "title": "Submit Business Licence",
+      "subtitle": "Please upload your business licence:",
+      "step": "3/4",
+      "instructions": {
+        "title": "Instructions",
+        "text": "Please upload a copy of your business licence / Incorporation document.",
+        "note": "If your original licence is not in English, please upload two files: the original business licence, and a file with the licence translated into English.",
+        "warning": "Editable file formats will not be accepted.",
+        "match": "Business licence should match the information provided."
+      },
+      "uploadLabel": "Upload Business Licence",
+      "dropText": "Drag and Drop files here or",
+      "chooseFile": "choose file",
+      "supportedFormats": "Files Supported: .png, .jpg, .pdf",
+      "maxSize": "Maximum Size: 5MB",
+      "fields": {
+        "uploadLicence": "Upload Business Licence",
+        "companyRegNumber": "Company Registration Number",
+        "registrationNumber": "Company Registration Number",
+        "incorporationDate": "Incorporation Date",
+        "expiryDate": "Expiry Date",
+        "doesNotExpire": "Does Not Expire",
+        "sameAddress": "Is the registered address the same as the office physical address?",
+        "registeredAddress": "Registered Company Address",
+        "registeredCity": "Registered Company City",
+        "registeredCountry": "Registered Company Country",
+        "registeredPostalCode": "Registered Company Zip/Postal Code"
+      },
+      "fileTypes": {
+        "businessLicence": "Business Licence",
+        "incorporationDoc": "Incorporation Document"
+      },
+      "upload": {
+        "dragText": "Drag and Drop files here or",
+        "types": "PNG, JPG, PDF",
+        "maxSize": "Max 5MB"
+      }
+    },
+    "step4": {
+      "title": "Terms and Conditions",
+      "subtitle": "Please read and accept our terms:",
+      "step": "4/4",
+      "accept": "I have read and agree to the Terms and Conditions and Privacy Policy",
+      "acceptDescription": "By checking this box, you electronically sign and agree to the above terms.",
+      "submitApplication": "Submit Application",
+      "successTitle": "Application Submitted!",
+      "successText": "Your registration is under review. You will receive an email notification once your account is approved.",
+      "redirecting": "Redirecting to your dashboard...",
+      "termsTitle": "Terms and Conditions",
+      "privacyTitle": "Privacy Policy",
+      "terms": {
+        "section1": {
+          "title": "Acceptance of Terms",
+          "content": "By registering as an agent partner, you agree to comply with all terms and conditions outlined in this agreement. These terms govern your relationship with Admission Desk and your conduct as a representative of partner institutions."
+        },
+        "section2": {
+          "title": "Agent Responsibilities",
+          "content": "Agents agree to represent partner institutions honestly and professionally, comply with all applicable laws and regulations, maintain accurate student records, and process applications in a timely manner."
+        },
+        "section3": {
+          "title": "Commission and Payment",
+          "content": "Commission rates are as agreed upon between the agent and Admission Desk. Payments will be processed according to the schedule outlined in your agent agreement."
+        },
+        "section4": {
+          "title": "Termination",
+          "content": "Either party may terminate this agreement with written notice. Upon termination, all pending commissions will be settled according to the terms of your agent agreement."
+        }
+      }
+    },
+    "success": {
+      "title": "Application Submitted!",
+      "subtitle": "Your registration is under review. You will receive an email notification once your account is approved."
+    },
+    "progress": {
+      "step1": "Select Institute",
+      "step2": "Agent Information",
+      "step3": "Submit Business Licence",
+      "step4": "Terms and Conditions"
+    }
+  },
+  "dashboard": {
+    "welcome": "Welcome back, {{name}}!",
+    "subtitle": "Here's what's happening with your applications",
+    "createApplication": "Create New Application",
+    "bookEvent": "Book Event",
+    "programPathfinder": "Programme Pathfinder",
+    "searchCourse": "Search for Course...",
+    "institution": "Institution",
+    "level": "Level",
+    "subject": "Subject",
+    "summary": "Summary",
+    "openTasks": "Open Tasks for Agents",
+    "applicationsByInstitution": "Applications By Institutions",
+    "applicationsByStage": "All Applications By Stage",
+    "newsFeed": "News Feed / Announcements",
+    "latestNews": "Latest News",
+    "loadMore": "Load More",
+    "noData": "No data available",
+    "quickActions": "Quick Actions",
+    "recentApplications": "Recent Applications",
+    "noApplications": "No applications yet",
+    "startSubmitting": "Start submitting applications for your students.",
+    "createFirstApplication": "Create First Application",
+    "searchProgrammes": "Search Programmes",
+    "searchPlaceholder": "Search programmes by name, university, or country...",
+    "myPartners": "My Partners",
+    "viewCourses": "View Courses",
+    "announcements": "Announcements",
+    "noRecentAnnouncements": "No recent announcements.",
+    "stats": {
+      "totalApplications": "Total Applications",
+      "activeSubmissions": "Active Submissions",
+      "offersReceived": "Offers Received",
+      "partnerInstitutions": "Partner Institutions"
+    },
+    "stages": {
+      "admissions": "Admissions Stage",
+      "application": "Application",
+      "closedLost": "Closed Lost",
+      "closedWon": "Closed Won",
+      "documents": "Documents Stage",
+      "offer": "Offer",
+      "payment": "Payment",
+      "draft": "Draft",
+      "submitted": "Submitted",
+      "underReview": "Under Review",
+      "offerReceived": "Offer Received",
+      "accepted": "Accepted",
+      "rejected": "Rejected",
+      "enrolled": "Enrolled"
+    },
+    "nav": {
+      "home": "Home",
+      "applications": "My Applications",
+      "myApplications": "My Applications",
+      "courses": "All Courses",
+      "students": "My Students",
+      "profile": "Profile",
+      "team": "Team",
+      "support": "Support",
+      "settings": "Settings",
+      "logout": "Log Out"
+    }
+  },
+  "applications": {
+    "title": "My Applications",
+    "subtitle": "Manage and track your students' applications.",
+    "searchPlaceholder": "Search by student name or ID...",
+    "newApplication": "New Application",
+    "appId": "App ID",
+    "studentName": "Student Name",
+    "programUniversity": "Program & University",
+    "intake": "Intake",
+    "dateApplied": "Date Applied",
+    "loading": "Loading applications...",
+    "noResults": "No applications found.",
+    "showEntries": "Showing {{count}} entries",
+    "previous": "Previous",
+    "next": "Next",
+    "viewDetails": "View Details",
+    "unknown": "Unknown",
+    "unknownStudent": "Unknown Student",
+    "unknownProgram": "Unknown Program",
+    "unknownUniversity": "Unknown University",
+    "na": "N/A"
+  },
+  "courses": {
+    "title": "Programmes & Courses",
+    "subtitle": "Explore degrees, diplomas, and certificates at your partner institutions worldwide.",
+    "searchPlaceholder": "Search by course name, university, or subject area...",
+    "showing": "Showing {{count}} of {{total}} programmes",
+    "noProgrammes": "No programmes found",
+    "noProgrammesYet": "Complete your KYC and select partner institutions to see their programmes here.",
+    "adjustFilters": "Try adjusting your search filters to find matching programmes.",
+    "clearFilters": "Clear Filters",
+    "showingAll": "Showing all programmes",
+    "filters": {
+      "destinationCountry": "Destination Country",
+      "studyLevel": "Study Level",
+      "subjectArea": "Subject Area",
+      "maxTuition": "Max Annual Tuition",
+      "any": "Any",
+      "sort": "Sort",
+      "sortRelevance": "Relevance",
+      "tuitionAsc": "Tuition: Low to High",
+      "tuitionDesc": "Tuition: High to Low",
+      "durationShort": "Duration: Shortest First",
+      "nameAZ": "Name: A-Z"
+    },
+    "levels": {
+      "bachelor": "Bachelor's",
+      "master": "Master's",
+      "phd": "PhD",
+      "diploma": "Diploma",
+      "certificate": "Certificate",
+      "foundation": "Foundation"
+    },
+    "stats": {
+      "duration": "Duration",
+      "tuition": "Tuition",
+      "intake": "Intake",
+      "tbc": "TBC"
+    },
+    "actions": {
+      "viewDetails": "View Details",
+      "applyNow": "Apply Now"
+    },
+    "tags": {
+      "contactUs": "Contact us",
+      "perYear": "/yr"
+    }
+  },
+  "courseDetail": {
+    "programmeNotFound": "Programme not found",
+    "backToCourses": "Back to Courses",
+    "aboutThisProgramme": "About This Programme",
+    "entryRequirements": "Entry Requirements",
+    "availableStartDates": "Available Start Dates",
+    "otherProgrammes": "Other Programmes at {{university}}",
+    "readyToApply": "Ready to Apply?",
+    "applyDescription": "Submit your student's application in minutes through our streamlined process.",
+    "startApplication": "Start Application →",
+    "universityWebsite": "University Website",
+    "aboutTheUniversity": "About the University",
+    "established": "Established",
+    "ranking": "Ranking",
+    "students": "Students",
+    "accreditation": "Accreditation",
+    "feeSummary": "Fee Summary",
+    "perAcademicYear": "per academic year",
+    "applicationDeadline": "Application Deadline:",
+    "contactForFees": "Contact us for fees",
+    "level": {
+      "bachelor": "Bachelor's Degree",
+      "master": "Master's Degree",
+      "phd": "PhD / Doctorate",
+      "diploma": "Diploma",
+      "certificate": "Certificate",
+      "foundation": "Foundation Programme"
+    }
+  },
+  "createApplication": {
+    "title": "New Application",
+    "subtitle": "Submit a new student application in 3 easy steps.",
+    "back": "Back",
+    "steps": ["Student Details", "Programme Selection", "Review & Submit"],
+    "studentInfo": "Student Information",
+    "studentInfoDesc": "Fill in the student's personal details.",
+    "programmeSelection": "Programme Selection",
+    "programmeSelectionDesc": "Choose the university, programme and intake.",
+    "reviewSubmit": "Review & Submit",
+    "student": {
+      "firstName": "First Name",
+      "lastName": "Last Name",
+      "email": "Email Address",
+      "phone": "Phone Number",
+      "nationality": "Nationality",
+      "selectNationality": "Select nationality...",
+      "dateOfBirth": "Date of Birth",
+      "passportNumber": "Passport Number",
+      "passportPlaceholder": "AB1234567"
+    },
+    "programme": {
+      "partnerInstitution": "Partner Institution",
+      "selectUniversity": "Select university...",
+      "programme": "Programme",
+      "selectProgramme": "Select programme...",
+      "loadingProgrammes": "Loading programmes...",
+      "intendedIntake": "Intended Intake",
+      "selectIntake": "Select intake...",
+      "additionalNotes": "Additional Notes",
+      "notesPlaceholder": "Any additional information about this application...",
+      "completeKYC": "Complete your KYC and select partner institutions to apply."
+    },
+    "review": {
+      "studentDetails": "Student Details",
+      "programmeDetails": "Programme Details",
+      "fullName": "Full Name",
+      "phone": "Phone",
+      "nationality": "Nationality",
+      "dateOfBirth": "Date of Birth",
+      "passportNo": "Passport No.",
+      "university": "University",
+      "country": "Country",
+      "programme": "Programme",
+      "level": "Level",
+      "duration": "Duration",
+      "tuition": "Tuition",
+      "intake": "Intake",
+      "notes": "Notes"
+    },
+    "buttons": {
+      "nextSelectProgramme": "Next: Select Programme →",
+      "nextReview": "Next: Review →",
+      "back": "← Back",
+      "submitApplication": "Submit Application",
+      "submitting": "Submitting..."
+    },
+    "success": "Application submitted successfully!"
+  },
+  "profile": {
+    "title": "My Profile",
+    "personalInfo": "Personal Information",
+    "agencyInfo": "Agency Information",
+    "changeAvatar": "Change Photo",
+    "changeCover": "Change Cover",
+    "uploadPhoto": "Upload Photo",
+    "saveChanges": "Save Changes",
+    "profileUpdated": "Profile updated successfully!",
+    "couldNotSave": "Could not save profile",
+    "superAgent": "Super Agent",
+    "editor": "Editor",
+    "agent": "Agent",
+    "applications": "Applications",
+    "partners": "Partners",
+    "phoneNumber": "Phone Number",
+    "location": "Location",
+    "shortBio": "Short Bio",
+    "bioPlaceholder": "Write a short summary about your experience...",
+    "registeredCompanyName": "Registered Company Name",
+    "tradingName": "Trading Name",
+    "website": "Website",
+    "websitePlaceholder": "https://yourcompany.com",
+    "officeAddress": "Office Address",
+    "companyNameChanges": "Company name changes require contacting support.",
+    "recruitmentRegions": "Recruitment Regions",
+    "kycStatus": {
+      "pending": "KYC Pending",
+      "under_review": "Under Review",
+      "approved": "KYC Approved",
+      "rejected": "KYC Rejected"
+    },
+    "labels": {
+      "firstName": "First Name",
+      "lastName": "Last Name",
+      "jobTitle": "Job Title / Designation"
+    },
+    "professionalDetails": "Professional Details",
+    "foundedYear": "Founded Year",
+    "numberOfEmployees": "Number of Employees",
+    "primaryMarket": "Primary Market",
+    "languagesSpoken": "Languages Spoken (comma separated)",
+    "socialMediaLinks": "Social Media & Contact Links",
+    "social": {
+      "facebookUrl": "Facebook URL",
+      "twitterUrl": "Twitter/X URL",
+      "linkedinUrl": "LinkedIn URL",
+      "instagramUrl": "Instagram URL",
+      "youtubeUrl": "YouTube URL",
+      "tiktokUrl": "TikTok URL",
+      "whatsappNumber": "WhatsApp Number",
+      "telegramId": "Telegram ID/URL",
+      "skypeId": "Skype ID"
+    },
+    "coverImage": {
+      "title": "Cover Image",
+      "change": "Change Cover Image",
+      "remove": "Remove Cover",
+      "upload": "Upload Cover Image",
+      "dragDrop": "Drag and drop an image here, or click to select",
+      "maxSize": "Maximum size: 5MB. Recommended: 1500x500px"
+    },
+    "avatar": {
+      "change": "Change Photo",
+      "remove": "Remove Photo",
+      "upload": "Upload New Photo"
+    },
+    "security": {
+      "title": "Account Security",
+      "subtitle": "Manage your password and security settings",
+      "password": {
+        "title": "Update Password",
+        "current": "Current Password",
+        "new": "New Password",
+        "confirm": "Confirm New Password",
+        "update": "Update Password",
+        "success": "Password updated successfully!",
+        "error": "Failed to update password",
+        "mismatch": "Passwords do not match",
+        "requirements": "At least 8 characters, one uppercase, one number"
+      },
+      "twoFactor": {
+        "title": "Two-Factor Authentication",
+        "subtitle": "Add an extra layer of security to your account",
+        "enabled": "Enabled",
+        "disabled": "Disabled",
+        "enable": "Enable 2FA",
+        "disable": "Disable 2FA",
+        "setup": "Set Up 2FA",
+        "scanQR": "Scan this QR code with your authenticator app",
+        "backupCode": "Save your backup codes in a secure location",
+        "verify": "Enter the 6-digit code from your app",
+        "confirm": "Confirm Setup",
+        "success": "Two-factor authentication enabled!",
+        "disabledSuccess": "Two-factor authentication disabled"
+      },
+      "activeSessions": {
+        "title": "Active Sessions",
+        "current": "Current Session",
+        "devices": "Devices",
+        "lastActive": "Last active",
+        "revokeAll": "Revoke All Sessions"
+      }
+    },
+    "account": {
+      "title": "Account Management",
+      "subtitle": "Manage your account settings and data",
+      "dangerZone": "Danger Zone",
+      "logout": {
+        "title": "Log Out",
+        "description": "Log out from this device",
+        "button": "Log Out",
+        "allDevices": "Log Out From All Devices",
+        "confirmTitle": "Confirm Logout",
+        "confirmMessage": "Are you sure you want to log out?"
+      },
+      "closeAccount": {
+        "title": "Close Account",
+        "description": "Temporarily deactivate your account. You can reactivate by logging in again.",
+        "button": "Close Account",
+        "confirmTitle": "Confirm Account Closure",
+        "confirmMessage": "Are you sure you want to close your account? This action can be reversed by contacting support."
+      },
+      "deleteAccount": {
+        "title": "Delete Account",
+        "description": "Permanently delete your account and all associated data. This action cannot be undone.",
+        "button": "Delete Account",
+        "confirmTitle": "Confirm Account Deletion",
+        "confirmMessage": "This will permanently delete all your data including applications, students, and profile information. This action cannot be undone.",
+        "finalWarning": "Type DELETE to confirm:",
+        "placeholder": "Type DELETE"
+      },
+      "deleteAllData": {
+        "title": "Delete All Data",
+        "description": "Delete all your applications, student records, and uploaded documents while keeping your account.",
+        "button": "Delete All Data",
+        "confirmTitle": "Confirm Data Deletion",
+        "confirmMessage": "This will permanently delete all your applications, student records, and documents. Your account will remain active but empty."
+      }
+    },
+    "autoFill": {
+      "title": "Profile Information",
+      "syncedFrom": "Synced from registration",
+      "lastUpdated": "Last updated"
+    },
+    "documents": {
+      "title": "Documents",
+      "businessLicence": "Business Licence",
+      "viewDocument": "View Document",
+      "uploadNew": "Upload New"
+    }
+  },
+
+  "admin": {
+    "title": "Admin Dashboard",
+    "overview": "Overview",
+    "agents": "Agents",
+    "universities": "Universities",
+    "applications": "Applications",
+    "announcements": "Announcements",
+    "settings": "Settings",
+    "stats": {
+      "totalAgents": "Total Agents",
+      "pendingKYC": "Pending KYC",
+      "totalApplications": "Total Applications",
+      "activeUniversities": "Active Universities"
+    }
+  },
+  "errors": {
+    "required": "This field is required",
+    "invalidEmail": "Please enter a valid email address",
+    "passwordMin": "Password must be at least 8 characters",
+    "passwordUppercase": "Password must contain at least one uppercase letter",
+    "passwordNumber": "Password must contain at least one number",
+    "passwordsMismatch": "Passwords do not match",
+    "fileTooLarge": "File size exceeds 5MB limit",
+    "fileType": "Only .png, .jpg and .pdf files are accepted",
+    "generic": "Something went wrong. Please try again.",
+    "networkError": "Network error. Please check your connection.",
+    "uploadError": "Upload failed. Please try again.",
+    "saveError": "Could not save changes. Please try again.",
+    "invalidFormat": "Invalid format for this field",
+    "invalidYear": "Invalid year (must be between 1500 and 2100)"
+  },
+  "footer": {
+    "copyright": "© 2025 Admission Desk. All rights reserved.",
+    "privacyPolicy": "Privacy Policy",
+    "termsOfService": "Terms of Service",
+    "contactUs": "Contact Us"
+  },
+  "profileDropdown": {
+    "myProfile": "My Profile",
+    "security": "Security",
+    "accountSettings": "Settings",
+    "teamMembers": "Team Members",
+    "defaultName": "User",
+    "roles": {
+      "admin": "Administrator",
+      "editor": "Editor",
+      "agent": "Agent"
+    }
+  },
+  "team": {
+    "title": "Team Members",
+    "subtitle": "Manage your agency team and invite editors to collaborate.",
+    "inviteMember": "Invite Member",
+    "inviteFirst": "Invite First Member",
+    "yourTeam": "Your Team",
+    "countBadge": "{{current}}/{{max}}",
+    "owner": "Owner",
+    "agencyOwner": "Agency Owner",
+    "active": "Active",
+    "editor": "Editor",
+    "pending": "Pending",
+    "activeMembers": "Active Members",
+    "pendingInvitations": "Pending Invitations",
+    "aboutRoles": "About Team Roles",
+    "aboutRolesDesc": "Manage your admissions team by inviting editors who can help process applications.",
+    "ownerRoleDesc": "Full access to all features and settings",
+    "editorRoleDesc": "Can manage applications and student communications",
+    "quickTips": "Quick Tips",
+    "tips": {
+      "expire": "Invitations expire after 7 days",
+      "remove": "Editors can be removed at any time",
+      "logs": "All team activity is logged",
+      "upgrade": "Upgrade your plan for more editors"
+    },
+    "noMembers": "No team members yet",
+    "noMembersDesc": "Invite editors to help manage your applications and admissions.",
+    "usage": "Using {{current}} of {{max}} editor licenses",
+    "removeMember": "Remove member",
+    "cancelInvitation": "Cancel invitation",
+    "messages": {
+      "maxReached": "Maximum team size reached ({{max}} editors max)",
+      "inviteSent": "Invitation sent to {{email}}",
+      "memberRemoved": "Team member removed"
+    },
+    "invite": {
+      "title": "Invite Team Member",
+      "subtitle": "Add up to 2 editors to your agency workspace",
+      "sentTitle": "Invitation Sent!",
+      "sentSubtitle": "Share the link below with your team member",
+      "name": "Name (Optional)",
+      "namePlaceholder": "Enter team member name",
+      "email": "Email Address",
+      "emailPlaceholder": "colleague@company.com",
+      "roleInfo": "They will be added as an Editor with limited access",
+      "sendInvite": "Send Invitation",
+      "invitationLink": "Invitation Link",
+      "linkHint": "Share this link with your team member to complete registration",
+      "invitedEmail": "Invited Email",
+      "nameLabel": "Name",
+      "role": "Role",
+      "inviteAnother": "Invite Another",
+      "emailRequired": "Email is required",
+      "success": "Invitation sent successfully!",
+      "linkCopied": "Invitation link copied!"
+    }
+  }
+}

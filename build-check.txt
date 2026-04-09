@@ -1,0 +1,33 @@
+﻿node.exe : npm warn 
+Unknown project config 
+"store-dir". This will 
+stop working in the 
+next major version of 
+npm.
+Au caractère Ligne:1 : 
+1
++ & "C:\Program 
+Files\nodejs/node.exe" 
+"C:\Program 
+Files\nodejs/node_mo 
+...
++ ~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
+~~
+    + CategoryInfo     
+         : NotSpecifi  
+  ed: (npm warn Unkn   
+ ow...version of np    
+m.:String) [], Rem    
+oteException
+    + FullyQualifiedEr 
+   rorId : NativeComm  
+  andError
+ 
+npm warn Unknown 
+project config 
+"virtual-store-dir". 
+This will stop working 
+in the next major 
+version of npm.

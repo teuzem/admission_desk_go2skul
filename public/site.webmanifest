@@ -1,0 +1,26 @@
+{
+  "name": "Admission Desk",
+  "short_name": "AdmissionDesk",
+  "description": "Your trusted partner for international university admissions. Manage applications, explore courses, and connect with top universities worldwide.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f6fa",
+  "theme_color": "#3A4391",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/pathfinder-illustration.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/pathfinder-illustration.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["education", "business"],
+  "lang": "en"
+}

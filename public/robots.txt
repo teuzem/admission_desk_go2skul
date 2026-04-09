@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard/
+Disallow: /admin/
+Disallow: /register/
+Disallow: /auth/
+
+# Search Engine Optimization
+Sitemap: https://admission-desk.netlify.app/sitemap.xml
+
+# Crawl-delay for polite bots
+Crawl-delay: 1

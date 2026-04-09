@@ -1,0 +1,387 @@
+/* =============================================
+   ERROR PAGES – 404, 500, and Error Boundary
+   ============================================= */
+
+/* ── Shared Layout ──────────────────────────── */
+.error-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-8);
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #f0f1f8 0%, #e8eaf6 30%, #f5f6fa 70%, #e6faf6 100%);
+}
+
+.error-page::before {
+  content: '';
+  position: absolute;
+  top: -120px;
+  right: -120px;
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(58, 67, 145, 0.06) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.error-page::after {
+  content: '';
+  position: absolute;
+  bottom: -100px;
+  left: -100px;
+  width: 350px;
+  height: 350px;
+  background: radial-gradient(circle, rgba(0, 204, 160, 0.06) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.error-card {
+  position: relative;
+  z-index: 1;
+  max-width: 560px;
+  width: 100%;
+  text-align: center;
+  padding: var(--space-12) var(--space-8);
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: var(--radius-2xl);
+  box-shadow:
+    0 8px 40px rgba(58, 67, 145, 0.08),
+    0 2px 12px rgba(58, 67, 145, 0.04);
+  animation: errorCardIn 0.6s ease forwards;
+}
+
+@keyframes errorCardIn {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ── Animated Illustration ──────────────────── */
+.error-illustration {
+  margin: 0 auto var(--space-6);
+  width: 160px;
+  height: 160px;
+  position: relative;
+}
+
+.error-illustration svg {
+  width: 100%;
+  height: 100%;
+}
+
+.error-code-display {
+  font-family: var(--font-heading);
+  font-size: 6rem;
+  font-weight: 800;
+  line-height: 1;
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-accent) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: var(--space-2);
+  animation: errorCodePulse 3s ease-in-out infinite;
+}
+
+@keyframes errorCodePulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(1.02); }
+}
+
+/* ── Typography ─────────────────────────────── */
+.error-title {
+  font-family: var(--font-heading);
+  font-size: var(--font-2xl);
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-3);
+  letter-spacing: -0.02em;
+}
+
+.error-description {
+  font-family: var(--font-body);
+  font-size: var(--font-base);
+  color: var(--color-text-secondary);
+  line-height: 1.7;
+  margin-bottom: var(--space-8);
+  max-width: 420px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* ── Actions ────────────────────────────────── */
+.error-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.error-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0.875rem 2rem;
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-light) 100%);
+  color: #fff;
+  font-family: var(--font-body);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  border: none;
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: all var(--transition-base);
+  box-shadow: 0 4px 14px rgba(58, 67, 145, 0.25);
+  text-decoration: none;
+}
+
+.error-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(58, 67, 145, 0.35);
+}
+
+.error-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0.875rem 2rem;
+  background: transparent;
+  color: var(--color-primary);
+  font-family: var(--font-body);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  border: 2px solid var(--color-primary);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: all var(--transition-base);
+  text-decoration: none;
+}
+
+.error-btn-secondary:hover {
+  background: var(--color-primary-ultralight);
+  transform: translateY(-1px);
+}
+
+/* ── Floating Decorations ───────────────────── */
+.error-floating-shapes {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.error-shape {
+  position: absolute;
+  border-radius: 50%;
+  opacity: 0.35;
+  animation: floatShape 8s ease-in-out infinite;
+}
+
+.error-shape-1 {
+  width: 12px;
+  height: 12px;
+  background: var(--color-primary);
+  top: 15%;
+  left: 12%;
+  animation-delay: 0s;
+}
+
+.error-shape-2 {
+  width: 8px;
+  height: 8px;
+  background: var(--color-accent);
+  top: 25%;
+  right: 15%;
+  animation-delay: 2s;
+}
+
+.error-shape-3 {
+  width: 16px;
+  height: 16px;
+  background: var(--color-primary-light);
+  bottom: 20%;
+  left: 20%;
+  animation-delay: 4s;
+}
+
+.error-shape-4 {
+  width: 10px;
+  height: 10px;
+  background: var(--color-accent);
+  bottom: 30%;
+  right: 10%;
+  animation-delay: 1s;
+}
+
+.error-shape-5 {
+  width: 6px;
+  height: 6px;
+  background: var(--color-warning);
+  top: 40%;
+  left: 6%;
+  animation-delay: 3s;
+}
+
+@keyframes floatShape {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  25% { transform: translateY(-15px) rotate(90deg); }
+  50% { transform: translateY(-8px) rotate(180deg); }
+  75% { transform: translateY(-20px) rotate(270deg); }
+}
+
+/* ── Error Boundary Styles ──────────────────── */
+.error-boundary-card {
+  position: relative;
+  z-index: 1;
+  max-width: 600px;
+  width: 100%;
+  text-align: center;
+  padding: var(--space-12) var(--space-8);
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: var(--radius-2xl);
+  box-shadow:
+    0 8px 40px rgba(239, 68, 68, 0.06),
+    0 2px 12px rgba(239, 68, 68, 0.03);
+  animation: errorCardIn 0.6s ease forwards;
+}
+
+.error-icon-circle {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto var(--space-6);
+  animation: iconBounce 2s ease-in-out infinite;
+}
+
+.error-icon-circle.warning {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  color: #92400e;
+}
+
+.error-icon-circle.danger {
+  background: linear-gradient(135deg, #fee2e2 0%, #fca5a5 100%);
+  color: #991b1b;
+}
+
+@keyframes iconBounce {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+/* ── Error Details (collapsible) ────────────── */
+.error-details-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  margin-top: var(--space-4);
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-family: var(--font-ui);
+  font-size: var(--font-xs);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.error-details-toggle:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.error-details-box {
+  margin-top: var(--space-4);
+  padding: var(--space-4);
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  text-align: left;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.error-details-box pre {
+  font-family: 'Fira Code', 'Consolas', monospace;
+  font-size: 0.7rem;
+  color: var(--color-text-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.6;
+}
+
+/* ── Logo in error pages ────────────────────── */
+.error-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-8);
+}
+
+.error-logo-icon {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.error-logo-text {
+  font-family: var(--font-heading);
+  font-size: var(--font-lg);
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.error-logo-text span {
+  color: var(--color-accent);
+}
+
+/* ── Responsive ─────────────────────────────── */
+@media (max-width: 600px) {
+  .error-card,
+  .error-boundary-card {
+    padding: var(--space-8) var(--space-4);
+    border-radius: var(--radius-xl);
+  }
+
+  .error-code-display {
+    font-size: 4.5rem;
+  }
+
+  .error-title {
+    font-size: var(--font-xl);
+  }
+
+  .error-description {
+    font-size: var(--font-sm);
+  }
+
+  .error-actions {
+    flex-direction: column;
+  }
+
+  .error-btn-primary,
+  .error-btn-secondary {
+    width: 100%;
+    justify-content: center;
+  }
+}

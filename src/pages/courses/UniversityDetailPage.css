@@ -1,0 +1,864 @@
+/* ======================================================
+   University Detail Page — Namespaced with udp- prefix
+   to prevent CSS collisions with other pages
+   ====================================================== */
+
+.university-detail-page {
+  background: #f8fafc;
+  min-height: 100vh;
+  margin: -1.5rem;
+  padding: 0 !important;
+}
+
+.udp-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+/* Loading Skeleton */
+.udp-loading-hero {
+  height: 320px;
+  background: linear-gradient(135deg, #f1f5f9, #e2e8f0);
+  border-radius: 20px;
+  margin-bottom: 1.5rem;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+.udp-loading-tabs {
+  height: 56px;
+  background: white;
+  border-radius: 12px;
+  margin-bottom: 1.5rem;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+.udp-loading-grid {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 1.5rem;
+}
+.udp-loading-content {
+  height: 400px;
+  background: white;
+  border-radius: 16px;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+.udp-loading-sidebar {
+  height: 300px;
+  background: white;
+  border-radius: 16px;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+/* Breadcrumb */
+.udp-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+  font-size: 0.9rem;
+  color: #64748b;
+}
+
+.udp-back-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: none;
+  border: none;
+  color: var(--color-primary);
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 0;
+}
+
+.udp-back-link:hover { color: var(--color-primary-dark); }
+
+.udp-breadcrumb-link {
+  color: #64748b;
+  text-decoration: none;
+  font-weight: 500;
+}
+.udp-breadcrumb-link:hover { color: var(--color-primary); }
+
+.udp-breadcrumb-current {
+  color: #94a3b8;
+  max-width: 250px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Hero Banner */
+.udp-hero {
+  position: relative;
+  border-radius: 20px;
+  overflow: hidden;
+  margin-bottom: 2rem;
+  min-height: 320px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
+}
+
+.udp-hero-bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  background-color: #1e293b;
+}
+
+.udp-hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(15, 23, 42, 0.95) 0%, rgba(15, 23, 42, 0.6) 50%, rgba(15, 23, 42, 0.3) 100%);
+}
+
+.udp-hero-content {
+  position: relative;
+  padding: 2.5rem;
+}
+
+.udp-hero-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.5rem;
+}
+
+.udp-logo-wrapper {
+  width: 130px;
+  height: 130px;
+  background: white;
+  border-radius: 18px;
+  padding: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+.udp-logo-wrapper img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.udp-hero-info { flex: 1; }
+
+.udp-hero-badges {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.udp-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.9);
+  padding: 4px 12px;
+  border-radius: 99px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  backdrop-filter: blur(4px);
+}
+
+.udp-badge-gold {
+  background: rgba(245, 158, 11, 0.25);
+  color: #fcd34d;
+}
+
+.udp-badge-green {
+  background: rgba(0, 204, 160, 0.2);
+  color: #6ee7b7;
+}
+
+.udp-hero-title {
+  font-family: var(--font-heading);
+  font-size: 2rem;
+  font-weight: 800;
+  color: white;
+  margin: 0 0 0.75rem;
+  line-height: 1.2;
+}
+
+.udp-hero-location {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 1.05rem;
+  margin-bottom: 1rem;
+}
+
+.udp-hero-quick-stats {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.udp-quick-stat {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+/* Stats Banner */
+.udp-stats-banner {
+  display: flex;
+  gap: 0;
+  background: white;
+  border-radius: 16px;
+  padding: 0;
+  margin-bottom: 2rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border: 1px solid #f1f5f9;
+  overflow: hidden;
+}
+
+.udp-stat-item {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1.25rem;
+  border-right: 1px solid #f1f5f9;
+}
+.udp-stat-item:last-child { border-right: none; }
+
+.udp-stat-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.udp-stat-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.udp-stat-value {
+  font-family: var(--font-heading);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #1e293b;
+  line-height: 1.2;
+}
+
+.udp-stat-label {
+  font-size: 0.75rem;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+/* Tab Navigation */
+.udp-tabs {
+  display: flex;
+  gap: 0.5rem;
+  background: white;
+  padding: 0.5rem;
+  border-radius: 14px;
+  margin-bottom: 2rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border: 1px solid #f1f5f9;
+}
+
+.udp-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.875rem 1.5rem;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: #64748b;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.udp-tab:hover { background: #f1f5f9; color: #1e293b; }
+.udp-tab.active { background: var(--color-primary); color: white; }
+
+/* Content Grid */
+.udp-content-grid {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 2rem;
+  align-items: start;
+}
+
+.udp-main-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+/* Sections */
+.udp-section {
+  background: white;
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border: 1px solid #f1f5f9;
+}
+
+.udp-section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-family: var(--font-heading);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 1.25rem;
+}
+
+.udp-section-title svg { color: var(--color-primary); }
+
+.udp-about-text {
+  color: #475569;
+  line-height: 1.8;
+  font-size: 1rem;
+  margin: 0;
+}
+
+/* Highlights Grid */
+.udp-highlights-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+.udp-highlight-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  background: #f8fafc;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  transition: all 0.2s;
+}
+.udp-highlight-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+
+.udp-highlight-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.udp-highlight-label {
+  font-size: 0.78rem;
+  color: #64748b;
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.udp-highlight-value {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+/* Programmes Summary Grid (Overview) */
+.udp-program-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.75rem;
+}
+
+.udp-program-summary-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  background: #f8fafc;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.udp-program-summary-card:hover {
+  background: #f1f5f9;
+  border-color: var(--color-primary);
+}
+
+.udp-psc-badge {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  color: white;
+  font-weight: 700;
+  font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.udp-psc-label {
+  flex: 1;
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: #334155;
+}
+
+.udp-psc-arrow { color: #94a3b8; }
+
+/* Programs Tab */
+.udp-programs-header { margin-bottom: 1.5rem; }
+
+.udp-programs-subtitle {
+  color: #64748b;
+  margin: 0.5rem 0 0;
+  font-size: 0.95rem;
+}
+
+.udp-level-group { margin-bottom: 2rem; }
+
+.udp-level-title {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.udp-level-badge {
+  color: white;
+  padding: 6px 14px;
+  border-radius: 99px;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.udp-level-count {
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.udp-programs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.udp-program-card {
+  display: block;
+  background: white;
+  border-radius: 14px;
+  padding: 1.5rem;
+  text-decoration: none;
+  border: 1px solid #e2e8f0;
+  transition: all 0.25s;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+.udp-program-card:hover {
+  border-color: var(--color-primary);
+  box-shadow: 0 4px 12px rgba(58, 67, 145, 0.1);
+  transform: translateY(-2px);
+}
+
+.udp-program-card-header {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.udp-program-level-bar {
+  width: 4px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.udp-program-info { flex: 1; }
+
+.udp-program-name {
+  font-family: var(--font-heading);
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 0.5rem;
+}
+
+.udp-program-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.udp-program-category {
+  background: #f1f5f9;
+  color: #475569;
+  padding: 3px 10px;
+  border-radius: 99px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.udp-program-lang {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+.udp-program-delivery {
+  font-size: 0.75rem;
+  color: #0284c7;
+  background: #f0f9ff;
+  padding: 3px 10px;
+  border-radius: 99px;
+  font-weight: 600;
+}
+
+.udp-program-details {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.udp-program-detail {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.udp-program-fee {
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.udp-program-badges {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+
+.udp-mini-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 99px;
+}
+
+.udp-mini-badge-blue { background: #eff6ff; color: #2563eb; }
+.udp-mini-badge-purple { background: #faf5ff; color: #7c3aed; }
+.udp-mini-badge-orange { background: #fff7ed; color: #c2410c; }
+.udp-mini-badge-teal { background: #f0fdfa; color: #0d9488; }
+
+.udp-program-action {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  color: var(--color-primary);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.udp-no-programs {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  text-align: center;
+  color: #64748b;
+}
+.udp-no-programs h3 { margin: 1rem 0 0.5rem; color: #1e293b; }
+
+/* Admissions */
+.udp-requirements-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.25rem;
+}
+
+.udp-requirement-card {
+  padding: 1.25rem;
+  background: #f8fafc;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.udp-requirement-card h4 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 1rem;
+}
+
+.udp-requirement-card ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.udp-requirement-card li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  color: #475569;
+  font-size: 0.875rem;
+}
+
+.udp-requirement-card li svg {
+  color: #059669;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.udp-deadlines-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.udp-deadline-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.25rem;
+  background: #f8fafc;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+}
+
+.udp-deadline-label { font-weight: 600; color: #1e293b; }
+.udp-deadline-date { color: #64748b; font-size: 0.9rem; }
+
+/* Services Grid */
+.udp-services-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+.udp-service-card {
+  padding: 1.25rem;
+  background: #f8fafc;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  text-align: center;
+}
+
+.udp-service-card h4 {
+  font-family: var(--font-heading);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0.75rem 0 0.5rem;
+}
+
+.udp-service-card p {
+  font-size: 0.82rem;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Sidebar */
+.udp-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  position: sticky;
+  top: 80px;
+}
+
+.udp-sidebar-card {
+  background: white;
+  border-radius: 16px;
+  padding: 1.75rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border: 1px solid #f1f5f9;
+}
+
+.udp-sidebar-card-title {
+  font-family: var(--font-heading);
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 1rem;
+}
+
+/* CTA Card */
+.udp-sidebar-cta {
+  background: linear-gradient(135deg, var(--color-primary) 0%, #5b63c7 100%);
+  color: white;
+}
+
+.udp-cta-header {
+  text-align: center;
+  margin-bottom: 1.25rem;
+}
+
+.udp-cta-header svg { opacity: 0.9; margin-bottom: 0.5rem; }
+
+.udp-cta-header h3 {
+  font-family: var(--font-heading);
+  font-size: 1.15rem;
+  margin: 0 0 0.5rem;
+}
+
+.udp-cta-header p {
+  opacity: 0.85;
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+.udp-cta-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.875rem 1.5rem;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  text-decoration: none;
+  transition: all 0.2s;
+  margin-bottom: 0.75rem;
+  border: none;
+  cursor: pointer;
+}
+
+.udp-cta-primary {
+  background: white;
+  color: var(--color-primary);
+}
+.udp-cta-primary:hover { background: #f1f5f9; }
+
+.udp-cta-secondary {
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+}
+.udp-cta-secondary:hover { background: rgba(255, 255, 255, 0.25); }
+
+/* Info List */
+.udp-info-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.udp-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+.udp-info-row:last-child { border-bottom: none; }
+
+.udp-info-label { color: #94a3b8; }
+.udp-info-value { font-weight: 600; color: #334155; text-align: right; max-width: 170px; }
+
+/* Programs Summary */
+.udp-programs-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.udp-summary-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.625rem 0.875rem;
+  background: #f8fafc;
+  border-radius: 8px;
+}
+
+.udp-summary-label { color: #475569; font-size: 0.875rem; }
+.udp-summary-count { font-weight: 700; color: var(--color-primary); }
+
+.udp-total-programs {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.875rem;
+  background: linear-gradient(135deg, var(--color-primary) 0%, #00CCA0 100%);
+  border-radius: 8px;
+  margin-top: 0.25rem;
+}
+
+.udp-total-programs span { color: white; font-weight: 600; }
+.udp-total-count { font-size: 1.25rem; }
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .udp-content-grid { grid-template-columns: 1fr; }
+  .udp-sidebar {
+    position: static;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .udp-sidebar-cta { grid-column: 1 / -1; }
+  .udp-stats-banner { flex-wrap: wrap; }
+  .udp-stat-item { min-width: 150px; flex: 1 1 auto; }
+}
+
+@media (max-width: 768px) {
+  .udp-hero-header {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+  .udp-hero-title { font-size: 1.5rem; }
+  .udp-hero-quick-stats { justify-content: center; }
+  .udp-hero-location { justify-content: center; }
+  .udp-hero-badges { justify-content: center; }
+  .udp-tabs { flex-direction: column; }
+  .udp-highlights-grid { grid-template-columns: 1fr; }
+  .udp-requirements-grid { grid-template-columns: 1fr; }
+  .udp-services-grid { grid-template-columns: 1fr; }
+  .udp-sidebar { grid-template-columns: 1fr; }
+  .udp-sidebar-card { padding: 1.25rem; }
+  .udp-stats-banner { flex-direction: column; }
+  .udp-stat-item { border-right: none; border-bottom: 1px solid #f1f5f9; }
+  .udp-stat-item:last-child { border-bottom: none; }
+}
+
+@media (max-width: 480px) {
+  .udp-container { padding: 1rem; }
+  .udp-hero { border-radius: 16px; min-height: 250px; }
+  .udp-hero-content { padding: 1.5rem; }
+  .udp-logo-wrapper { width: 80px; height: 80px; }
+}

@@ -1,0 +1,1283 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   Admission Workflow — Full Stylesheet
+   Blue sidebar • White content • Turquoise progress • Brand polished
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ──── Root Layout ──── */
+.admission-layout {
+  display: flex;
+  min-height: 100vh;
+  background: #f5f6fa;
+  font-family: var(--font-ui, 'Inter', sans-serif);
+}
+
+/* ──── Sidebar ──── */
+.admission-sidebar {
+  width: 320px;
+  min-width: 320px;
+  background: linear-gradient(180deg, #3A4391 0%, #2d3470 40%, #1e2252 100%);
+  color: white;
+  display: flex;
+  flex-direction: column;
+  padding: 2rem 1.5rem;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  z-index: 10;
+}
+
+.admission-sidebar-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid rgba(255,255,255,0.12);
+}
+
+.admission-sidebar-logo img {
+  height: 48px;
+  width: auto;
+  object-fit: contain;
+  border-radius: 6px;
+  background: white;
+  padding: 2px;
+}
+
+.admission-sidebar-logo span {
+  font-size: 0.85rem;
+  font-weight: 600;
+  opacity: 0.9;
+  line-height: 1.3;
+}
+
+/* Progress Bar */
+.admission-progress-section {
+  margin-bottom: 2rem;
+}
+
+.admission-progress-text {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: rgba(255,255,255,0.95);
+  margin-bottom: 0.6rem;
+}
+
+.admission-progress-bar {
+  height: 6px;
+  background: rgba(255,255,255,0.15);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.admission-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #00CCA0, #00e6b8);
+  border-radius: 99px;
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Step List */
+.admission-step-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  flex: 1;
+}
+
+.admission-step-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 0.5rem;
+  border-radius: 8px;
+  cursor: default;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.admission-step-item.clickable {
+  cursor: pointer;
+}
+
+.admission-step-item.clickable:hover {
+  background: rgba(255,255,255,0.08);
+}
+
+.admission-step-item.active {
+  background: rgba(255,255,255,0.12);
+}
+
+.admission-step-item.active .admission-step-label {
+  font-weight: 700;
+  color: white;
+}
+
+/* Vertical connector line */
+.admission-step-item:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: calc(0.5rem + 11px);
+  top: calc(0.65rem + 22px + 2px);
+  width: 2px;
+  height: calc(100% - 22px - 0.65rem + 4px);
+  background: rgba(255,255,255,0.15);
+}
+
+.admission-step-item.completed:not(:last-child)::after {
+  background: rgba(0, 204, 160, 0.5);
+}
+
+.admission-step-dot {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 700;
+  z-index: 1;
+  transition: all 0.3s;
+}
+
+.admission-step-dot.completed {
+  background: #00CCA0;
+  color: white;
+}
+
+.admission-step-dot.active {
+  background: #00CCA0;
+  color: white;
+  box-shadow: 0 0 0 3px rgba(0, 204, 160, 0.3);
+}
+
+.admission-step-dot.inactive {
+  background: rgba(255,255,255,0.15);
+  color: rgba(255,255,255,0.4);
+}
+
+.admission-step-label {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: rgba(255,255,255,0.6);
+  transition: all 0.2s;
+  line-height: 1.3;
+}
+
+.admission-step-item.completed .admission-step-label {
+  color: rgba(255,255,255,0.85);
+}
+
+/* ──── Main Content Area ──── */
+.admission-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.admission-content-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1.25rem 2.5rem;
+  background: white;
+  border-bottom: 1px solid #e8ecf1;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+.admission-content-header .program-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #eef0fb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.admission-content-header .program-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.admission-content-body {
+  flex: 1;
+  padding: 2rem 2.5rem;
+  overflow-y: auto;
+  max-height: calc(100vh - 56px - 60px);
+}
+
+.admission-step-title {
+  font-family: var(--font-heading, 'Outfit', sans-serif);
+  font-size: 1.65rem;
+  font-weight: 800;
+  color: #1e293b;
+  margin-bottom: 0.25rem;
+  line-height: 1.2;
+}
+
+.admission-step-subtitle {
+  font-size: 0.88rem;
+  color: #64748b;
+  margin-bottom: 2rem;
+}
+
+/* ──── Form Section Headers ──── */
+.adm-section-title {
+  font-family: var(--font-heading, 'Outfit', sans-serif);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 2rem 0 1.25rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #f1f5f9;
+}
+
+.adm-section-title:first-of-type {
+  margin-top: 0;
+}
+
+/* ──── Form Styles ──── */
+.adm-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+}
+
+.adm-form-grid-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 1.25rem;
+}
+
+.adm-form-full {
+  grid-column: 1 / -1;
+}
+
+.adm-form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.adm-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 0.4rem;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.adm-label .required {
+  color: #ef4444;
+  font-weight: 700;
+}
+
+.adm-input {
+  padding: 0.7rem 0.9rem;
+  border-radius: 8px;
+  border: 1.5px solid #e2e8f0;
+  background: white;
+  font-family: var(--font-ui, 'Inter', sans-serif);
+  font-size: 0.9rem;
+  color: #1e293b;
+  transition: all 0.2s;
+  width: 100%;
+  outline: none;
+}
+
+.adm-input:focus {
+  border-color: #3A4391;
+  box-shadow: 0 0 0 3px rgba(58, 67, 145, 0.08);
+}
+
+.adm-input:disabled {
+  background: #f8fafc;
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+
+.adm-input.valid {
+  border-color: #10b981;
+}
+
+.adm-input.error {
+  border-color: #ef4444;
+}
+
+.adm-input-wrapper {
+  position: relative;
+}
+
+.adm-input-wrapper .valid-check {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #10b981;
+}
+
+.adm-error-text {
+  font-size: 0.75rem;
+  color: #ef4444;
+  margin-top: 0.3rem;
+  font-weight: 500;
+}
+
+.adm-textarea {
+  padding: 0.7rem 0.9rem;
+  border-radius: 8px;
+  border: 1.5px solid #e2e8f0;
+  background: white;
+  font-family: var(--font-ui, 'Inter', sans-serif);
+  font-size: 0.9rem;
+  color: #1e293b;
+  transition: all 0.2s;
+  width: 100%;
+  outline: none;
+  resize: vertical;
+  min-height: 80px;
+}
+
+.adm-textarea:focus {
+  border-color: #3A4391;
+  box-shadow: 0 0 0 3px rgba(58, 67, 145, 0.08);
+}
+
+/* ──── Radio Groups ──── */
+.adm-radio-group {
+  display: flex;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.adm-radio-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.88rem;
+  color: #475569;
+  cursor: pointer;
+  padding: 0.4rem 0;
+  transition: color 0.2s;
+}
+
+.adm-radio-label:hover {
+  color: #1e293b;
+}
+
+.adm-radio-label input[type="radio"] {
+  accent-color: #3A4391;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+/* ──── Checkbox Groups ──── */
+.adm-checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.adm-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.88rem;
+  color: #475569;
+  cursor: pointer;
+}
+
+.adm-checkbox-label input[type="checkbox"] {
+  accent-color: #3A4391;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+/* ──── Legal Name Confirmation Box ──── */
+.adm-legal-confirm-box {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.adm-legal-confirm-box .icon {
+  color: #10b981;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.adm-legal-confirm-box p {
+  font-size: 0.85rem;
+  color: #166534;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.adm-legal-confirm-box p strong {
+  font-weight: 700;
+}
+
+/* ──── Upload Zones ──── */
+.adm-upload-zone {
+  border: 2px dashed #d1d5db;
+  border-radius: 12px;
+  padding: 1.5rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.25s;
+  background: #fafbfc;
+}
+
+.adm-upload-zone:hover,
+.adm-upload-zone.drag-over {
+  border-color: #3A4391;
+  background: rgba(58, 67, 145, 0.03);
+}
+
+.adm-upload-zone .upload-icon {
+  color: #94a3b8;
+  margin-bottom: 0.5rem;
+}
+
+.adm-upload-zone .upload-text {
+  font-size: 0.85rem;
+  color: #475569;
+  font-weight: 600;
+}
+
+.adm-upload-zone .upload-text span {
+  color: #3A4391;
+  text-decoration: underline;
+}
+
+.adm-upload-zone .upload-hint {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  margin-top: 0.35rem;
+}
+
+/* Uploaded file card */
+.adm-file-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+  transition: all 0.2s;
+}
+
+.adm-file-card .file-icon {
+  color: #10b981;
+  flex-shrink: 0;
+}
+
+.adm-file-card .file-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.adm-file-card .file-name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #1e293b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.adm-file-card .file-size {
+  font-size: 0.72rem;
+  color: #64748b;
+}
+
+.adm-file-card .file-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.adm-file-card .file-actions button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  color: #64748b;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.adm-file-card .file-actions button:hover {
+  color: #3A4391;
+  background: rgba(58, 67, 145, 0.08);
+}
+
+.adm-file-card .file-actions button.delete-btn:hover {
+  color: #ef4444;
+  background: #fef2f2;
+}
+
+/* ──── Repeating Entry Cards ──── */
+.adm-entry-card {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 1.5rem;
+  margin-bottom: 1.25rem;
+  position: relative;
+  transition: all 0.2s;
+}
+
+.adm-entry-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+
+.adm-entry-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.25rem;
+}
+
+.adm-entry-card-title {
+  font-family: var(--font-heading, 'Outfit', sans-serif);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.adm-entry-card-remove {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 8px;
+  color: #94a3b8;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.adm-entry-card-remove:hover {
+  color: #ef4444;
+  background: #fef2f2;
+}
+
+.adm-add-entry-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.85rem;
+  border: 2px dashed #d1d5db;
+  border-radius: 12px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #3A4391;
+  transition: all 0.2s;
+}
+
+.adm-add-entry-btn:hover {
+  border-color: #3A4391;
+  background: rgba(58, 67, 145, 0.03);
+}
+
+/* ──── Document Row — Stacked Layout ──── */
+.adm-doc-row {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.25rem;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  margin-bottom: 0.75rem;
+  transition: all 0.2s;
+}
+
+.adm-doc-row:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+
+.adm-doc-row.mandatory {
+  border-left: 3px solid #3A4391;
+}
+
+.adm-doc-row-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.adm-doc-uploaded-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+/* ──── Single line document items ──── */
+.adm-doc-single-line {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+/* ──── Navigation Buttons ──── */
+.adm-nav-buttons {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 2.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #f1f5f9;
+}
+
+.adm-btn-next {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.8rem 2rem;
+  border-radius: 8px;
+  border: none;
+  background: #F5C842;
+  color: #1E0830;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.25s;
+  font-family: var(--font-ui, 'Inter', sans-serif);
+}
+
+.adm-btn-next:hover:not(:disabled) {
+  background: #E5B832;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(245, 200, 66, 0.35);
+}
+
+.adm-btn-next:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.adm-btn-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.8rem 1.5rem;
+  border-radius: 8px;
+  border: 1.5px solid #e2e8f0;
+  background: white;
+  color: #475569;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: var(--font-ui, 'Inter', sans-serif);
+}
+
+.adm-btn-back:hover {
+  border-color: #3A4391;
+  color: #3A4391;
+}
+
+.adm-btn-submit {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.85rem 2.5rem;
+  border-radius: 8px;
+  border: none;
+  background: linear-gradient(135deg, #00CCA0, #00B894);
+  color: white;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.25s;
+  font-family: var(--font-ui, 'Inter', sans-serif);
+}
+
+.adm-btn-submit:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(0, 204, 160, 0.35);
+}
+
+.adm-btn-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ──── Footer ──── */
+.admission-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  padding: 1rem 2rem;
+  border-top: 1px solid #e8ecf1;
+  background: white;
+}
+
+.admission-footer a {
+  color: #475569;
+  transition: color 0.2s, transform 0.2s;
+  display: flex;
+  align-items: center;
+}
+
+.admission-footer a:hover {
+  color: #3A4391;
+  transform: scale(1.15);
+}
+
+/* ──── Review Section ──── */
+.adm-review-section {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  margin-bottom: 1rem;
+  overflow: hidden;
+}
+
+.adm-review-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.25rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.adm-review-header:hover {
+  background: #f8fafc;
+}
+
+.adm-review-header h3 {
+  font-family: var(--font-heading, 'Outfit', sans-serif);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+}
+
+.adm-review-header .edit-btn {
+  background: none;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #3A4391;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.adm-review-header .edit-btn:hover {
+  background: #3A4391;
+  color: white;
+  border-color: #3A4391;
+}
+
+.adm-review-body {
+  padding: 0 1.25rem 1.25rem;
+  border-top: 1px solid #f1f5f9;
+}
+
+.adm-review-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+}
+
+.adm-review-item {
+  background: #f8fafc;
+  border-radius: 8px;
+  padding: 0.6rem 0.75rem;
+}
+
+.adm-review-item-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+  letter-spacing: 0.03em;
+}
+
+.adm-review-item-value {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+/* ──── Popup Overlay ──── */
+.adm-popup-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.25s ease;
+}
+
+.adm-popup-card {
+  background: white;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 520px;
+  padding: 2rem;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.15);
+  animation: slideUp 0.3s ease;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.adm-popup-card .popup-logo {
+  display: block;
+  height: 56px;
+  margin: 0 auto 1.25rem auto;
+  object-fit: contain;
+}
+
+.adm-popup-card .popup-title {
+  font-family: var(--font-heading, 'Outfit', sans-serif);
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #1e293b;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.adm-popup-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.adm-popup-close:hover {
+  color: #ef4444;
+  background: #fef2f2;
+}
+
+/* ──── Document Preview Modal ──── */
+.adm-preview-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  animation: fadeIn 0.25s ease;
+}
+
+.adm-preview-card {
+  background: white;
+  border-radius: 16px;
+  width: 90vw;
+  max-width: 900px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.25);
+  animation: slideUp 0.3s ease;
+}
+
+.adm-preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.adm-preview-header h3 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.adm-preview-body {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  background: #f8fafc;
+}
+
+.adm-preview-body img {
+  max-width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+}
+
+.adm-preview-body iframe {
+  width: 100%;
+  height: 70vh;
+  border: none;
+}
+
+.adm-preview-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+/* ──── Image Editor Overlay ──── */
+.adm-editor-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(8px);
+  z-index: 3000;
+  display: flex;
+  flex-direction: column;
+  animation: fadeIn 0.2s ease;
+}
+
+.adm-editor-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.5rem;
+  background: rgba(30, 30, 30, 0.95);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.adm-editor-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.adm-editor-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.85rem;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.adm-editor-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.adm-editor-btn.primary {
+  background: #00CCA0;
+  border-color: #00CCA0;
+  color: white;
+}
+
+.adm-editor-btn.primary:hover {
+  background: #00b88e;
+}
+
+.adm-editor-btn.danger {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+}
+
+.adm-editor-btn.danger:hover {
+  background: rgba(239, 68, 68, 0.3);
+}
+
+.adm-editor-crop-area {
+  flex: 1;
+  position: relative;
+}
+
+.adm-editor-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+  padding: 1rem 1.5rem;
+  background: rgba(30, 30, 30, 0.95);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.adm-editor-slider-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.adm-editor-slider-group input[type="range"] {
+  width: 120px;
+  accent-color: #00CCA0;
+}
+
+/* ──── Terms & Conditions ──── */
+.adm-terms-content {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.5rem;
+  max-height: 350px;
+  overflow-y: auto;
+  margin-bottom: 2rem;
+  font-size: 0.88rem;
+  line-height: 1.7;
+  color: #475569;
+}
+
+.adm-terms-content h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 1.5rem 0 0.5rem;
+}
+
+.adm-terms-content h3:first-child {
+  margin-top: 0;
+}
+
+.adm-terms-content p {
+  margin-bottom: 0.75rem;
+}
+
+/* No work experience */
+.adm-no-experience-box {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 12px;
+  padding: 1.25rem;
+}
+
+/* ═══ Phone Input Override — Fix broken flag images ═══ */
+.adm-phone-input .PhoneInputInput {
+  padding: 0.7rem 0.9rem;
+  border-radius: 8px;
+  border: 1.5px solid #e2e8f0;
+  font-size: 0.9rem;
+  color: #1e293b;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.adm-phone-input .PhoneInputInput:focus {
+  border-color: #3A4391;
+}
+
+.adm-phone-input .PhoneInputCountry {
+  margin-right: 0.5rem;
+}
+
+/* Fix: Hide broken flag <img> elements and use proper flag rendering */
+.PhoneInputCountryIcon {
+  width: 24px;
+  height: 18px;
+  border-radius: 2px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.PhoneInputCountryIcon--border {
+  box-shadow: none;
+  background: transparent;
+}
+
+.PhoneInputCountryIconImg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.PhoneInputCountryIcon::after {
+  display: none;
+}
+
+/* Use select element's native behavior for country */
+.PhoneInputCountrySelect {
+  font-size: 0.85rem;
+}
+
+/* Alternative: Force emoji flags via the select dropdown */
+.PhoneInputCountry {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.35rem 0.5rem;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 8px;
+  background: white;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.PhoneInputCountry:hover {
+  border-color: #3A4391;
+}
+
+.PhoneInputCountrySelectArrow {
+  color: #64748b;
+  font-size: 0.6rem;
+  margin-left: 2px;
+}
+
+/* React Select Override */
+.adm-select .react-select__control {
+  border: 1.5px solid #e2e8f0;
+  border-radius: 8px;
+  min-height: 42px;
+  box-shadow: none;
+}
+
+.adm-select .react-select__control--is-focused {
+  border-color: #3A4391;
+  box-shadow: 0 0 0 3px rgba(58, 67, 145, 0.08);
+}
+
+.adm-select .react-select__option--is-selected {
+  background: #3A4391;
+}
+
+.adm-select .react-select__option--is-focused {
+  background: rgba(58, 67, 145, 0.08);
+}
+
+/* ──── Animations ──── */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes spinning {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.spinning {
+  animation: spinning 1s linear infinite;
+}
+
+/* ──── Responsive ──── */
+@media (max-width: 1024px) {
+  .admission-sidebar {
+    width: 260px;
+    min-width: 260px;
+    padding: 1.5rem 1rem;
+  }
+
+  .admission-content-body {
+    padding: 1.5rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .admission-layout {
+    flex-direction: column;
+  }
+
+  .admission-sidebar {
+    width: 100%;
+    min-width: 100%;
+    height: auto;
+    position: relative;
+    padding: 1.25rem;
+  }
+
+  .admission-step-list {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+  }
+
+  .admission-step-item:not(:last-child)::after {
+    display: none;
+  }
+
+  .admission-step-label {
+    display: none;
+  }
+
+  .admission-content-body {
+    padding: 1rem;
+    max-height: none;
+  }
+
+  .adm-form-grid,
+  .adm-form-grid-3 {
+    grid-template-columns: 1fr;
+  }
+
+  .adm-doc-row {
+    flex-direction: column;
+  }
+
+  .adm-review-grid {
+    grid-template-columns: 1fr;
+  }
+}
