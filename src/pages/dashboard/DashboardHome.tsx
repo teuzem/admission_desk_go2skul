@@ -179,6 +179,7 @@ export default function DashboardHome() {
     program: 'Programmes', university: 'Universities', news: 'News', blog: 'Blog'
   }
 
+
   // ─── Fetch Announcements ───
   const fetchAnnouncements = useCallback(async () => {
     const { data } = await supabase.from('announcements').select('*').order('published_at', { ascending: false }).limit(4)
@@ -372,6 +373,50 @@ export default function DashboardHome() {
       })
     return () => { supabase.removeChannel(ch) }
   }, [fetchBlogs])
+
+  // ─── Master refetch: reload ALL dashboard data on tab return ───
+  const refetchAllData = useCallback(() => {
+    fetchAnnouncements()
+    fetchEvents()
+    fetchBlogs(1)
+    // Inline news refetch
+    supabase.from('news_posts').select('*').eq('is_published', true).order('published_at', { ascending: false }).limit(10).then(({ data }) => {
+      if (data) setNewsPosts(data)
+    })
+    // User-specific data
+    if (user && effectiveId) {
+      Promise.all([
+        supabase.from('agent_partner_selections').select('university_id, universities(id, name, country, city, logo_url, image_url, ranking, student_count, description)').eq('agent_id', effectiveId),
+        supabase.from('applications').select('id, status, created_at, students(first_name, last_name), universities(name), programs(name)').eq('agent_id', effectiveId).order('created_at', { ascending: false }).limit(6)
+      ]).then(([partersRes, appsRes]) => {
+        const unis = (partersRes.data || []).map((p: any) => p.universities).filter(Boolean)
+        setAllowedUnis(unis)
+        const apps = appsRes.data || []
+        setApplications(apps)
+        setStats({
+          total: apps.length,
+          submitted: apps.filter((a: any) => a.status === 'submitted' || a.status === 'under_review').length,
+          offers: apps.filter((a: any) => a.status === 'offer' || a.status === 'accepted').length,
+          partners: unis.length
+        })
+        setLoadingApps(false)
+      })
+    }
+  }, [user, effectiveId, fetchAnnouncements, fetchEvents, fetchBlogs])
+
+  // Register with global recovery hook
+  usePageRefetch(refetchAllData)
+
+  // Direct visibility-change refetch — ensures data always reloads on tab return
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        refetchAllData()
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
+  }, [refetchAllData])
 
   // ─── Pathfinder data ───
   useEffect(() => {

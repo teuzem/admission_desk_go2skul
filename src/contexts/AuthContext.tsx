@@ -27,41 +27,15 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 
-/** Maximum time (ms) to wait for any auth operation before unblocking the UI */
-const AUTH_LOADING_TIMEOUT_MS = 8000
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [profile, setProfile] = useState<ExtendedProfile | null>(null)
   const [loading, setLoading] = useState(true)
-  const loadingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const initializedRef = useRef(false)
-  const isRestoringRef = useRef(false)
 
   // Global realtime connection recovery
   const { connectionHealthy } = useRealtimeRecovery()
-
-  /**
-   * Safety: always clear loading after a maximum timeout to prevent 
-   * infinite loading screens in production (network issues, CSP blocks, etc.)
-   */
-  const startLoadingTimeout = useCallback(() => {
-    if (loadingTimeoutRef.current) {
-      clearTimeout(loadingTimeoutRef.current)
-    }
-    loadingTimeoutRef.current = setTimeout(() => {
-      console.warn('[AuthContext] Loading timeout reached – unblocking UI')
-      setLoading(false)
-    }, AUTH_LOADING_TIMEOUT_MS)
-  }, [])
-
-  const clearLoadingTimeout = useCallback(() => {
-    if (loadingTimeoutRef.current) {
-      clearTimeout(loadingTimeoutRef.current)
-      loadingTimeoutRef.current = null
-    }
-  }, [])
 
   const fetchProfile = async (sessionUser: User): Promise<ExtendedProfile | null> => {
     try {
@@ -72,7 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .single()
 
       if (error) {
-        console.error('Error fetching profile:', error)
+        console.error('[Auth] Error fetching profile:', error)
         return null
       }
 
@@ -95,7 +69,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (parentId) {
           extendedData.effective_agency_id = parentId
           
-          // Fetch the parent agency profile to merge company data
           const { data: parentData } = await supabase
             .from('profiles')
             .select('*')
@@ -103,7 +76,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             .single()
             
           if (parentData) {
-            // Overwrite company fields with parent's data
             extendedData = {
               ...extendedData,
               agency_name: parentData.agency_name,
@@ -132,7 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       return extendedData
     } catch (err) {
-      console.error('Profile fetch failed:', err)
+      console.error('[Auth] Profile fetch failed:', err)
       return null
     }
   }
@@ -144,90 +116,88 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [user])
 
-  // Initialize auth state
+  // ── Initialize auth state ONCE ──
   useEffect(() => {
     if (initializedRef.current) return
     initializedRef.current = true
 
-    startLoadingTimeout()
+    // CRITICAL: Hard safety timeout — never let loading stay true for more than 6s
+    const safetyTimer = setTimeout(() => {
+      setLoading(prev => {
+        if (prev) console.warn('[Auth] Safety timeout – forcing loading=false')
+        return false
+      })
+    }, 6000)
 
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setSession(session)
-      setUser(session?.user ?? null)
-      if (session?.user) {
-        const p = await fetchProfile(session.user)
+    supabase.auth.getSession().then(async ({ data: { session: s } }) => {
+      setSession(s)
+      setUser(s?.user ?? null)
+      if (s?.user) {
+        const p = await fetchProfile(s.user)
         setProfile(p)
       }
-      clearLoadingTimeout()
+      clearTimeout(safetyTimer)
       setLoading(false)
     }).catch((err) => {
-      console.error('getSession failed:', err)
-      clearLoadingTimeout()
+      console.error('[Auth] getSession failed:', err)
+      clearTimeout(safetyTimer)
       setLoading(false)
     })
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setSession(session)
-      setUser(session?.user ?? null)
-      if (session?.user) {
-        // Only show loading spinner on sign-in, not on token refresh
-        if (_event === 'SIGNED_IN') {
-          setLoading(true)
-          startLoadingTimeout()
-        }
-        const p = await fetchProfile(session.user)
+    // Listen for auth state changes (sign-in, sign-out, token refresh)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, s) => {
+      // NEVER set loading=true here — it blocks the entire app.
+      // The user sees stale data for a moment while profile refreshes silently.
+      setSession(s)
+      setUser(s?.user ?? null)
+      if (s?.user) {
+        const p = await fetchProfile(s.user)
         setProfile(p)
-        clearLoadingTimeout()
       } else {
         setProfile(null)
       }
-      setLoading(false)
     })
 
     return () => {
       subscription.unsubscribe()
-      clearLoadingTimeout()
+      clearTimeout(safetyTimer)
     }
   }, [])
 
-  // Re-sync session when user returns to the tab after inactivity.
-  // CRITICAL: Do NOT set loading=true here — the user should see stale
-  // data while profile refreshes in the background, instead of an 
-  // infinite preloader if the network is slow / Supabase is unreachable.
+  // ── Visibility change handler — background refresh, NO loading state ──
   useEffect(() => {
+    let refreshing = false
+    
     const handleVisibilityChange = async () => {
-      if (document.visibilityState === 'visible' && !isRestoringRef.current) {
-        isRestoringRef.current = true
-        try {
-          const { data: { session: freshSession } } = await supabase.auth.getSession()
-          if (freshSession?.user) {
-            setSession(freshSession)
-            setUser(freshSession.user)
-            const p = await fetchProfile(freshSession.user)
-            if (p) setProfile(p)
-          } else if (!freshSession) {
-            // Session truly expired — clear state so user is redirected to login
-            setSession(null)
-            setUser(null)
-            setProfile(null)
-          }
-        } catch (err) {
-          console.error('Session refresh on visibility change failed:', err)
-          // Don't clear user/profile — keep stale data visible rather 
-          // than sending user to a broken state
+      if (document.visibilityState !== 'visible' || refreshing) return
+      refreshing = true
+      
+      try {
+        const { data: { session: freshSession } } = await supabase.auth.getSession()
+        if (freshSession?.user) {
+          setSession(freshSession)
+          setUser(freshSession.user)
+          // Silently refresh profile in background
+          const p = await fetchProfile(freshSession.user)
+          if (p) setProfile(p)
+        } else if (!freshSession) {
+          // Session truly expired
+          setSession(null)
+          setUser(null)
+          setProfile(null)
         }
-        // Always ensure loading is false when returning
-        setLoading(false)
-        isRestoringRef.current = false
+      } catch (err) {
+        console.error('[Auth] Visibility refresh failed:', err)
+        // KEEP existing data — don't clear user/profile on temporary errors
       }
+      refreshing = false
     }
 
     document.addEventListener('visibilitychange', handleVisibilityChange)
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
   }, [])
 
-  // Handle online/offline for reconnection
+  // ── Network reconnect handler ──
   useEffect(() => {
     const handleOnline = async () => {
       try {
@@ -239,9 +209,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (p) setProfile(p)
         }
       } catch (err) {
-        console.error('Session refresh on reconnect failed:', err)
+        console.error('[Auth] Online refresh failed:', err)
       }
-      setLoading(false)
     }
 
     window.addEventListener('online', handleOnline)
