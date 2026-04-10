@@ -12,10 +12,13 @@ import { useEffect, useRef, useCallback, useState } from 'react'
 import { supabase } from './supabase'
 
 /** How often to check channel health (in ms) */
-const HEALTH_CHECK_INTERVAL = 60_000 // 1 minute
+const HEALTH_CHECK_INTERVAL = 45_000 // 45 seconds
 
 /** How long after visibility change to force a full reconnect (in ms) */
-const VISIBILITY_RECONNECT_DELAY = 500
+const VISIBILITY_RECONNECT_DELAY = 300
+
+/** Minimum time tab must be hidden before full reconnect (30s) */
+const MIN_HIDDEN_FOR_RECONNECT = 30_000
 
 /** Global refetch listeners – pages register callbacks here */
 type RefetchCallback = () => void
@@ -33,6 +36,7 @@ export function onGlobalRefetch(cb: RefetchCallback): () => void {
  * Trigger all registered refetch callbacks
  */
 function triggerGlobalRefetch() {
+  console.log(`[RealtimeRecovery] Triggering global refetch for ${refetchListeners.size} listeners`)
   refetchListeners.forEach(cb => {
     try { cb() } catch (e) { console.error('[RealtimeRecovery] Refetch callback error:', e) }
   })
@@ -47,12 +51,18 @@ async function reconnectAllChannels() {
     const channels = supabase.getChannels()
     if (channels.length === 0) return
 
-    // For each channel, unsubscribe and resubscribe to force reconnection
+    console.log(`[RealtimeRecovery] Checking ${channels.length} channels...`)
+
     for (const channel of channels) {
       const state = channel.state
       if (state === 'closed' || state === 'errored') {
+        console.log(`[RealtimeRecovery] Resubscribing channel in state: ${state}`)
         try {
-          channel.subscribe()
+          channel.subscribe((status) => {
+            if (status === 'TIMED_OUT' || status === 'CHANNEL_ERROR') {
+              console.warn(`[RealtimeRecovery] Channel resubscribe failed: ${status}`)
+            }
+          })
         } catch (e) {
           console.warn(`[RealtimeRecovery] Failed to resubscribe channel:`, e)
         }
@@ -72,33 +82,43 @@ export function useRealtimeRecovery() {
   const lastVisibleRef = useRef(Date.now())
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const healthCheckRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const isRecoveringRef = useRef(false)
 
   // Handle tab visibility changes
   const handleVisibilityChange = useCallback(() => {
     if (document.visibilityState === 'visible') {
       const timeSinceHidden = Date.now() - lastVisibleRef.current
 
-      // If tab was hidden for more than 30 seconds, do a full recovery
-      if (timeSinceHidden > 30_000) {
+      if (timeSinceHidden > MIN_HIDDEN_FOR_RECONNECT) {
+        // Tab was hidden for a significant time – full recovery
         if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current)
+        if (isRecoveringRef.current) return // Prevent overlapping recoveries
+
+        isRecoveringRef.current = true
         reconnectTimerRef.current = setTimeout(async () => {
-          // 1. Refresh the auth token so channels re-auth
           try {
-            await supabase.auth.getSession()
-          } catch (e) {
-            console.warn('[RealtimeRecovery] Token refresh failed:', e)
+            console.log('[RealtimeRecovery] Tab returned after', Math.round(timeSinceHidden / 1000), 's – recovering...')
+
+            // 1. Refresh the auth token so channels re-auth
+            try {
+              await supabase.auth.getSession()
+            } catch (e) {
+              console.warn('[RealtimeRecovery] Token refresh failed:', e)
+            }
+
+            // 2. Reconnect any dead channels
+            await reconnectAllChannels()
+
+            // 3. Tell all pages to refetch their data
+            triggerGlobalRefetch()
+
+            setConnectionHealthy(true)
+          } finally {
+            isRecoveringRef.current = false
           }
-
-          // 2. Reconnect any dead channels
-          await reconnectAllChannels()
-
-          // 3. Tell all pages to refetch their data
-          triggerGlobalRefetch()
-
-          setConnectionHealthy(true)
         }, VISIBILITY_RECONNECT_DELAY)
       } else {
-        // Short absence, just trigger refetch
+        // Short absence, just trigger a data refetch without reconnecting channels
         triggerGlobalRefetch()
       }
 
@@ -110,6 +130,7 @@ export function useRealtimeRecovery() {
 
   // Handle network online/offline
   const handleOnline = useCallback(async () => {
+    console.log('[RealtimeRecovery] Network came online – recovering...')
     setConnectionHealthy(true)
 
     // Refresh auth token
@@ -127,11 +148,15 @@ export function useRealtimeRecovery() {
   }, [])
 
   const handleOffline = useCallback(() => {
+    console.log('[RealtimeRecovery] Network went offline')
     setConnectionHealthy(false)
   }, [])
 
   // Periodic health check
   const performHealthCheck = useCallback(() => {
+    // Skip health check if tab is hidden
+    if (document.visibilityState !== 'visible') return
+    
     const channels = supabase.getChannels()
     if (channels.length === 0) {
       setConnectionHealthy(true)
@@ -141,6 +166,7 @@ export function useRealtimeRecovery() {
     const hasErroredChannels = channels.some(ch => ch.state === 'errored' || ch.state === 'closed')
     
     if (hasErroredChannels) {
+      console.log('[RealtimeRecovery] Health check found errored channels – recovering...')
       setConnectionHealthy(false)
       // Attempt recovery
       reconnectAllChannels().then(() => {

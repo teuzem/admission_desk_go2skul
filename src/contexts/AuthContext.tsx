@@ -27,7 +27,8 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 
-const AUTH_LOADING_TIMEOUT_MS = 5000
+/** Maximum time (ms) to wait for any auth operation before unblocking the UI */
+const AUTH_LOADING_TIMEOUT_MS = 8000
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
@@ -36,16 +37,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const loadingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const initializedRef = useRef(false)
+  const isRestoringRef = useRef(false)
 
   // Global realtime connection recovery
   const { connectionHealthy } = useRealtimeRecovery()
 
-  // Safety: always clear loading after a timeout to prevent infinite loading screens
+  /**
+   * Safety: always clear loading after a maximum timeout to prevent 
+   * infinite loading screens in production (network issues, CSP blocks, etc.)
+   */
   const startLoadingTimeout = useCallback(() => {
     if (loadingTimeoutRef.current) {
       clearTimeout(loadingTimeoutRef.current)
     }
     loadingTimeoutRef.current = setTimeout(() => {
+      console.warn('[AuthContext] Loading timeout reached – unblocking UI')
       setLoading(false)
     }, AUTH_LOADING_TIMEOUT_MS)
   }, [])
@@ -165,9 +171,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session)
       setUser(session?.user ?? null)
       if (session?.user) {
-        setLoading(true)
+        // Only show loading spinner on sign-in, not on token refresh
+        if (_event === 'SIGNED_IN') {
+          setLoading(true)
+          startLoadingTimeout()
+        }
         const p = await fetchProfile(session.user)
         setProfile(p)
+        clearLoadingTimeout()
       } else {
         setProfile(null)
       }
@@ -180,25 +191,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  // Re-sync session when user returns to the tab after inactivity
+  // Re-sync session when user returns to the tab after inactivity.
+  // CRITICAL: Do NOT set loading=true here — the user should see stale
+  // data while profile refreshes in the background, instead of an 
+  // infinite preloader if the network is slow / Supabase is unreachable.
   useEffect(() => {
     const handleVisibilityChange = async () => {
-      if (document.visibilityState === 'visible') {
+      if (document.visibilityState === 'visible' && !isRestoringRef.current) {
+        isRestoringRef.current = true
         try {
           const { data: { session: freshSession } } = await supabase.auth.getSession()
-          setSession(freshSession)
-          setUser(freshSession?.user ?? null)
           if (freshSession?.user) {
+            setSession(freshSession)
+            setUser(freshSession.user)
             const p = await fetchProfile(freshSession.user)
-            setProfile(p)
-          } else {
+            if (p) setProfile(p)
+          } else if (!freshSession) {
+            // Session truly expired — clear state so user is redirected to login
+            setSession(null)
+            setUser(null)
             setProfile(null)
           }
         } catch (err) {
           console.error('Session refresh on visibility change failed:', err)
+          // Don't clear user/profile — keep stale data visible rather 
+          // than sending user to a broken state
         }
         // Always ensure loading is false when returning
         setLoading(false)
+        isRestoringRef.current = false
       }
     }
 
@@ -211,11 +232,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const handleOnline = async () => {
       try {
         const { data: { session: freshSession } } = await supabase.auth.getSession()
-        setSession(freshSession)
-        setUser(freshSession?.user ?? null)
         if (freshSession?.user) {
+          setSession(freshSession)
+          setUser(freshSession.user)
           const p = await fetchProfile(freshSession.user)
-          setProfile(p)
+          if (p) setProfile(p)
         }
       } catch (err) {
         console.error('Session refresh on reconnect failed:', err)

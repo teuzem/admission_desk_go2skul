@@ -15,10 +15,21 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     detectSessionInUrl: true,
     storageKey: 'admission-desk-auth',
+    flowType: 'pkce',
   },
   global: {
     headers: {
       'x-application-name': 'admission-desk'
+    },
+    fetch: (url, options = {}) => {
+      // Enforce a 15-second timeout on ALL Supabase REST requests
+      // to prevent hung requests from blocking the UI in production
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 15000)
+      return fetch(url, {
+        ...options,
+        signal: controller.signal,
+      }).finally(() => clearTimeout(timeoutId))
     }
   },
   realtime: {
