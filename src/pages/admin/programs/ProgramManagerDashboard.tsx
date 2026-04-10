@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../../contexts/AuthContext'
 import { supabase } from '../../../lib/supabase'
+import { usePageRefetch } from '../../../lib/useRealtimeRecovery'
 import toast from 'react-hot-toast'
 import {
   BookOpen, Building2, BarChart3, Clock, Plus, Filter, Loader2, ArrowLeft, LogOut
@@ -50,7 +51,11 @@ export default function ProgramManagerDashboard() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'universities' }, fetchAll)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'programs' }, fetchAll)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'pending_submissions' }, fetchAll)
-      .subscribe()
+      .subscribe((status) => {
+        if (status === 'TIMED_OUT' || status === 'CHANNEL_ERROR') {
+          console.warn('[ProgramManager] channel error:', status)
+        }
+      })
 
     // Re-sync on visibility change (tab focus return)
     const handleVisibility = () => {

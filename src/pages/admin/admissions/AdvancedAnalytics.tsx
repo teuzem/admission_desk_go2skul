@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../../lib/supabase';
+import { usePageRefetch } from '../../../lib/useRealtimeRecovery';
 import './AdvancedAnalytics.css';
 import {
   AgentCategory,
@@ -425,7 +426,11 @@ export default function AdvancedAnalytics() {
     const ch = supabase.channel('analytics_rt_v3')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'applications' }, () => {
         setIsRealtime(true); fetchAnalyticsData(); setTimeout(() => setIsRealtime(false), 2500);
-      }).subscribe();
+      }).subscribe((status) => {
+        if (status === 'TIMED_OUT' || status === 'CHANNEL_ERROR') {
+          console.warn('[AdvancedAnalytics] channel error:', status)
+        }
+      });
     return () => { supabase.removeChannel(ch); };
   }, [fetchAnalyticsData]);
 

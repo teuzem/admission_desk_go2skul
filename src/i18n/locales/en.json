@@ -585,6 +585,11 @@
     "security": {
       "title": "Account Security",
       "subtitle": "Manage your password and security settings",
+      "securityScore": "Security Score",
+      "scoreExcellent": "Excellent",
+      "scoreGood": "Good",
+      "scoreFair": "Fair",
+      "scorePoor": "Poor",
       "password": {
         "title": "Update Password",
         "current": "Current Password",
@@ -594,22 +599,111 @@
         "success": "Password updated successfully!",
         "error": "Failed to update password",
         "mismatch": "Passwords do not match",
-        "requirements": "At least 8 characters, one uppercase, one number"
+        "requirements": "Create a strong password to protect your account",
+        "currentRequired": "Please enter your current password",
+        "strength": {
+          "label": "Password Strength",
+          "weak": "Weak",
+          "fair": "Fair",
+          "strong": "Strong",
+          "excellent": "Excellent"
+        },
+        "rules": {
+          "minLength": "At least 8 characters",
+          "uppercase": "One uppercase letter",
+          "lowercase": "One lowercase letter",
+          "number": "One number",
+          "special": "One special character (!@#$%^&*)"
+        }
       },
       "twoFactor": {
         "title": "Two-Factor Authentication",
-        "subtitle": "Add an extra layer of security to your account",
+        "subtitle": "Add an extra layer of security to your account using TOTP",
         "enabled": "Enabled",
         "disabled": "Disabled",
         "enable": "Enable 2FA",
         "disable": "Disable 2FA",
         "setup": "Set Up 2FA",
         "scanQR": "Scan this QR code with your authenticator app",
-        "backupCode": "Save your backup codes in a secure location",
-        "verify": "Enter the 6-digit code from your app",
+        "scanInstructions": "Use Google Authenticator, Authy, or any TOTP-compatible app to scan the code below",
+        "manualEntry": "Manual entry code",
+        "enterCode": "Enter verification code",
+        "enterCodeDesc": "Enter the 6-digit code from your authenticator app to verify setup",
+        "backupCode": "Recovery Codes",
+        "backupCodeDesc": "Save these codes in a secure location. Each code can only be used once.",
+        "backupWarning": "If you lose access to your authenticator app, you can use these codes to sign in",
+        "verify": "Verify & Enable",
         "confirm": "Confirm Setup",
         "success": "Two-factor authentication enabled!",
-        "disabledSuccess": "Two-factor authentication disabled"
+        "disabledSuccess": "Two-factor authentication disabled",
+        "disableWarning": "Disabling 2FA will reduce your account security. Enter a verification code to confirm.",
+        "copyCode": "Copy Code",
+        "copiedCode": "Code copied!",
+        "downloadCodes": "Download Codes",
+        "step1": "Step 1: Scan QR Code",
+        "step2": "Step 2: Verify Code",
+        "step3": "Step 3: Save Recovery Codes"
+      },
+      "devices": {
+        "title": "Devices & Sessions",
+        "subtitle": "Manage devices that have access to your account",
+        "currentDevice": "This Device",
+        "lastActive": "Last active",
+        "firstSeen": "First seen",
+        "trusted": "Trusted",
+        "revoke": "Revoke Access",
+        "revokeAll": "Revoke All Other Sessions",
+        "revokeAllConfirm": "This will log you out from all other devices. Continue?",
+        "revokeSuccess": "Device access revoked",
+        "revokeAllSuccess": "All other sessions revoked",
+        "noDevices": "No other devices found",
+        "trustDevice": "Trust this device",
+        "untrustDevice": "Remove trust",
+        "desktop": "Desktop",
+        "mobile": "Mobile",
+        "tablet": "Tablet",
+        "unknown": "Unknown Device"
+      },
+      "settings": {
+        "title": "Security Preferences",
+        "subtitle": "Configure your security notification and session preferences",
+        "loginNotifications": "Login Notifications",
+        "loginNotificationsDesc": "Receive an email when someone logs into your account",
+        "newDeviceAlerts": "New Device Alerts",
+        "newDeviceAlertsDesc": "Get alerted when a new device signs into your account",
+        "sessionTimeout": "Session Timeout",
+        "sessionTimeoutDesc": "Automatically log out after period of inactivity",
+        "require2fa": "Require 2FA for Sensitive Actions",
+        "require2faDesc": "Require two-factor verification for account changes and data deletion",
+        "saved": "Security settings saved",
+        "timeoutOptions": {
+          "1h": "1 hour",
+          "6h": "6 hours",
+          "12h": "12 hours",
+          "24h": "24 hours",
+          "7d": "7 days"
+        }
+      },
+      "auditLog": {
+        "title": "Security Activity",
+        "subtitle": "Recent security events on your account",
+        "loadMore": "Load More Events",
+        "noEvents": "No security events recorded yet",
+        "actions": {
+          "login": "Signed in",
+          "logout": "Signed out",
+          "password_change": "Password changed",
+          "2fa_enabled": "2FA enabled",
+          "2fa_disabled": "2FA disabled",
+          "device_revoked": "Device access revoked",
+          "device_trusted": "Device trusted",
+          "account_deactivated": "Account deactivated",
+          "account_reactivated": "Account reactivated",
+          "data_exported": "Data exported",
+          "data_deleted": "All data deleted",
+          "settings_changed": "Security settings changed",
+          "email_changed": "Email address changed"
+        }
       },
       "activeSessions": {
         "title": "Active Sessions",
@@ -623,20 +717,51 @@
       "title": "Account Management",
       "subtitle": "Manage your account settings and data",
       "dangerZone": "Danger Zone",
+      "overview": {
+        "title": "Account Overview",
+        "accountId": "Account ID",
+        "email": "Email Address",
+        "memberSince": "Member Since",
+        "lastLogin": "Last Login",
+        "accountType": "Account Type",
+        "accountStatus": "Account Status",
+        "statusActive": "Active",
+        "statusInactive": "Inactive",
+        "changeEmail": "Change Email",
+        "changeEmailDesc": "Update your email address. A verification link will be sent.",
+        "newEmail": "New Email Address",
+        "updateEmail": "Update Email",
+        "emailUpdateSuccess": "Verification link sent to your new email"
+      },
+      "export": {
+        "title": "Export Your Data",
+        "description": "Download a copy of all your data including profile, applications, and student records",
+        "button": "Download My Data",
+        "downloading": "Preparing download...",
+        "success": "Data exported successfully",
+        "format": "JSON Format"
+      },
       "logout": {
         "title": "Log Out",
         "description": "Log out from this device",
         "button": "Log Out",
         "allDevices": "Log Out From All Devices",
+        "allDevicesDesc": "End all active sessions across all devices",
         "confirmTitle": "Confirm Logout",
-        "confirmMessage": "Are you sure you want to log out?"
+        "confirmMessage": "Are you sure you want to log out?",
+        "allDevicesConfirm": "This will log you out from all devices including this one. Continue?",
+        "allDevicesSuccess": "Logged out from all devices"
       },
       "closeAccount": {
-        "title": "Close Account",
-        "description": "Temporarily deactivate your account. You can reactivate by logging in again.",
-        "button": "Close Account",
-        "confirmTitle": "Confirm Account Closure",
-        "confirmMessage": "Are you sure you want to close your account? This action can be reversed by contacting support."
+        "title": "Deactivate Account",
+        "description": "Temporarily deactivate your account. You can reactivate by contacting support.",
+        "button": "Deactivate Account",
+        "confirmTitle": "Confirm Account Deactivation",
+        "confirmMessage": "Your account will be deactivated. You will be logged out and will not be able to access the platform until reactivated.",
+        "reason": "Reason for deactivation (optional)",
+        "reasonPlaceholder": "Tell us why you're leaving...",
+        "success": "Account deactivated. You will be logged out.",
+        "reactivateInfo": "To reactivate your account, contact support at support@admissiondesk.com"
       },
       "deleteAccount": {
         "title": "Delete Account",
@@ -645,14 +770,23 @@
         "confirmTitle": "Confirm Account Deletion",
         "confirmMessage": "This will permanently delete all your data including applications, students, and profile information. This action cannot be undone.",
         "finalWarning": "Type DELETE to confirm:",
-        "placeholder": "Type DELETE"
+        "placeholder": "Type DELETE",
+        "countdown": "Deleting in {{seconds}} seconds...",
+        "success": "Account deletion initiated"
       },
       "deleteAllData": {
         "title": "Delete All Data",
         "description": "Delete all your applications, student records, and uploaded documents while keeping your account.",
         "button": "Delete All Data",
         "confirmTitle": "Confirm Data Deletion",
-        "confirmMessage": "This will permanently delete all your applications, student records, and documents. Your account will remain active but empty."
+        "confirmMessage": "This will permanently delete all your applications, student records, and documents. Your account will remain active but empty.",
+        "success": "All data deleted successfully",
+        "progress": {
+          "applications": "Deleting applications...",
+          "students": "Deleting student records...",
+          "partners": "Removing partner selections...",
+          "complete": "Cleanup complete"
+        }
       }
     },
     "autoFill": {

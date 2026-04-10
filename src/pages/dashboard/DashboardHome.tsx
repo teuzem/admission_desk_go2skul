@@ -8,6 +8,7 @@ import {
   ThumbsUp, Sparkles, HandMetal, TrendingUp, AlertCircle, ShieldCheck
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { usePageRefetch } from '../../lib/useRealtimeRecovery'
 import { useAuth } from '../../contexts/AuthContext'
 import ActivatePartnerModal from './ActivatePartnerModal'
 import './DashboardHome.css'
@@ -188,7 +189,11 @@ export default function DashboardHome() {
     fetchAnnouncements()
     const channel = supabase.channel('announcements-home')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'announcements' }, fetchAnnouncements)
-      .subscribe()
+      .subscribe((status) => {
+        if (status === 'TIMED_OUT' || status === 'CHANNEL_ERROR') {
+          console.warn('[DashboardHome] announcements channel error:', status)
+        }
+      })
     return () => { supabase.removeChannel(channel) }
   }, [fetchAnnouncements])
 
@@ -218,7 +223,11 @@ export default function DashboardHome() {
 
     const ch = supabase.channel('applications-home')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'applications', filter: `agent_id=eq.${effectiveId}` }, fetchDashboardData)
-      .subscribe()
+      .subscribe((status) => {
+        if (status === 'TIMED_OUT' || status === 'CHANNEL_ERROR') {
+          console.warn('[DashboardHome] applications channel error:', status)
+        }
+      })
     return () => { supabase.removeChannel(ch) }
   }, [user, profile?.effective_agency_id])
 
@@ -314,7 +323,11 @@ export default function DashboardHome() {
     fetchSummary()
     const ch = supabase.channel('summary-charts')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'applications' }, fetchSummary)
-      .subscribe()
+      .subscribe((status) => {
+        if (status === 'TIMED_OUT' || status === 'CHANNEL_ERROR') {
+          console.warn('[DashboardHome] summary channel error:', status)
+        }
+      })
     return () => { supabase.removeChannel(ch) }
   }, [])
 
@@ -327,7 +340,11 @@ export default function DashboardHome() {
     fetchNews()
     const ch = supabase.channel('news-home')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'news_posts' }, fetchNews)
-      .subscribe()
+      .subscribe((status) => {
+        if (status === 'TIMED_OUT' || status === 'CHANNEL_ERROR') {
+          console.warn('[DashboardHome] news channel error:', status)
+        }
+      })
     return () => { supabase.removeChannel(ch) }
   }, [])
 
@@ -348,7 +365,11 @@ export default function DashboardHome() {
     fetchBlogs(1)
     const ch = supabase.channel('blog-home')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'blog_posts' }, () => fetchBlogs(1))
-      .subscribe()
+      .subscribe((status) => {
+        if (status === 'TIMED_OUT' || status === 'CHANNEL_ERROR') {
+          console.warn('[DashboardHome] blog channel error:', status)
+        }
+      })
     return () => { supabase.removeChannel(ch) }
   }, [fetchBlogs])
 

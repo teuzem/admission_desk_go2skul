@@ -521,6 +521,48 @@ export type EventTeamBookingRow = {
   created_at: string
 }
 
+// ─── Security & Device Management Tables ─────────────────────────────────────
+
+export type UserDeviceRow = {
+  id: string
+  user_id: string
+  device_name: string | null
+  device_type: 'desktop' | 'mobile' | 'tablet' | 'unknown'
+  browser: string | null
+  browser_version: string | null
+  os: string | null
+  os_version: string | null
+  ip_address: string | null
+  city: string | null
+  country: string | null
+  is_current: boolean
+  is_trusted: boolean
+  last_active_at: string
+  created_at: string
+  user_agent: string | null
+}
+
+export type SecurityAuditLogRow = {
+  id: string
+  user_id: string
+  action: string
+  ip_address: string | null
+  device_info: string | null
+  metadata: Record<string, any>
+  created_at: string
+}
+
+export type UserSecuritySettingsRow = {
+  id: string
+  user_id: string
+  login_notifications: boolean
+  new_device_alerts: boolean
+  session_timeout_minutes: number
+  require_2fa_for_sensitive: boolean
+  created_at: string
+  updated_at: string
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -702,6 +744,24 @@ export interface Database {
         Row: any
         Insert: any
         Update: any
+        Relationships: []
+      }
+      user_devices: {
+        Row: UserDeviceRow
+        Insert: Partial<UserDeviceRow> & { user_id: string }
+        Update: Partial<UserDeviceRow>
+        Relationships: []
+      }
+      security_audit_log: {
+        Row: SecurityAuditLogRow
+        Insert: Partial<SecurityAuditLogRow> & { user_id: string; action: string }
+        Update: Partial<SecurityAuditLogRow>
+        Relationships: []
+      }
+      user_security_settings: {
+        Row: UserSecuritySettingsRow
+        Insert: Partial<UserSecuritySettingsRow> & { user_id: string }
+        Update: Partial<UserSecuritySettingsRow>
         Relationships: []
       }
     }

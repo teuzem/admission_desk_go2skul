@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../../contexts/AuthContext'
 import { supabase } from '../../../lib/supabase'
+import { usePageRefetch } from '../../../lib/useRealtimeRecovery'
 import { uploadUniversityLogo, uploadUniversityCampusImage, uploadMessageAttachment, getMessageAttachmentUrl, getAdmissionDocUrl } from '../../../lib/storageHelpers'
 import toast from 'react-hot-toast'
 import FullScreenFilePreview from '../../../components/ui/FullScreenFilePreview'
@@ -153,7 +154,11 @@ export default function AdmissionManagerDashboard() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'pending_submissions' }, fetchAll)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'universities' }, fetchManageData)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'programs' }, fetchManageData)
-      .subscribe()
+      .subscribe((status) => {
+        if (status === 'TIMED_OUT' || status === 'CHANNEL_ERROR') {
+          console.warn('[AdmissionManager] channel error:', status)
+        }
+      })
 
     // Re-sync on visibility change (tab focus return)
     const handleVisibility = () => {

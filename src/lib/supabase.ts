@@ -29,6 +29,9 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     reconnectAfterMs: (tries: number) => Math.min(1000 * Math.pow(2, tries), 30000),
     timeout: 30000,
   },
+  db: {
+    schema: 'public',
+  },
 })
 
 export type SupabaseClient = typeof supabase

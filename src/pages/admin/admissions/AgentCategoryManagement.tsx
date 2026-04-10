@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../../lib/supabase';
+import { usePageRefetch } from '../../../lib/useRealtimeRecovery';
 import { listAgentKycDocs, getAgentKycDocUrl } from '../../../lib/storageHelpers';
 import './AdvancedAnalytics.css';
 import {
@@ -220,7 +221,11 @@ export default function AgentCategoryManagement({ userId, userRole, isSuperAdmin
       .on('postgres_changes', { event: '*', schema: 'public', table: 'agent_categories' }, () => { setIsRealtime(true); fetchAgents(); setTimeout(() => setIsRealtime(false), 2000); })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'agent_category_review_queue' }, () => { setIsRealtime(true); fetchAgents(); setTimeout(() => setIsRealtime(false), 2000); })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => { fetchAgents(); })
-      .subscribe();
+      .subscribe((status) => {
+        if (status === 'TIMED_OUT' || status === 'CHANNEL_ERROR') {
+          console.warn('[AgentCategoryManagement] channel error:', status)
+        }
+      });
     return () => { supabase.removeChannel(ch); };
   }, [fetchAgents]);
 

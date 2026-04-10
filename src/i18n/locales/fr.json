@@ -585,6 +585,11 @@
     "security": {
       "title": "Sécurité du compte",
       "subtitle": "Gérez votre mot de passe et les paramètres de sécurité",
+      "securityScore": "Score de sécurité",
+      "scoreExcellent": "Excellent",
+      "scoreGood": "Bon",
+      "scoreFair": "Moyen",
+      "scorePoor": "Faible",
       "password": {
         "title": "Modifier le mot de passe",
         "current": "Mot de passe actuel",
@@ -594,22 +599,111 @@
         "success": "Mot de passe mis à jour avec succès !",
         "error": "Échec de la mise à jour du mot de passe",
         "mismatch": "Les mots de passe ne correspondent pas",
-        "requirements": "Au moins 8 caractères, une majuscule, un chiffre"
+        "requirements": "Créez un mot de passe fort pour protéger votre compte",
+        "currentRequired": "Veuillez entrer votre mot de passe actuel",
+        "strength": {
+          "label": "Force du mot de passe",
+          "weak": "Faible",
+          "fair": "Moyen",
+          "strong": "Fort",
+          "excellent": "Excellent"
+        },
+        "rules": {
+          "minLength": "Au moins 8 caractères",
+          "uppercase": "Une lettre majuscule",
+          "lowercase": "Une lettre minuscule",
+          "number": "Un chiffre",
+          "special": "Un caractère spécial (!@#$%^&*)"
+        }
       },
       "twoFactor": {
         "title": "Authentification à deux facteurs",
-        "subtitle": "Ajoutez une couche de sécurité supplémentaire à votre compte",
+        "subtitle": "Ajoutez une couche de sécurité supplémentaire avec TOTP",
         "enabled": "Activé",
         "disabled": "Désactivé",
         "enable": "Activer 2FA",
         "disable": "Désactiver 2FA",
         "setup": "Configurer 2FA",
         "scanQR": "Scannez ce code QR avec votre application d'authentification",
-        "backupCode": "Conservez vos codes de sauvegarde en lieu sûr",
-        "verify": "Entrez le code à 6 chiffres de votre application",
+        "scanInstructions": "Utilisez Google Authenticator, Authy ou toute application compatible TOTP",
+        "manualEntry": "Code d'entrée manuelle",
+        "enterCode": "Entrez le code de vérification",
+        "enterCodeDesc": "Entrez le code à 6 chiffres de votre application pour vérifier",
+        "backupCode": "Codes de récupération",
+        "backupCodeDesc": "Conservez ces codes en lieu sûr. Chaque code ne peut être utilisé qu'une fois.",
+        "backupWarning": "Si vous perdez l'accès à votre application, utilisez ces codes pour vous connecter",
+        "verify": "Vérifier et activer",
         "confirm": "Confirmer la configuration",
         "success": "Authentification à deux facteurs activée !",
-        "disabledSuccess": "Authentification à deux facteurs désactivée"
+        "disabledSuccess": "Authentification à deux facteurs désactivée",
+        "disableWarning": "Désactiver 2FA réduira la sécurité de votre compte. Entrez un code de vérification pour confirmer.",
+        "copyCode": "Copier le code",
+        "copiedCode": "Code copié !",
+        "downloadCodes": "Télécharger les codes",
+        "step1": "Étape 1 : Scanner le code QR",
+        "step2": "Étape 2 : Vérifier le code",
+        "step3": "Étape 3 : Sauvegarder les codes"
+      },
+      "devices": {
+        "title": "Appareils et sessions",
+        "subtitle": "Gérez les appareils ayant accès à votre compte",
+        "currentDevice": "Cet appareil",
+        "lastActive": "Dernière activité",
+        "firstSeen": "Première connexion",
+        "trusted": "Approuvé",
+        "revoke": "Révoquer l'accès",
+        "revokeAll": "Révoquer toutes les autres sessions",
+        "revokeAllConfirm": "Cela vous déconnectera de tous les autres appareils. Continuer ?",
+        "revokeSuccess": "Accès de l'appareil révoqué",
+        "revokeAllSuccess": "Toutes les autres sessions révoquées",
+        "noDevices": "Aucun autre appareil trouvé",
+        "trustDevice": "Approuver cet appareil",
+        "untrustDevice": "Retirer l'approbation",
+        "desktop": "Ordinateur",
+        "mobile": "Mobile",
+        "tablet": "Tablette",
+        "unknown": "Appareil inconnu"
+      },
+      "settings": {
+        "title": "Préférences de sécurité",
+        "subtitle": "Configurez vos notifications de sécurité et préférences de session",
+        "loginNotifications": "Notifications de connexion",
+        "loginNotificationsDesc": "Recevoir un e-mail lorsque quelqu'un se connecte à votre compte",
+        "newDeviceAlerts": "Alertes nouvel appareil",
+        "newDeviceAlertsDesc": "Être alerté quand un nouvel appareil se connecte",
+        "sessionTimeout": "Expiration de session",
+        "sessionTimeoutDesc": "Déconnexion automatique après une période d'inactivité",
+        "require2fa": "Exiger 2FA pour les actions sensibles",
+        "require2faDesc": "Exiger la vérification à deux facteurs pour les modifications de compte",
+        "saved": "Paramètres de sécurité sauvegardés",
+        "timeoutOptions": {
+          "1h": "1 heure",
+          "6h": "6 heures",
+          "12h": "12 heures",
+          "24h": "24 heures",
+          "7d": "7 jours"
+        }
+      },
+      "auditLog": {
+        "title": "Activité de sécurité",
+        "subtitle": "Événements de sécurité récents sur votre compte",
+        "loadMore": "Charger plus d'événements",
+        "noEvents": "Aucun événement de sécurité enregistré",
+        "actions": {
+          "login": "Connexion",
+          "logout": "Déconnexion",
+          "password_change": "Mot de passe modifié",
+          "2fa_enabled": "2FA activé",
+          "2fa_disabled": "2FA désactivé",
+          "device_revoked": "Accès appareil révoqué",
+          "device_trusted": "Appareil approuvé",
+          "account_deactivated": "Compte désactivé",
+          "account_reactivated": "Compte réactivé",
+          "data_exported": "Données exportées",
+          "data_deleted": "Toutes les données supprimées",
+          "settings_changed": "Paramètres de sécurité modifiés",
+          "email_changed": "Adresse e-mail modifiée"
+        }
       },
       "activeSessions": {
         "title": "Sessions actives",
@@ -623,36 +717,76 @@
       "title": "Gestion du compte",
       "subtitle": "Gérez les paramètres de votre compte et vos données",
       "dangerZone": "Zone dangereuse",
+      "overview": {
+        "title": "Aperçu du compte",
+        "accountId": "ID du compte",
+        "email": "Adresse e-mail",
+        "memberSince": "Membre depuis",
+        "lastLogin": "Dernière connexion",
+        "accountType": "Type de compte",
+        "accountStatus": "Statut du compte",
+        "statusActive": "Actif",
+        "statusInactive": "Inactif",
+        "changeEmail": "Changer l'e-mail",
+        "changeEmailDesc": "Mettez à jour votre adresse e-mail. Un lien de vérification sera envoyé.",
+        "newEmail": "Nouvelle adresse e-mail",
+        "updateEmail": "Mettre à jour l'e-mail",
+        "emailUpdateSuccess": "Lien de vérification envoyé à votre nouvel e-mail"
+      },
+      "export": {
+        "title": "Exporter vos données",
+        "description": "Téléchargez une copie de toutes vos données incluant profil, candidatures et dossiers étudiants",
+        "button": "Télécharger mes données",
+        "downloading": "Préparation du téléchargement...",
+        "success": "Données exportées avec succès",
+        "format": "Format JSON"
+      },
       "logout": {
         "title": "Déconnexion",
         "description": "Se déconnecter de cet appareil",
         "button": "Se déconnecter",
         "allDevices": "Se déconnecter de tous les appareils",
+        "allDevicesDesc": "Terminer toutes les sessions actives sur tous les appareils",
         "confirmTitle": "Confirmer la déconnexion",
-        "confirmMessage": "Êtes-vous sûr de vouloir vous déconnecter ?"
+        "confirmMessage": "Êtes-vous sûr de vouloir vous déconnecter ?",
+        "allDevicesConfirm": "Cela vous déconnectera de tous les appareils y compris celui-ci. Continuer ?",
+        "allDevicesSuccess": "Déconnecté de tous les appareils"
       },
       "closeAccount": {
-        "title": "Fermer le compte",
-        "description": "Désactivez temporairement votre compte. Vous pouvez le réactiver en vous reconnectant.",
-        "button": "Fermer le compte",
-        "confirmTitle": "Confirmer la fermeture du compte",
-        "confirmMessage": "Êtes-vous sûr de vouloir fermer votre compte ? Cette action peut être annulée en contactant le support."
+        "title": "Désactiver le compte",
+        "description": "Désactivez temporairement votre compte. Contactez le support pour le réactiver.",
+        "button": "Désactiver le compte",
+        "confirmTitle": "Confirmer la désactivation",
+        "confirmMessage": "Votre compte sera désactivé. Vous serez déconnecté et ne pourrez plus accéder à la plateforme.",
+        "reason": "Raison de la désactivation (optionnel)",
+        "reasonPlaceholder": "Dites-nous pourquoi vous partez...",
+        "success": "Compte désactivé. Vous allez être déconnecté.",
+        "reactivateInfo": "Pour réactiver votre compte, contactez support@admissiondesk.com"
       },
       "deleteAccount": {
         "title": "Supprimer le compte",
-        "description": "Supprimez définitivement votre compte et toutes les données associées. Cette action est irréversible.",
+        "description": "Supprimez définitivement votre compte et toutes les données associées. Irréversible.",
         "button": "Supprimer le compte",
         "confirmTitle": "Confirmer la suppression du compte",
-        "confirmMessage": "Cela supprimera définitivement toutes vos données, y compris les candidatures, les étudiants et les informations de profil. Cette action est irréversible.",
+        "confirmMessage": "Toutes vos données seront supprimées définitivement. Cette action est irréversible.",
         "finalWarning": "Tapez SUPPRIMER pour confirmer :",
-        "placeholder": "Tapez SUPPRIMER"
+        "placeholder": "Tapez SUPPRIMER",
+        "countdown": "Suppression dans {{seconds}} secondes...",
+        "success": "Suppression du compte initiée"
       },
       "deleteAllData": {
         "title": "Supprimer toutes les données",
-        "description": "Supprimez toutes vos candidatures, dossiers étudiants et documents téléchargés tout en conservant votre compte.",
+        "description": "Supprimez toutes vos candidatures et dossiers tout en conservant votre compte.",
         "button": "Supprimer toutes les données",
         "confirmTitle": "Confirmer la suppression des données",
-        "confirmMessage": "Cela supprimera définitivement toutes vos candidatures, dossiers étudiants et documents. Votre compte restera actif mais vide."
+        "confirmMessage": "Toutes vos candidatures, dossiers et documents seront supprimés. Votre compte restera actif.",
+        "success": "Toutes les données supprimées avec succès",
+        "progress": {
+          "applications": "Suppression des candidatures...",
+          "students": "Suppression des dossiers étudiants...",
+          "partners": "Suppression des sélections partenaires...",
+          "complete": "Nettoyage terminé"
+        }
       }
     },
     "autoFill": {

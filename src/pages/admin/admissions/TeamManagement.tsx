@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../../lib/supabase';
+import { usePageRefetch } from '../../../lib/useRealtimeRecovery';
 import './AdvancedAnalytics.css';
 import {
   TeamMemberWithPermissions,
@@ -256,7 +257,11 @@ export default function TeamManagement({ userId, userRole }: TeamManagementProps
       .on('postgres_changes', { event: '*', schema: 'public', table: 'admission_team_members' }, () => {
         fetchTeamMembers();
       })
-      .subscribe();
+      .subscribe((status) => {
+        if (status === 'TIMED_OUT' || status === 'CHANNEL_ERROR') {
+          console.warn('[TeamManagement] channel error:', status)
+        }
+      });
 
     return () => {
       supabase.removeChannel(channel);

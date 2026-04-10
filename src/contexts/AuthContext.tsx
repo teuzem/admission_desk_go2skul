@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef, ReactNode } from 'react'
 import { User, Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
+import { useRealtimeRecovery } from '../lib/useRealtimeRecovery'
 import type { Database, UserRole, KycStatus } from '../types/database'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
@@ -35,6 +36,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const loadingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const initializedRef = useRef(false)
+
+  // Global realtime connection recovery
+  const { connectionHealthy } = useRealtimeRecovery()
 
   // Safety: always clear loading after a timeout to prevent infinite loading screens
   const startLoadingTimeout = useCallback(() => {

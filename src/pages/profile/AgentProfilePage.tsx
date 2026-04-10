@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -6,7 +6,9 @@ import {
   Shield, Clock, Lock, Smartphone, LogOut, Trash2, AlertTriangle,
   X, Eye, EyeOff, Image as ImageIcon, Edit2, Plus, CheckCircle2,
   Users as UsersIcon, Link as LinkIcon, Copy, ExternalLink, GraduationCap,
-  Facebook, Twitter, Linkedin, Instagram, Youtube, MessageCircle, Navigation, Briefcase
+  Facebook, Twitter, Linkedin, Instagram, Youtube, MessageCircle, Navigation, Briefcase,
+  Monitor, Tablet, ShieldCheck, ShieldAlert, Key, Download, Info, Check, ChevronDown,
+  Activity, RefreshCw, UserX, FileText, Clipboard
 } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
@@ -72,19 +74,50 @@ export default function AgentProfilePage() {
   const [showPasswords, setShowPasswords] = useState({ current: false, new: false, confirm: false })
   const [passwordLoading, setPasswordLoading] = useState(false)
 
-  // 2FA state
+  // 2FA state - Real TOTP via Supabase MFA
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false)
   const [show2FASetup, setShow2FASetup] = useState(false)
+  const [mfaStep, setMfaStep] = useState<1 | 2 | 3>(1)
+  const [mfaQrCode, setMfaQrCode] = useState('')
+  const [mfaSecret, setMfaSecret] = useState('')
+  const [mfaFactorId, setMfaFactorId] = useState('')
+  const [mfaVerifyCode, setMfaVerifyCode] = useState(['', '', '', '', '', ''])
+  const [mfaLoading, setMfaLoading] = useState(false)
+  const [mfaChallengeId, setMfaChallengeId] = useState('')
+  const otpRefs = useRef<(HTMLInputElement | null)[]>([])
 
-  // Account deletion modal state
+  // Device management state
+  const [devices, setDevices] = useState<any[]>([])
+  const [devicesLoading, setDevicesLoading] = useState(false)
+
+  // Security settings state
+  const [securitySettings, setSecuritySettings] = useState({
+    login_notifications: true,
+    new_device_alerts: true,
+    session_timeout_minutes: 1440,
+    require_2fa_for_sensitive: false
+  })
+
+  // Audit log state
+  const [auditLog, setAuditLog] = useState<any[]>([])
+  const [auditLogLoading, setAuditLogLoading] = useState(false)
+  const [auditLogLimit, setAuditLogLimit] = useState(10)
+
+  // Account management state
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [showDeleteAllDataModal, setShowDeleteAllDataModal] = useState(false)
+  const [showCloseAccountModal, setShowCloseAccountModal] = useState(false)
   const [deleteConfirmText, setDeleteConfirmText] = useState('')
   const [deleteAllDataConfirm, setDeleteAllDataConfirm] = useState(false)
   const [accountLoading, setAccountLoading] = useState(false)
-
-  // Logout confirmation modal
+  const [closeAccountReason, setCloseAccountReason] = useState('')
   const [showLogoutModal, setShowLogoutModal] = useState(false)
+  const [showLogoutAllModal, setShowLogoutAllModal] = useState(false)
+  const [dataExporting, setDataExporting] = useState(false)
+  const [deleteProgress, setDeleteProgress] = useState<string[]>([])
+  const [showEmailChange, setShowEmailChange] = useState(false)
+  const [newEmail, setNewEmail] = useState('')
+  const [emailLoading, setEmailLoading] = useState(false)
 
   // Initialize form data from profile and KYC
   useEffect(() => {
@@ -310,27 +343,53 @@ export default function AgentProfilePage() {
     }
   }
 
-  // Update password
+  // ═══════════════════════════════════════════════════════════════
+  // PASSWORD MANAGEMENT
+  // ═══════════════════════════════════════════════════════════════
+
+  const passwordStrength = useMemo(() => {
+    const pw = passwordForm.newPassword
+    const rules = {
+      minLength: pw.length >= 8,
+      uppercase: /[A-Z]/.test(pw),
+      lowercase: /[a-z]/.test(pw),
+      number: /[0-9]/.test(pw),
+      special: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(pw)
+    }
+    const met = Object.values(rules).filter(Boolean).length
+    const level = met === 0 ? 'none' : met <= 2 ? 'weak' : met <= 3 ? 'fair' : met <= 4 ? 'strong' : 'excellent'
+    const percent = (met / 5) * 100
+    const color = { none: '#e4e6eb', weak: '#ef4444', fair: '#f59e0b', strong: '#3b82f6', excellent: '#10b981' }[level]
+    return { rules, met, level, percent, color }
+  }, [passwordForm.newPassword])
+
   const handlePasswordUpdate = async () => {
+    if (!passwordForm.currentPassword) {
+      toast.error(t('profile.security.password.currentRequired'))
+      return
+    }
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
       toast.error(t('profile.security.password.mismatch'))
       return
     }
-
-    if (passwordForm.newPassword.length < 8) {
+    if (passwordStrength.met < 3) {
       toast.error(t('errors.passwordMin'))
       return
     }
-
     setPasswordLoading(true)
-
     try {
-      const { error } = await supabase.auth.updateUser({
-        password: passwordForm.newPassword
+      // Verify current password first
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: user?.email || '',
+        password: passwordForm.currentPassword
       })
+      if (signInError) throw new Error(t('profile.security.password.error'))
 
+      const { error } = await supabase.auth.updateUser({ password: passwordForm.newPassword })
       if (error) throw error
 
+      // Log to audit
+      await logSecurityEvent('password_change')
       toast.success(t('profile.security.password.success'))
       setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
     } catch (err: any) {
@@ -340,44 +399,357 @@ export default function AgentProfilePage() {
     }
   }
 
-  // Toggle 2FA
-  const handle2FAToggle = async () => {
-    if (!twoFactorEnabled) {
+  // ═══════════════════════════════════════════════════════════════
+  // TWO-FACTOR AUTHENTICATION (Supabase MFA TOTP)
+  // ═══════════════════════════════════════════════════════════════
+
+  // Check MFA status on mount
+  useEffect(() => {
+    const checkMfaStatus = async () => {
+      try {
+        const { data } = await supabase.auth.mfa.listFactors()
+        const totpFactors = data?.totp || []
+        const verifiedFactor = totpFactors.find((f: any) => f.status === 'verified')
+        if (verifiedFactor) {
+          setTwoFactorEnabled(true)
+          setMfaFactorId(verifiedFactor.id)
+        }
+      } catch (err) {
+        console.error('MFA status check error:', err)
+      }
+    }
+    if (user) checkMfaStatus()
+  }, [user])
+
+  const handleStartMfaEnroll = async () => {
+    setMfaLoading(true)
+    try {
+      const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp', friendlyName: 'Authenticator App' })
+      if (error) throw error
+      setMfaQrCode(data.totp.qr_code)
+      setMfaSecret(data.totp.secret)
+      setMfaFactorId(data.id)
+      setMfaStep(1)
       setShow2FASetup(true)
-    } else {
-      setTwoFactorEnabled(false)
-      toast.success(t('profile.security.twoFactor.disabledSuccess'))
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to start 2FA setup')
+    } finally {
+      setMfaLoading(false)
     }
   }
 
-  // Confirm 2FA setup
-  const handle2FAConfirm = () => {
-    setTwoFactorEnabled(true)
-    setShow2FASetup(false)
-    toast.success(t('profile.security.twoFactor.success'))
+  const handleMfaVerifyAndEnable = async () => {
+    const code = mfaVerifyCode.join('')
+    if (code.length !== 6) return
+    setMfaLoading(true)
+    try {
+      const { data: challengeData, error: challengeError } = await supabase.auth.mfa.challenge({ factorId: mfaFactorId })
+      if (challengeError) throw challengeError
+
+      const { error: verifyError } = await supabase.auth.mfa.verify({
+        factorId: mfaFactorId,
+        challengeId: challengeData.id,
+        code
+      })
+      if (verifyError) throw verifyError
+
+      setTwoFactorEnabled(true)
+      setMfaStep(3)
+      await logSecurityEvent('2fa_enabled')
+      toast.success(t('profile.security.twoFactor.success'))
+    } catch (err: any) {
+      toast.error(err.message || 'Verification failed')
+    } finally {
+      setMfaLoading(false)
+    }
   }
 
-  // Logout
+  const handleMfaDisable = async () => {
+    setMfaLoading(true)
+    try {
+      const { error } = await supabase.auth.mfa.unenroll({ factorId: mfaFactorId })
+      if (error) throw error
+      setTwoFactorEnabled(false)
+      setShow2FASetup(false)
+      setMfaStep(1)
+      setMfaVerifyCode(['', '', '', '', '', ''])
+      await logSecurityEvent('2fa_disabled')
+      toast.success(t('profile.security.twoFactor.disabledSuccess'))
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to disable 2FA')
+    } finally {
+      setMfaLoading(false)
+    }
+  }
+
+  const handleOtpChange = (index: number, value: string) => {
+    if (!/^\d*$/.test(value)) return
+    const newCode = [...mfaVerifyCode]
+    newCode[index] = value.slice(-1)
+    setMfaVerifyCode(newCode)
+    if (value && index < 5) otpRefs.current[index + 1]?.focus()
+  }
+
+  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent) => {
+    if (e.key === 'Backspace' && !mfaVerifyCode[index] && index > 0) {
+      otpRefs.current[index - 1]?.focus()
+    }
+  }
+
+  const handleOtpPaste = (e: React.ClipboardEvent) => {
+    e.preventDefault()
+    const paste = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6)
+    const newCode = [...mfaVerifyCode]
+    paste.split('').forEach((ch, i) => { newCode[i] = ch })
+    setMfaVerifyCode(newCode)
+    otpRefs.current[Math.min(paste.length, 5)]?.focus()
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // DEVICE MANAGEMENT
+  // ═══════════════════════════════════════════════════════════════
+
+  const parseUserAgent = useCallback(() => {
+    const ua = navigator.userAgent
+    let browser = 'Unknown', os = 'Unknown', deviceType: 'desktop' | 'mobile' | 'tablet' = 'desktop'
+    if (/Firefox/i.test(ua)) browser = 'Firefox'
+    else if (/Edg/i.test(ua)) browser = 'Edge'
+    else if (/Chrome/i.test(ua)) browser = 'Chrome'
+    else if (/Safari/i.test(ua)) browser = 'Safari'
+    else if (/Opera|OPR/i.test(ua)) browser = 'Opera'
+    if (/Windows/i.test(ua)) os = 'Windows'
+    else if (/Mac/i.test(ua)) os = 'macOS'
+    else if (/Linux/i.test(ua)) os = 'Linux'
+    else if (/Android/i.test(ua)) { os = 'Android'; deviceType = 'mobile' }
+    else if (/iOS|iPhone|iPad/i.test(ua)) { os = 'iOS'; deviceType = /iPad/i.test(ua) ? 'tablet' : 'mobile' }
+    if (/Mobile/i.test(ua) && deviceType === 'desktop') deviceType = 'mobile'
+    if (/Tablet|iPad/i.test(ua)) deviceType = 'tablet'
+    return { browser, os, deviceType, user_agent: ua }
+  }, [])
+
+  // Register/update current device on mount
+  useEffect(() => {
+    if (!user) return
+    const registerDevice = async () => {
+      const { browser, os, deviceType, user_agent } = parseUserAgent()
+      const deviceName = `${browser} on ${os}`
+      // Check if current device already exists
+      const { data: existing } = await supabase
+        .from('user_devices')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('is_current', true)
+        .eq('user_agent', user_agent)
+        .maybeSingle()
+
+      if (existing) {
+        await supabase.from('user_devices').update({ last_active_at: new Date().toISOString() }).eq('id', existing.id)
+      } else {
+        // Mark all other devices as not current
+        await supabase.from('user_devices').update({ is_current: false }).eq('user_id', user.id)
+        await supabase.from('user_devices').insert({
+          user_id: user.id,
+          device_name: deviceName,
+          device_type: deviceType,
+          browser, os,
+          is_current: true,
+          user_agent
+        })
+      }
+    }
+    registerDevice()
+  }, [user, parseUserAgent])
+
+  // Fetch devices
+  const fetchDevices = useCallback(async () => {
+    if (!user) return
+    setDevicesLoading(true)
+    try {
+      const { data } = await supabase
+        .from('user_devices')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('last_active_at', { ascending: false })
+      setDevices(data || [])
+    } catch (err) {
+      console.error('Failed to fetch devices:', err)
+    } finally {
+      setDevicesLoading(false)
+    }
+  }, [user])
+
+  useEffect(() => {
+    if (activeTab === 'security') { fetchDevices(); fetchAuditLog(); fetchSecuritySettings() }
+  }, [activeTab, fetchDevices])
+
+  const handleRevokeDevice = async (deviceId: string) => {
+    try {
+      await supabase.from('user_devices').delete().eq('id', deviceId)
+      await logSecurityEvent('device_revoked')
+      toast.success(t('profile.security.devices.revokeSuccess'))
+      fetchDevices()
+    } catch (err: any) {
+      toast.error(err.message || t('errors.generic'))
+    }
+  }
+
+  const handleRevokeAllDevices = async () => {
+    if (!user) return
+    try {
+      await supabase.from('user_devices').delete().eq('user_id', user.id).eq('is_current', false)
+      await logSecurityEvent('device_revoked', { action: 'revoke_all' })
+      toast.success(t('profile.security.devices.revokeAllSuccess'))
+      fetchDevices()
+    } catch (err: any) {
+      toast.error(err.message || t('errors.generic'))
+    }
+  }
+
+  const handleToggleTrust = async (deviceId: string, trusted: boolean) => {
+    try {
+      await supabase.from('user_devices').update({ is_trusted: !trusted }).eq('id', deviceId)
+      if (!trusted) await logSecurityEvent('device_trusted')
+      fetchDevices()
+    } catch (err: any) {
+      toast.error(err.message || t('errors.generic'))
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // SECURITY SETTINGS
+  // ═══════════════════════════════════════════════════════════════
+
+  const fetchSecuritySettings = useCallback(async () => {
+    if (!user) return
+    const { data } = await supabase.from('user_security_settings').select('*').eq('user_id', user.id).maybeSingle()
+    if (data) {
+      setSecuritySettings({
+        login_notifications: data.login_notifications,
+        new_device_alerts: data.new_device_alerts,
+        session_timeout_minutes: data.session_timeout_minutes,
+        require_2fa_for_sensitive: data.require_2fa_for_sensitive
+      })
+    }
+  }, [user])
+
+  const handleSecuritySettingChange = async (key: string, value: any) => {
+    if (!user) return
+    const updated = { ...securitySettings, [key]: value }
+    setSecuritySettings(updated)
+    try {
+      const { data: existing } = await supabase.from('user_security_settings').select('id').eq('user_id', user.id).maybeSingle()
+      if (existing) {
+        await supabase.from('user_security_settings').update({ [key]: value }).eq('user_id', user.id)
+      } else {
+        await supabase.from('user_security_settings').insert({ user_id: user.id, ...updated })
+      }
+      await logSecurityEvent('settings_changed', { setting: key, value })
+      toast.success(t('profile.security.settings.saved'))
+    } catch (err: any) {
+      toast.error(err.message || t('errors.generic'))
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // SECURITY AUDIT LOG
+  // ═══════════════════════════════════════════════════════════════
+
+  const logSecurityEvent = async (action: string, metadata: any = {}) => {
+    if (!user) return
+    try {
+      await supabase.from('security_audit_log').insert({
+        user_id: user.id,
+        action,
+        device_info: `${parseUserAgent().browser} on ${parseUserAgent().os}`,
+        metadata
+      })
+    } catch (err) {
+      console.error('Audit log error:', err)
+    }
+  }
+
+  const fetchAuditLog = useCallback(async () => {
+    if (!user) return
+    setAuditLogLoading(true)
+    try {
+      const { data } = await supabase
+        .from('security_audit_log')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(auditLogLimit)
+      setAuditLog(data || [])
+    } catch (err) {
+      console.error('Audit log fetch error:', err)
+    } finally {
+      setAuditLogLoading(false)
+    }
+  }, [user, auditLogLimit])
+
+  // Security Score
+  const securityScore = useMemo(() => {
+    let score = 20 // base score for having an account
+    if (twoFactorEnabled) score += 30
+    if (securitySettings.login_notifications) score += 10
+    if (securitySettings.new_device_alerts) score += 10
+    if (securitySettings.require_2fa_for_sensitive) score += 15
+    if (profile?.phone) score += 5
+    if (devices.some(d => d.is_trusted)) score += 10
+    return Math.min(score, 100)
+  }, [twoFactorEnabled, securitySettings, profile, devices])
+
+  const getScoreLabel = (score: number) => {
+    if (score >= 80) return { key: 'scoreExcellent', color: '#10b981' }
+    if (score >= 60) return { key: 'scoreGood', color: '#3b82f6' }
+    if (score >= 40) return { key: 'scoreFair', color: '#f59e0b' }
+    return { key: 'scorePoor', color: '#ef4444' }
+  }
+
+  const getAuditIcon = (action: string) => {
+    const styles: Record<string, { bg: string; color: string; Icon: any }> = {
+      login: { bg: '#eff6ff', color: '#3b82f6', Icon: LogOut },
+      logout: { bg: '#f0fdf4', color: '#10b981', Icon: LogOut },
+      password_change: { bg: '#eff6ff', color: '#3b82f6', Icon: Key },
+      '2fa_enabled': { bg: '#f0fdf4', color: '#10b981', Icon: ShieldCheck },
+      '2fa_disabled': { bg: '#fef2f2', color: '#ef4444', Icon: ShieldAlert },
+      device_revoked: { bg: '#fef2f2', color: '#ef4444', Icon: Smartphone },
+      device_trusted: { bg: '#eff6ff', color: '#3b82f6', Icon: Smartphone },
+      account_deactivated: { bg: '#fef2f2', color: '#ef4444', Icon: UserX },
+      data_exported: { bg: '#eff6ff', color: '#3b82f6', Icon: Download },
+      data_deleted: { bg: '#fef2f2', color: '#ef4444', Icon: Trash2 },
+      settings_changed: { bg: '#fffbeb', color: '#f59e0b', Icon: Shield },
+      email_changed: { bg: '#eff6ff', color: '#3b82f6', Icon: Mail },
+    }
+    return styles[action] || { bg: '#f0f2f5', color: '#65676b', Icon: Activity }
+  }
+
+  const getDeviceIcon = (type: string) => {
+    switch (type) {
+      case 'mobile': return <Smartphone size={22} />
+      case 'tablet': return <Tablet size={22} />
+      default: return <Monitor size={22} />
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // ACCOUNT MANAGEMENT
+  // ═══════════════════════════════════════════════════════════════
+
   const handleLogout = async () => {
+    await logSecurityEvent('logout')
     await signOut()
     navigate('/login')
   }
 
-  // Delete all data
-  const handleDeleteAllData = async () => {
-    if (!deleteAllDataConfirm || !user) return
-
+  const handleLogoutAll = async () => {
+    if (!user) return
     setAccountLoading(true)
-
     try {
-      await supabase.from('applications').delete().eq('agent_id', user.id)
-      await supabase.from('students').delete().eq('agent_id', user.id)
-      await supabase.from('agent_partner_selections').delete().eq('agent_id', user.id)
-
-      setShowDeleteAllDataModal(false)
-      setDeleteAllDataConfirm(false)
-      setAppCount(0)
-      toast.success(t('profile.account.deleteAllData.success') || 'All data deleted successfully')
+      await supabase.from('user_devices').delete().eq('user_id', user.id)
+      await logSecurityEvent('logout', { action: 'logout_all' })
+      toast.success(t('profile.account.logout.allDevicesSuccess'))
+      await signOut()
+      navigate('/login')
     } catch (err: any) {
       toast.error(err.message || t('errors.generic'))
     } finally {
@@ -385,13 +757,55 @@ export default function AgentProfilePage() {
     }
   }
 
-  // Delete account
+  const handleCloseAccount = async () => {
+    if (!user || !profile) return
+    setAccountLoading(true)
+    try {
+      await supabase.from('profiles').update({ is_active: false }).eq('id', user.id)
+      await logSecurityEvent('account_deactivated', { reason: closeAccountReason })
+      toast.success(t('profile.account.closeAccount.success'))
+      setShowCloseAccountModal(false)
+      setTimeout(() => { signOut(); navigate('/login') }, 2000)
+    } catch (err: any) {
+      toast.error(err.message || t('errors.generic'))
+    } finally {
+      setAccountLoading(false)
+    }
+  }
+
+  const handleDeleteAllData = async () => {
+    if (!deleteAllDataConfirm || !user) return
+    setAccountLoading(true)
+    setDeleteProgress([])
+    try {
+      setDeleteProgress(prev => [...prev, 'applications'])
+      await supabase.from('applications').delete().eq('agent_id', user.id)
+      setDeleteProgress(prev => [...prev, 'students'])
+      await supabase.from('students').delete().eq('agent_id', user.id)
+      setDeleteProgress(prev => [...prev, 'partners'])
+      await supabase.from('agent_partner_selections').delete().eq('agent_id', user.id)
+      setDeleteProgress(prev => [...prev, 'complete'])
+      await logSecurityEvent('data_deleted')
+      setShowDeleteAllDataModal(false)
+      setDeleteAllDataConfirm(false)
+      setAppCount(0)
+      setDeleteProgress([])
+      toast.success(t('profile.account.deleteAllData.success'))
+    } catch (err: any) {
+      toast.error(err.message || t('errors.generic'))
+    } finally {
+      setAccountLoading(false)
+    }
+  }
+
   const handleDeleteAccount = async () => {
     if (deleteConfirmText !== 'DELETE' || !user) return
-
     setAccountLoading(true)
-
     try {
+      // Clean up all user data
+      await supabase.from('user_devices').delete().eq('user_id', user.id)
+      await supabase.from('security_audit_log').delete().eq('user_id', user.id)
+      await supabase.from('user_security_settings').delete().eq('user_id', user.id)
       await supabase.from('applications').delete().eq('agent_id', user.id)
       await supabase.from('students').delete().eq('agent_id', user.id)
       await supabase.from('agent_partner_selections').delete().eq('agent_id', user.id)
@@ -399,24 +813,74 @@ export default function AgentProfilePage() {
       await supabase.from('team_members').delete().eq('agency_id', user.id)
       await supabase.from('profiles').delete().eq('id', user.id)
 
-      const { error } = await supabase.auth.admin.deleteUser(user.id)
-
-      if (error) {
-        console.error('Auth delete error:', error)
-      }
-
       setShowDeleteModal(false)
-      toast.success('Account deleted successfully')
-
-      setTimeout(() => {
-        signOut()
-        navigate('/login')
-      }, 1500)
+      toast.success(t('profile.account.deleteAccount.success'))
+      setTimeout(() => { signOut(); navigate('/login') }, 1500)
     } catch (err: any) {
       toast.error(err.message || t('errors.generic'))
     } finally {
       setAccountLoading(false)
     }
+  }
+
+  const handleExportData = async () => {
+    if (!user) return
+    setDataExporting(true)
+    try {
+      const [profileRes, appsRes, studentsRes, kycRes] = await Promise.all([
+        supabase.from('profiles').select('*').eq('id', user.id).maybeSingle(),
+        supabase.from('applications').select('*').eq('agent_id', user.id),
+        supabase.from('students').select('*').eq('agent_id', user.id),
+        supabase.from('agent_kyc').select('*').eq('agent_id', user.id).maybeSingle()
+      ])
+      const exportData = {
+        exported_at: new Date().toISOString(),
+        profile: profileRes.data,
+        applications: appsRes.data,
+        students: studentsRes.data,
+        kyc: kycRes.data
+      }
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url; a.download = `admission-desk-data-${new Date().toISOString().split('T')[0]}.json`
+      a.click(); URL.revokeObjectURL(url)
+      await logSecurityEvent('data_exported')
+      toast.success(t('profile.account.export.success'))
+    } catch (err: any) {
+      toast.error(err.message || t('errors.generic'))
+    } finally {
+      setDataExporting(false)
+    }
+  }
+
+  const handleEmailChange = async () => {
+    if (!newEmail) return
+    setEmailLoading(true)
+    try {
+      const { error } = await supabase.auth.updateUser({ email: newEmail })
+      if (error) throw error
+      await logSecurityEvent('email_changed', { new_email: newEmail })
+      toast.success(t('profile.account.overview.emailUpdateSuccess'))
+      setShowEmailChange(false)
+      setNewEmail('')
+    } catch (err: any) {
+      toast.error(err.message || t('errors.generic'))
+    } finally {
+      setEmailLoading(false)
+    }
+  }
+
+  const formatTimeAgo = (dateStr: string) => {
+    const diff = Date.now() - new Date(dateStr).getTime()
+    const mins = Math.floor(diff / 60000)
+    if (mins < 1) return 'Just now'
+    if (mins < 60) return `${mins}m ago`
+    const hours = Math.floor(mins / 60)
+    if (hours < 24) return `${hours}h ago`
+    const days = Math.floor(hours / 24)
+    if (days < 7) return `${days}d ago`
+    return new Date(dateStr).toLocaleDateString()
   }
 
   const kycStatus = (profile as any)?.kyc_status || 'pending'
@@ -1022,31 +1486,41 @@ export default function AgentProfilePage() {
           </div>
         )}
 
-        {/* Security Tab */}
+        {/* Security Tab — Enterprise */}
         {activeTab === 'security' && (
           <div className="fb-security-content">
+            {/* Security Score */}
+            <div className="fb-security-score">
+              <div className="fb-score-circle">
+                <svg width="64" height="64" viewBox="0 0 64 64">
+                  <circle className="fb-score-circle-bg" cx="32" cy="32" r="28" fill="none" strokeWidth="6" />
+                  <circle className="fb-score-circle-fill" cx="32" cy="32" r="28" fill="none" strokeWidth="6"
+                    stroke={getScoreLabel(securityScore).color}
+                    strokeDasharray={`${2 * Math.PI * 28}`}
+                    strokeDashoffset={`${2 * Math.PI * 28 * (1 - securityScore / 100)}`}
+                    strokeLinecap="round" />
+                </svg>
+                <div className="fb-score-value">{securityScore}</div>
+              </div>
+              <div className="fb-score-info">
+                <h4>{t('profile.security.securityScore')}: <span style={{ color: getScoreLabel(securityScore).color }}>{t(`profile.security.${getScoreLabel(securityScore).key}`)}</span></h4>
+                <p>{twoFactorEnabled ? t('profile.security.twoFactor.enabled') : t('profile.security.twoFactor.subtitle')}</p>
+              </div>
+            </div>
+
             <div className="fb-security-grid">
-              {/* Password Update */}
+              {/* Password Update — Enhanced */}
               <div className="fb-card fb-security-card">
                 <div className="fb-security-header">
-                  <div className="fb-security-icon" style={{ background: '#eff6ff', color: '#3b82f6' }}>
-                    <Lock size={24} />
-                  </div>
-                  <div>
-                    <h3>{t('profile.security.password.title')}</h3>
-                    <p>{t('profile.security.password.requirements')}</p>
-                  </div>
+                  <div className="fb-security-icon" style={{ background: '#eff6ff', color: '#3b82f6' }}><Lock size={24} /></div>
+                  <div><h3>{t('profile.security.password.title')}</h3><p>{t('profile.security.password.requirements')}</p></div>
                 </div>
                 <div className="fb-form-stack">
                   <div className="fb-form-group">
                     <label className="fb-form-label">{t('profile.security.password.current')}</label>
                     <div className="fb-password-input">
-                      <input
-                        className="fb-form-input"
-                        type={showPasswords.current ? 'text' : 'password'}
-                        value={passwordForm.currentPassword}
-                        onChange={e => setPasswordForm(p => ({...p, currentPassword: e.target.value}))}
-                      />
+                      <input className="fb-form-input" type={showPasswords.current ? 'text' : 'password'} value={passwordForm.currentPassword}
+                        onChange={e => setPasswordForm(p => ({...p, currentPassword: e.target.value}))} />
                       <button type="button" className="fb-password-toggle" onClick={() => setShowPasswords(p => ({...p, current: !p.current}))}>
                         {showPasswords.current ? <EyeOff size={16} /> : <Eye size={16} />}
                       </button>
@@ -1055,47 +1529,56 @@ export default function AgentProfilePage() {
                   <div className="fb-form-group">
                     <label className="fb-form-label">{t('profile.security.password.new')}</label>
                     <div className="fb-password-input">
-                      <input
-                        className="fb-form-input"
-                        type={showPasswords.new ? 'text' : 'password'}
-                        value={passwordForm.newPassword}
-                        onChange={e => setPasswordForm(p => ({...p, newPassword: e.target.value}))}
-                      />
+                      <input className="fb-form-input" type={showPasswords.new ? 'text' : 'password'} value={passwordForm.newPassword}
+                        onChange={e => setPasswordForm(p => ({...p, newPassword: e.target.value}))} />
                       <button type="button" className="fb-password-toggle" onClick={() => setShowPasswords(p => ({...p, new: !p.new}))}>
                         {showPasswords.new ? <EyeOff size={16} /> : <Eye size={16} />}
                       </button>
                     </div>
+                    {/* Password Strength Meter */}
+                    {passwordForm.newPassword && (
+                      <div className="fb-password-strength">
+                        <div className="fb-strength-bar-track">
+                          <div className="fb-strength-bar-fill" style={{ width: `${passwordStrength.percent}%`, background: passwordStrength.color }} />
+                        </div>
+                        <div className="fb-strength-label">
+                          <span>{t('profile.security.password.strength.label')}</span>
+                          <span style={{ color: passwordStrength.color }}>{t(`profile.security.password.strength.${passwordStrength.level}`)}</span>
+                        </div>
+                        <div className="fb-password-rules">
+                          {Object.entries(passwordStrength.rules).map(([key, met]) => (
+                            <div key={key} className={`fb-rule-item ${met ? 'met' : ''}`}>
+                              {met ? <Check size={12} /> : <X size={12} />}
+                              <span>{t(`profile.security.password.rules.${key}`)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <div className="fb-form-group">
                     <label className="fb-form-label">{t('profile.security.password.confirm')}</label>
                     <div className="fb-password-input">
-                      <input
-                        className="fb-form-input"
-                        type={showPasswords.confirm ? 'text' : 'password'}
-                        value={passwordForm.confirmPassword}
-                        onChange={e => setPasswordForm(p => ({...p, confirmPassword: e.target.value}))}
-                      />
+                      <input className="fb-form-input" type={showPasswords.confirm ? 'text' : 'password'} value={passwordForm.confirmPassword}
+                        onChange={e => setPasswordForm(p => ({...p, confirmPassword: e.target.value}))} />
                       <button type="button" className="fb-password-toggle" onClick={() => setShowPasswords(p => ({...p, confirm: !p.confirm}))}>
                         {showPasswords.confirm ? <EyeOff size={16} /> : <Eye size={16} />}
                       </button>
                     </div>
                   </div>
                 </div>
-                <button
-                  className="fb-btn fb-btn-primary"
-                  onClick={handlePasswordUpdate}
-                  disabled={passwordLoading || !passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword}
-                >
+                <button className="fb-btn fb-btn-primary" onClick={handlePasswordUpdate}
+                  disabled={passwordLoading || !passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword}>
                   {passwordLoading ? <span className="spinner" /> : <Lock size={16} />}
                   {t('profile.security.password.update')}
                 </button>
               </div>
 
-              {/* Two-Factor Authentication */}
+              {/* Two-Factor Authentication — Real TOTP */}
               <div className="fb-card fb-security-card">
                 <div className="fb-security-header">
                   <div className="fb-security-icon" style={{ background: twoFactorEnabled ? '#f0fdf4' : '#fef3c7', color: twoFactorEnabled ? '#10b981' : '#f59e0b' }}>
-                    <Smartphone size={24} />
+                    <ShieldCheck size={24} />
                   </div>
                   <div className="fb-security-info">
                     <h3>{t('profile.security.twoFactor.title')}</h3>
@@ -1106,94 +1589,359 @@ export default function AgentProfilePage() {
                   </div>
                 </div>
 
-                {!show2FASetup ? (
-                  <button
-                    className={`fb-btn ${twoFactorEnabled ? 'fb-btn-outline' : 'fb-btn-primary'}`}
-                    onClick={handle2FAToggle}
-                  >
-                    <Smartphone size={16} />
-                    {twoFactorEnabled ? t('profile.security.twoFactor.disable') : t('profile.security.twoFactor.enable')}
+                {!show2FASetup && !twoFactorEnabled && (
+                  <button className="fb-btn fb-btn-primary" onClick={handleStartMfaEnroll} disabled={mfaLoading}>
+                    {mfaLoading ? <span className="spinner" /> : <ShieldCheck size={16} />}
+                    {t('profile.security.twoFactor.enable')}
                   </button>
-                ) : (
-                  <div className="fb-2fa-setup">
-                    <div className="fb-qr-placeholder">
-                      <Shield size={48} />
-                      <p>{t('profile.security.twoFactor.scanQR')}</p>
+                )}
+
+                {!show2FASetup && twoFactorEnabled && (
+                  <button className="fb-btn fb-btn-outline" onClick={handleMfaDisable} disabled={mfaLoading} style={{ color: '#ef4444', borderColor: '#fecaca' }}>
+                    {mfaLoading ? <span className="spinner" /> : <ShieldAlert size={16} />}
+                    {t('profile.security.twoFactor.disable')}
+                  </button>
+                )}
+
+                {show2FASetup && (
+                  <div className="fb-2fa-wizard">
+                    {/* Step Indicator */}
+                    <div className="fb-2fa-step-indicator">
+                      {[1, 2, 3].map((step, i) => (
+                        <>
+                          <div key={step} className={`fb-2fa-step ${mfaStep === step ? 'active' : ''} ${mfaStep > step ? 'completed' : ''}`}>
+                            <div className="fb-2fa-step-num">{mfaStep > step ? <Check size={14} /> : step}</div>
+                            <span className="fb-2fa-step-label">{t(`profile.security.twoFactor.step${step}`)}</span>
+                          </div>
+                          {i < 2 && <div className={`fb-2fa-step-line ${mfaStep > step ? 'completed' : ''}`} />}
+                        </>
+                      ))}
                     </div>
-                    <div className="fb-backup-codes">
-                      <h4>{t('profile.security.twoFactor.backupCode')}</h4>
-                      <div className="fb-code-grid">
-                        {['ABCD', 'EFGH', 'IJKL', 'MNOP', 'QRST', 'UVWX'].map(code => (
-                          <span key={code} className="fb-backup-code">{code}</span>
-                        ))}
+
+                    {/* Step 1: QR Code */}
+                    {mfaStep === 1 && (
+                      <div className="fb-qr-section">
+                        <p style={{ fontSize: '0.85rem', color: '#65676b', textAlign: 'center', margin: 0 }}>
+                          {t('profile.security.twoFactor.scanInstructions')}
+                        </p>
+                        <div className="fb-qr-container">
+                          {mfaQrCode ? (
+                            <img src={mfaQrCode} alt="2FA QR Code" />
+                          ) : (
+                            <span className="spinner" />
+                          )}
+                        </div>
+                        {mfaSecret && (
+                          <div className="fb-manual-code">
+                            <span>{mfaSecret}</span>
+                            <button onClick={() => { navigator.clipboard.writeText(mfaSecret); toast.success(t('profile.security.twoFactor.copiedCode')) }}>
+                              <Copy size={14} />
+                            </button>
+                          </div>
+                        )}
+                        <button className="fb-btn fb-btn-primary" onClick={() => setMfaStep(2)}>
+                          {t('common.next')} →
+                        </button>
                       </div>
-                    </div>
-                    <div className="fb-btn-group">
-                      <button className="fb-btn fb-btn-outline" onClick={() => setShow2FASetup(false)}>
-                        {t('common.cancel')}
-                      </button>
-                      <button className="fb-btn fb-btn-primary" onClick={handle2FAConfirm}>
-                        {t('profile.security.twoFactor.confirm')}
-                      </button>
-                    </div>
+                    )}
+
+                    {/* Step 2: Verify Code */}
+                    {mfaStep === 2 && (
+                      <div style={{ textAlign: 'center' }}>
+                        <p style={{ fontSize: '0.85rem', color: '#65676b', margin: '0 0 0.5rem' }}>
+                          {t('profile.security.twoFactor.enterCodeDesc')}
+                        </p>
+                        <div className="fb-otp-group" onPaste={handleOtpPaste}>
+                          {mfaVerifyCode.map((digit, i) => (
+                            <input key={i} ref={el => { otpRefs.current[i] = el }}
+                              className="fb-otp-input" type="text" inputMode="numeric" maxLength={1} value={digit}
+                              onChange={e => handleOtpChange(i, e.target.value)}
+                              onKeyDown={e => handleOtpKeyDown(i, e)} />
+                          ))}
+                        </div>
+                        <div className="fb-btn-group" style={{ justifyContent: 'center', marginTop: '1rem' }}>
+                          <button className="fb-btn fb-btn-outline" onClick={() => setMfaStep(1)}>
+                            ← {t('common.back')}
+                          </button>
+                          <button className="fb-btn fb-btn-primary" onClick={handleMfaVerifyAndEnable}
+                            disabled={mfaVerifyCode.join('').length !== 6 || mfaLoading}>
+                            {mfaLoading ? <span className="spinner" /> : <ShieldCheck size={16} />}
+                            {t('profile.security.twoFactor.verify')}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Step 3: Done */}
+                    {mfaStep === 3 && (
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
+                          <CheckCircle2 size={32} style={{ color: '#10b981' }} />
+                        </div>
+                        <h4 style={{ margin: '0 0 0.5rem', color: '#1c1e21' }}>{t('profile.security.twoFactor.success')}</h4>
+                        <p style={{ fontSize: '0.85rem', color: '#65676b' }}>{t('profile.security.twoFactor.backupWarning')}</p>
+                        <button className="fb-btn fb-btn-primary" onClick={() => { setShow2FASetup(false); setMfaStep(1); setMfaVerifyCode(['', '', '', '', '', '']) }}>
+                          {t('common.done')}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
 
-              {/* Active Sessions */}
+              {/* Device Management */}
               <div className="fb-card fb-security-card">
                 <div className="fb-security-header">
-                  <div className="fb-security-icon" style={{ background: '#f0fdf4', color: '#10b981' }}>
-                    <Clock size={24} />
+                  <div className="fb-security-icon" style={{ background: '#f0fdf4', color: '#10b981' }}><Monitor size={24} /></div>
+                  <div style={{ flex: 1 }}>
+                    <h3>{t('profile.security.devices.title')}</h3>
+                    <p>{t('profile.security.devices.subtitle')}</p>
                   </div>
-                  <div>
-                    <h3>{t('profile.security.activeSessions.title')}</h3>
-                    <p>{t('profile.security.activeSessions.devices')}</p>
-                  </div>
+                  {devices.filter(d => !d.is_current).length > 0 && (
+                    <button className="fb-btn fb-btn-outline" style={{ fontSize: '0.75rem', padding: '0.35rem 0.75rem' }} onClick={handleRevokeAllDevices}>
+                      {t('profile.security.devices.revokeAll')}
+                    </button>
+                  )}
                 </div>
-                <div className="fb-session-list">
-                  <div className="fb-session-item">
-                    <div className="fb-session-device">
-                      <Smartphone size={16} />
-                      <span>Current Device</span>
+                <div className="fb-device-list">
+                  {devicesLoading ? (
+                    <div style={{ textAlign: 'center', padding: '2rem' }}><span className="spinner" /></div>
+                  ) : devices.length === 0 ? (
+                    <div className="fb-no-devices">
+                      <Monitor size={32} />
+                      <p>{t('profile.security.devices.noDevices')}</p>
                     </div>
-                    <span className="fb-session-badge">{t('profile.security.activeSessions.current')}</span>
+                  ) : (
+                    devices.map(device => (
+                      <div key={device.id} className={`fb-device-card ${device.is_current ? 'current' : ''}`}>
+                        <div className="fb-device-icon" style={{ background: device.is_current ? '#f0fdf4' : '#f8fafc', color: device.is_current ? '#10b981' : '#65676b' }}>
+                          {getDeviceIcon(device.device_type)}
+                        </div>
+                        <div className="fb-device-info">
+                          <div className="fb-device-name">
+                            {device.device_name || t(`profile.security.devices.${device.device_type}`)}
+                            {device.is_current && <span className="fb-current-badge">{t('profile.security.devices.currentDevice')}</span>}
+                            {device.is_trusted && <span className="fb-trusted-badge">{t('profile.security.devices.trusted')}</span>}
+                          </div>
+                          <div className="fb-device-details">
+                            {device.browser && <span className="fb-device-detail">{device.browser}</span>}
+                            {device.browser && device.os && <span className="fb-device-detail-sep" />}
+                            {device.os && <span className="fb-device-detail">{device.os}</span>}
+                            <span className="fb-device-detail-sep" />
+                            <span className="fb-device-detail"><Clock size={10} /> {formatTimeAgo(device.last_active_at)}</span>
+                          </div>
+                        </div>
+                        {!device.is_current && (
+                          <div className="fb-device-actions">
+                            <button className="fb-device-btn fb-device-btn-trust" onClick={() => handleToggleTrust(device.id, device.is_trusted)}>
+                              <Shield size={12} />
+                              {device.is_trusted ? t('profile.security.devices.untrustDevice') : t('profile.security.devices.trustDevice')}
+                            </button>
+                            <button className="fb-device-btn fb-device-btn-revoke" onClick={() => handleRevokeDevice(device.id)}>
+                              <X size={12} />
+                              {t('profile.security.devices.revoke')}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Security Settings */}
+              <div className="fb-card fb-security-card">
+                <div className="fb-security-header">
+                  <div className="fb-security-icon" style={{ background: '#fffbeb', color: '#f59e0b' }}><Shield size={24} /></div>
+                  <div><h3>{t('profile.security.settings.title')}</h3><p>{t('profile.security.settings.subtitle')}</p></div>
+                </div>
+                <div className="fb-security-settings-list">
+                  <div className="fb-setting-row">
+                    <div className="fb-setting-info">
+                      <h4>{t('profile.security.settings.loginNotifications')}</h4>
+                      <p>{t('profile.security.settings.loginNotificationsDesc')}</p>
+                    </div>
+                    <label className="fb-toggle">
+                      <input type="checkbox" checked={securitySettings.login_notifications}
+                        onChange={e => handleSecuritySettingChange('login_notifications', e.target.checked)} />
+                      <span className="fb-toggle-slider" />
+                    </label>
+                  </div>
+                  <div className="fb-setting-row">
+                    <div className="fb-setting-info">
+                      <h4>{t('profile.security.settings.newDeviceAlerts')}</h4>
+                      <p>{t('profile.security.settings.newDeviceAlertsDesc')}</p>
+                    </div>
+                    <label className="fb-toggle">
+                      <input type="checkbox" checked={securitySettings.new_device_alerts}
+                        onChange={e => handleSecuritySettingChange('new_device_alerts', e.target.checked)} />
+                      <span className="fb-toggle-slider" />
+                    </label>
+                  </div>
+                  <div className="fb-setting-row">
+                    <div className="fb-setting-info">
+                      <h4>{t('profile.security.settings.sessionTimeout')}</h4>
+                      <p>{t('profile.security.settings.sessionTimeoutDesc')}</p>
+                    </div>
+                    <select className="fb-select-mini" value={securitySettings.session_timeout_minutes}
+                      onChange={e => handleSecuritySettingChange('session_timeout_minutes', parseInt(e.target.value))}>
+                      <option value={60}>{t('profile.security.settings.timeoutOptions.1h')}</option>
+                      <option value={360}>{t('profile.security.settings.timeoutOptions.6h')}</option>
+                      <option value={720}>{t('profile.security.settings.timeoutOptions.12h')}</option>
+                      <option value={1440}>{t('profile.security.settings.timeoutOptions.24h')}</option>
+                      <option value={10080}>{t('profile.security.settings.timeoutOptions.7d')}</option>
+                    </select>
+                  </div>
+                  <div className="fb-setting-row">
+                    <div className="fb-setting-info">
+                      <h4>{t('profile.security.settings.require2fa')}</h4>
+                      <p>{t('profile.security.settings.require2faDesc')}</p>
+                    </div>
+                    <label className="fb-toggle">
+                      <input type="checkbox" checked={securitySettings.require_2fa_for_sensitive}
+                        onChange={e => handleSecuritySettingChange('require_2fa_for_sensitive', e.target.checked)} />
+                      <span className="fb-toggle-slider" />
+                    </label>
                   </div>
                 </div>
+              </div>
+
+              {/* Security Audit Log */}
+              <div className="fb-card fb-security-card">
+                <div className="fb-security-header">
+                  <div className="fb-security-icon" style={{ background: '#f0f2f5', color: '#65676b' }}><Activity size={24} /></div>
+                  <div><h3>{t('profile.security.auditLog.title')}</h3><p>{t('profile.security.auditLog.subtitle')}</p></div>
+                </div>
+                <div className="fb-audit-timeline">
+                  {auditLogLoading ? (
+                    <div style={{ textAlign: 'center', padding: '2rem' }}><span className="spinner" /></div>
+                  ) : auditLog.length === 0 ? (
+                    <div className="fb-no-devices">
+                      <Activity size={32} />
+                      <p>{t('profile.security.auditLog.noEvents')}</p>
+                    </div>
+                  ) : (
+                    auditLog.map(event => {
+                      const style = getAuditIcon(event.action)
+                      return (
+                        <div key={event.id} className="fb-audit-item">
+                          <div className="fb-audit-icon" style={{ background: style.bg, color: style.color }}>
+                            <style.Icon size={16} />
+                          </div>
+                          <div className="fb-audit-content">
+                            <div className="fb-audit-action">
+                              {t(`profile.security.auditLog.actions.${event.action}`) || event.action}
+                            </div>
+                            <div className="fb-audit-meta">
+                              {event.device_info && <span>{event.device_info}</span>}
+                              {event.device_info && <span className="fb-audit-meta-sep" />}
+                              <span>{formatTimeAgo(event.created_at)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
+                {auditLog.length >= auditLogLimit && (
+                  <button className="fb-btn fb-btn-outline" style={{ marginTop: '0.75rem', width: '100%' }}
+                    onClick={() => { setAuditLogLimit(l => l + 10); fetchAuditLog() }}>
+                    {t('profile.security.auditLog.loadMore')}
+                  </button>
+                )}
               </div>
             </div>
           </div>
         )}
 
-        {/* Account Tab */}
+        {/* Account Tab — Enhanced */}
         {activeTab === 'account' && (
           <div className="fb-account-content">
+            {/* Account Overview */}
+            <div className="fb-card" style={{ marginBottom: '1rem' }}>
+              <div className="fb-security-header">
+                <div className="fb-security-icon" style={{ background: '#eff6ff', color: '#3b82f6' }}><UserIcon size={24} /></div>
+                <div><h3>{t('profile.account.overview.title')}</h3></div>
+              </div>
+              <div className="fb-account-overview">
+                <div className="fb-account-overview-item">
+                  <label>{t('profile.account.overview.accountId')}</label>
+                  <span>{user?.id?.slice(0, 8)}...</span>
+                </div>
+                <div className="fb-account-overview-item">
+                  <label>{t('profile.account.overview.email')}</label>
+                  <span>{user?.email}</span>
+                </div>
+                <div className="fb-account-overview-item">
+                  <label>{t('profile.account.overview.memberSince')}</label>
+                  <span>{user?.created_at ? new Date(user.created_at).toLocaleDateString() : '—'}</span>
+                </div>
+                <div className="fb-account-overview-item">
+                  <label>{t('profile.account.overview.accountStatus')}</label>
+                  <span className="fb-status-active">{t('profile.account.overview.statusActive')}</span>
+                </div>
+              </div>
+              {/* Email change */}
+              {!showEmailChange ? (
+                <button className="fb-btn fb-btn-outline" style={{ fontSize: '0.8rem' }} onClick={() => setShowEmailChange(true)}>
+                  <Mail size={14} /> {t('profile.account.overview.changeEmail')}
+                </button>
+              ) : (
+                <div className="fb-email-change">
+                  <input className="fb-form-input" type="email" value={newEmail} placeholder={t('profile.account.overview.newEmail')}
+                    onChange={e => setNewEmail(e.target.value)} />
+                  <button className="fb-btn fb-btn-primary" onClick={handleEmailChange} disabled={!newEmail || emailLoading} style={{ whiteSpace: 'nowrap' }}>
+                    {emailLoading ? <span className="spinner" /> : t('profile.account.overview.updateEmail')}
+                  </button>
+                  <button className="fb-btn fb-btn-outline" onClick={() => { setShowEmailChange(false); setNewEmail('') }}>
+                    <X size={14} />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Export Data */}
+            <div className="fb-card fb-export-card" style={{ marginBottom: '1rem', borderRadius: '12px' }}>
+              <div className="fb-account-icon" style={{ background: '#eff6ff', color: '#3b82f6' }}>
+                <Download size={24} />
+              </div>
+              <div className="fb-account-info" style={{ flex: 1 }}>
+                <h3>{t('profile.account.export.title')}</h3>
+                <p>{t('profile.account.export.description')}</p>
+              </div>
+              <button className="fb-btn fb-btn-outline" onClick={handleExportData} disabled={dataExporting}>
+                {dataExporting ? <span className="spinner" /> : <Download size={16} />}
+                {dataExporting ? t('profile.account.export.downloading') : t('profile.account.export.button')}
+              </button>
+            </div>
+
+            {/* Danger Zone */}
             <div className="fb-danger-zone">
               <h2 className="fb-danger-title">
                 <AlertTriangle size={20} />
                 {t('profile.account.dangerZone')}
               </h2>
-
               <div className="fb-account-cards">
                 {/* Logout */}
                 <div className="fb-card fb-account-card">
-                  <div className="fb-account-icon" style={{ background: '#eff6ff', color: '#3b82f6' }}>
-                    <LogOut size={24} />
-                  </div>
+                  <div className="fb-account-icon" style={{ background: '#eff6ff', color: '#3b82f6' }}><LogOut size={24} /></div>
                   <div className="fb-account-info">
                     <h3>{t('profile.account.logout.title')}</h3>
                     <p>{t('profile.account.logout.description')}</p>
                   </div>
-                  <button className="fb-btn fb-btn-outline" onClick={() => setShowLogoutModal(true)}>
-                    {t('profile.account.logout.button')}
-                  </button>
+                  <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
+                    <button className="fb-btn fb-btn-outline" onClick={() => setShowLogoutModal(true)}>
+                      {t('profile.account.logout.button')}
+                    </button>
+                    <button className="fb-btn fb-btn-outline" onClick={() => setShowLogoutAllModal(true)} style={{ fontSize: '0.75rem' }}>
+                      {t('profile.account.logout.allDevices')}
+                    </button>
+                  </div>
                 </div>
 
                 {/* Delete All Data */}
                 <div className="fb-card fb-account-card fb-warning">
-                  <div className="fb-account-icon" style={{ background: '#fffbeb', color: '#f59e0b' }}>
-                    <Trash2 size={24} />
-                  </div>
+                  <div className="fb-account-icon" style={{ background: '#fffbeb', color: '#f59e0b' }}><Trash2 size={24} /></div>
                   <div className="fb-account-info">
                     <h3>{t('profile.account.deleteAllData.title')}</h3>
                     <p>{t('profile.account.deleteAllData.description')}</p>
@@ -1203,25 +1951,21 @@ export default function AgentProfilePage() {
                   </button>
                 </div>
 
-                {/* Close Account */}
+                {/* Deactivate Account */}
                 <div className="fb-card fb-account-card fb-warning">
-                  <div className="fb-account-icon" style={{ background: '#fef2f2', color: '#ef4444' }}>
-                    <X size={24} />
-                  </div>
+                  <div className="fb-account-icon" style={{ background: '#fef2f2', color: '#ef4444' }}><UserX size={24} /></div>
                   <div className="fb-account-info">
                     <h3>{t('profile.account.closeAccount.title')}</h3>
                     <p>{t('profile.account.closeAccount.description')}</p>
                   </div>
-                  <button className="fb-btn fb-btn-danger-outline">
+                  <button className="fb-btn fb-btn-danger-outline" onClick={() => setShowCloseAccountModal(true)}>
                     {t('profile.account.closeAccount.button')}
                   </button>
                 </div>
 
                 {/* Delete Account */}
                 <div className="fb-card fb-account-card fb-danger">
-                  <div className="fb-account-icon" style={{ background: '#fef2f2', color: '#ef4444' }}>
-                    <Trash2 size={24} />
-                  </div>
+                  <div className="fb-account-icon" style={{ background: '#fef2f2', color: '#ef4444' }}><Trash2 size={24} /></div>
                   <div className="fb-account-info">
                     <h3>{t('profile.account.deleteAccount.title')}</h3>
                     <p>{t('profile.account.deleteAccount.description')}</p>
@@ -1236,21 +1980,52 @@ export default function AgentProfilePage() {
         )}
       </div>
 
-      {/* Modals */}
+      {/* ═══ MODALS ═══ */}
       {showLogoutModal && (
         <div className="fb-modal-overlay" onClick={() => setShowLogoutModal(false)}>
           <div className="fb-modal" onClick={e => e.stopPropagation()}>
-            <div className="fb-modal-header">
-              <LogOut size={24} style={{ color: '#3b82f6' }} />
-              <h3>{t('profile.account.logout.confirmTitle')}</h3>
-            </div>
+            <div className="fb-modal-header"><LogOut size={24} style={{ color: '#3b82f6' }} /><h3>{t('profile.account.logout.confirmTitle')}</h3></div>
             <p className="fb-modal-message">{t('profile.account.logout.confirmMessage')}</p>
             <div className="fb-modal-actions">
-              <button className="fb-btn fb-btn-outline" onClick={() => setShowLogoutModal(false)}>
-                {t('common.cancel')}
+              <button className="fb-btn fb-btn-outline" onClick={() => setShowLogoutModal(false)}>{t('common.cancel')}</button>
+              <button className="fb-btn fb-btn-primary" onClick={handleLogout}>{t('profile.account.logout.button')}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showLogoutAllModal && (
+        <div className="fb-modal-overlay" onClick={() => setShowLogoutAllModal(false)}>
+          <div className="fb-modal" onClick={e => e.stopPropagation()}>
+            <div className="fb-modal-header"><LogOut size={24} style={{ color: '#ef4444' }} /><h3>{t('profile.account.logout.allDevices')}</h3></div>
+            <p className="fb-modal-message">{t('profile.account.logout.allDevicesConfirm')}</p>
+            <div className="fb-modal-actions">
+              <button className="fb-btn fb-btn-outline" onClick={() => setShowLogoutAllModal(false)}>{t('common.cancel')}</button>
+              <button className="fb-btn fb-btn-danger" onClick={handleLogoutAll} disabled={accountLoading}>
+                {accountLoading ? <span className="spinner" /> : <LogOut size={16} />}
+                {t('profile.account.logout.allDevices')}
               </button>
-              <button className="fb-btn fb-btn-primary" onClick={handleLogout}>
-                {t('profile.account.logout.button')}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCloseAccountModal && (
+        <div className="fb-modal-overlay" onClick={() => setShowCloseAccountModal(false)}>
+          <div className="fb-modal fb-modal-warning" onClick={e => e.stopPropagation()}>
+            <div className="fb-modal-header"><UserX size={24} style={{ color: '#ef4444' }} /><h3>{t('profile.account.closeAccount.confirmTitle')}</h3></div>
+            <p className="fb-modal-message">{t('profile.account.closeAccount.confirmMessage')}</p>
+            <div className="fb-reactivate-info">
+              <Info size={16} style={{ flexShrink: 0 }} />
+              <span>{t('profile.account.closeAccount.reactivateInfo')}</span>
+            </div>
+            <textarea className="fb-deactivate-reason" value={closeAccountReason} onChange={e => setCloseAccountReason(e.target.value)}
+              placeholder={t('profile.account.closeAccount.reasonPlaceholder')} />
+            <div className="fb-modal-actions">
+              <button className="fb-btn fb-btn-outline" onClick={() => setShowCloseAccountModal(false)}>{t('common.cancel')}</button>
+              <button className="fb-btn fb-btn-danger" onClick={handleCloseAccount} disabled={accountLoading}>
+                {accountLoading ? <span className="spinner" /> : <UserX size={16} />}
+                {t('profile.account.closeAccount.button')}
               </button>
             </div>
           </div>
@@ -1260,19 +2035,24 @@ export default function AgentProfilePage() {
       {showDeleteAllDataModal && (
         <div className="fb-modal-overlay" onClick={() => setShowDeleteAllDataModal(false)}>
           <div className="fb-modal fb-modal-warning" onClick={e => e.stopPropagation()}>
-            <div className="fb-modal-header">
-              <AlertTriangle size={24} style={{ color: '#f59e0b' }} />
-              <h3>{t('profile.account.deleteAllData.confirmTitle')}</h3>
-            </div>
+            <div className="fb-modal-header"><AlertTriangle size={24} style={{ color: '#f59e0b' }} /><h3>{t('profile.account.deleteAllData.confirmTitle')}</h3></div>
             <p className="fb-modal-message">{t('profile.account.deleteAllData.confirmMessage')}</p>
+            {deleteProgress.length > 0 && (
+              <div className="fb-delete-progress">
+                {['applications', 'students', 'partners', 'complete'].map(step => (
+                  <div key={step} className={`fb-delete-progress-item ${deleteProgress.includes(step) ? (step === deleteProgress[deleteProgress.length - 1] ? 'active' : 'done') : ''}`}>
+                    {deleteProgress.includes(step) ? (step === 'complete' ? <CheckCircle2 size={14} /> : <RefreshCw size={14} className="spinner" />) : <span style={{ width: 14 }} />}
+                    {t(`profile.account.deleteAllData.progress.${step}`)}
+                  </div>
+                ))}
+              </div>
+            )}
             <label className="fb-checkbox-confirm">
               <input type="checkbox" checked={deleteAllDataConfirm} onChange={e => setDeleteAllDataConfirm(e.target.checked)} />
               <span>{t('profile.account.deleteAllData.title')}</span>
             </label>
             <div className="fb-modal-actions">
-              <button className="fb-btn fb-btn-outline" onClick={() => { setShowDeleteAllDataModal(false); setDeleteAllDataConfirm(false) }}>
-                {t('common.cancel')}
-              </button>
+              <button className="fb-btn fb-btn-outline" onClick={() => { setShowDeleteAllDataModal(false); setDeleteAllDataConfirm(false); setDeleteProgress([]) }}>{t('common.cancel')}</button>
               <button className="fb-btn fb-btn-warning" onClick={handleDeleteAllData} disabled={!deleteAllDataConfirm || accountLoading}>
                 {accountLoading ? <span className="spinner" /> : <Trash2 size={16} />}
                 {t('profile.account.deleteAllData.button')}
@@ -1285,25 +2065,16 @@ export default function AgentProfilePage() {
       {showDeleteModal && (
         <div className="fb-modal-overlay" onClick={() => setShowDeleteModal(false)}>
           <div className="fb-modal fb-modal-danger" onClick={e => e.stopPropagation()}>
-            <div className="fb-modal-header">
-              <AlertTriangle size={24} style={{ color: '#ef4444' }} />
-              <h3>{t('profile.account.deleteAccount.confirmTitle')}</h3>
-            </div>
+            <div className="fb-modal-header"><AlertTriangle size={24} style={{ color: '#ef4444' }} /><h3>{t('profile.account.deleteAccount.confirmTitle')}</h3></div>
             <p className="fb-modal-message">{t('profile.account.deleteAccount.confirmMessage')}</p>
             <div className="fb-form-group">
               <label className="fb-form-label">{t('profile.account.deleteAccount.finalWarning')}</label>
-              <input
-                className="fb-form-input"
-                type="text"
-                value={deleteConfirmText}
+              <input className="fb-form-input" type="text" value={deleteConfirmText}
                 onChange={e => setDeleteConfirmText(e.target.value)}
-                placeholder={t('profile.account.deleteAccount.placeholder')}
-              />
+                placeholder={t('profile.account.deleteAccount.placeholder')} />
             </div>
             <div className="fb-modal-actions">
-              <button className="fb-btn fb-btn-outline" onClick={() => { setShowDeleteModal(false); setDeleteConfirmText('') }}>
-                {t('common.cancel')}
-              </button>
+              <button className="fb-btn fb-btn-outline" onClick={() => { setShowDeleteModal(false); setDeleteConfirmText('') }}>{t('common.cancel')}</button>
               <button className="fb-btn fb-btn-danger" onClick={handleDeleteAccount} disabled={deleteConfirmText !== 'DELETE' || accountLoading}>
                 {accountLoading ? <span className="spinner" /> : <Trash2 size={16} />}
                 {t('profile.account.deleteAccount.button')}

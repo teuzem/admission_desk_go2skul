@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Users, FileText, Bell, GraduationCap, CheckCircle2, XCircle, Clock, BarChart3, Plus, Pencil, Trash2, Eye, AlertCircle, X, Shield, BookOpen, UserCheck, Calendar, Newspaper, BookMarked, Image, Package, ArrowUpRight, UserPlus, ShieldCheck, ToggleLeft, ToggleRight, Mail, UserCog, ChevronDown, Search, Filter } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { usePageRefetch } from '../../lib/useRealtimeRecovery'
 import { uploadNewsImage, uploadBlogFeaturedImage, uploadAnnImage } from '../../lib/storageHelpers'
 import { useAuth } from '../../contexts/AuthContext'
 import toast from 'react-hot-toast'
@@ -144,10 +145,25 @@ export default function AdminDashboard() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'partner_activation_requests' }, fetchNewData)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'pending_submissions' }, fetchNewData)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'admin_user_invites' }, fetchAdminUsers)
-      .subscribe()
+      .subscribe((status) => {
+        if (status === 'TIMED_OUT' || status === 'CHANNEL_ERROR') {
+          console.warn('[AdminDashboard] channel error:', status)
+        }
+      })
+
+    // Re-sync on visibility change (tab focus return)
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        fetchAll()
+        fetchNewData()
+        if (isSuperAdmin) fetchAdminUsers()
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
 
     return () => {
       supabase.removeChannel(channel)
+      document.removeEventListener('visibilitychange', handleVisibility)
     }
   }, [fetchAll, fetchNewData])
 
