@@ -1,7 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef, ReactNode } from 'react'
 import { User, Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
-import { useRealtimeRecovery } from '../lib/useRealtimeRecovery'
 import type { Database, UserRole, KycStatus } from '../types/database'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
@@ -33,11 +32,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<ExtendedProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const initializedRef = useRef(false)
+  const profileFetchedForRef = useRef<string | null>(null)
 
-  // Global realtime connection recovery
-  const { connectionHealthy } = useRealtimeRecovery()
-
-  const fetchProfile = async (sessionUser: User): Promise<ExtendedProfile | null> => {
+  const fetchProfile = useCallback(async (sessionUser: User): Promise<ExtendedProfile | null> => {
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -107,32 +104,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error('[Auth] Profile fetch failed:', err)
       return null
     }
-  }
+  }, [])
 
   const refreshProfile = useCallback(async () => {
     if (user) {
       const p = await fetchProfile(user)
       setProfile(p)
     }
-  }, [user])
+  }, [user, fetchProfile])
 
-  // ── Initialize auth state ONCE ──
+  // ── Initialize auth state ──
   useEffect(() => {
     if (initializedRef.current) return
     initializedRef.current = true
 
-    // CRITICAL: Hard safety timeout — never let loading stay true for more than 6s
+    // Hard safety timeout
     const safetyTimer = setTimeout(() => {
       setLoading(prev => {
         if (prev) console.warn('[Auth] Safety timeout – forcing loading=false')
         return false
       })
-    }, 6000)
+    }, 8000)
 
+    // Single getSession call on app startup
     supabase.auth.getSession().then(async ({ data: { session: s } }) => {
       setSession(s)
       setUser(s?.user ?? null)
       if (s?.user) {
+        profileFetchedForRef.current = s.user.id
         const p = await fetchProfile(s.user)
         setProfile(p)
       }
@@ -144,17 +143,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false)
     })
 
-    // Listen for auth state changes (sign-in, sign-out, token refresh)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, s) => {
-      // NEVER set loading=true here — it blocks the entire app.
-      // The user sees stale data for a moment while profile refreshes silently.
+    // ── Auth state change listener ──
+    // CRITICAL: Keep this callback SYNCHRONOUS. 
+    // Only set React state here — do NOT call any async Supabase methods
+    // (getSession, getUser, etc.) because that causes Web Locks deadlocks.
+    // Profile fetching is triggered by the `user` state change via a separate useEffect.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
       setSession(s)
       setUser(s?.user ?? null)
-      if (s?.user) {
-        const p = await fetchProfile(s.user)
-        setProfile(p)
-      } else {
+      if (!s?.user) {
         setProfile(null)
+        profileFetchedForRef.current = null
       }
     })
 
@@ -162,66 +161,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       subscription.unsubscribe()
       clearTimeout(safetyTimer)
     }
-  }, [])
+  }, [fetchProfile])
 
-  // ── Visibility change handler — background refresh, NO loading state ──
+  // ── Separate effect to fetch profile when user changes ──
+  // This runs OUTSIDE the onAuthStateChange callback to avoid lock contention
   useEffect(() => {
-    let refreshing = false
+    if (!user) return
+    // Don't re-fetch if we already have the profile for this user
+    if (profileFetchedForRef.current === user.id && profile) return
     
-    const handleVisibilityChange = async () => {
-      if (document.visibilityState !== 'visible' || refreshing) return
-      refreshing = true
-      
-      try {
-        const { data: { session: freshSession } } = await supabase.auth.getSession()
-        if (freshSession?.user) {
-          setSession(freshSession)
-          setUser(freshSession.user)
-          // Silently refresh profile in background
-          const p = await fetchProfile(freshSession.user)
-          if (p) setProfile(p)
-        } else if (!freshSession) {
-          // Session truly expired
-          setSession(null)
-          setUser(null)
-          setProfile(null)
-        }
-      } catch (err) {
-        console.error('[Auth] Visibility refresh failed:', err)
-        // KEEP existing data — don't clear user/profile on temporary errors
-      }
-      refreshing = false
-    }
-
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
-  }, [])
-
-  // ── Network reconnect handler ──
-  useEffect(() => {
-    const handleOnline = async () => {
-      try {
-        const { data: { session: freshSession } } = await supabase.auth.getSession()
-        if (freshSession?.user) {
-          setSession(freshSession)
-          setUser(freshSession.user)
-          const p = await fetchProfile(freshSession.user)
-          if (p) setProfile(p)
-        }
-      } catch (err) {
-        console.error('[Auth] Online refresh failed:', err)
-      }
-    }
-
-    window.addEventListener('online', handleOnline)
-    return () => window.removeEventListener('online', handleOnline)
-  }, [])
+    profileFetchedForRef.current = user.id
+    fetchProfile(user).then(p => {
+      if (p) setProfile(p)
+    })
+  }, [user, fetchProfile])
 
   const signIn = async (email: string, password: string) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (data?.session) {
       setSession(data.session)
       setUser(data.session.user)
+      profileFetchedForRef.current = data.session.user.id
       const p = await fetchProfile(data.session.user)
       setProfile(p)
     }
@@ -240,8 +200,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const signOut = async () => {
-    await supabase.auth.signOut()
+    try {
+      await supabase.auth.signOut()
+    } catch (err) {
+      console.error('[Auth] signOut error:', err)
+    }
+    setSession(null)
+    setUser(null)
     setProfile(null)
+    profileFetchedForRef.current = null
   }
 
   const isAdmin = profile?.role === 'admin'

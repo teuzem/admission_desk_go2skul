@@ -1,21 +1,17 @@
 /**
  * useRealtimeRecovery – Global Realtime Connection Recovery Hook
  * 
- * Provides a centralized mechanism to detect and recover from realtime 
- * connection failures in production. Handles:
- * - Tab visibility changes (user leaves and returns)
- * - Network online/offline transitions
- * - Periodic connection health checks
- * - Force refetch signal for all subscribed components
+ * IMPORTANT: This hook does NOT call supabase.auth.getSession() to avoid
+ * the Web Locks API deadlock. Auth is managed solely by AuthContext.
+ * This hook only handles:
+ * - Reconnecting dead realtime channels
+ * - Triggering data refetches on visibility change / network reconnect
  */
 import { useEffect, useRef, useCallback, useState } from 'react'
 import { supabase } from './supabase'
 
 /** How often to check channel health (in ms) */
-const HEALTH_CHECK_INTERVAL = 45_000 // 45 seconds
-
-/** How long after visibility change to force a full reconnect (in ms) */
-const VISIBILITY_RECONNECT_DELAY = 300
+const HEALTH_CHECK_INTERVAL = 45_000
 
 /** Minimum time tab must be hidden before full reconnect (30s) */
 const MIN_HIDDEN_FOR_RECONNECT = 30_000
@@ -43,20 +39,16 @@ function triggerGlobalRefetch() {
 }
 
 /**
- * Reconnect all active Supabase Realtime channels.
- * This forces channels to re-establish their WebSocket subscriptions.
+ * Reconnect any dead Supabase Realtime channels.
  */
-async function reconnectAllChannels() {
+function reconnectDeadChannels() {
   try {
     const channels = supabase.getChannels()
     if (channels.length === 0) return
 
-    console.log(`[RealtimeRecovery] Checking ${channels.length} channels...`)
-
     for (const channel of channels) {
-      const state = channel.state
-      if (state === 'closed' || state === 'errored') {
-        console.log(`[RealtimeRecovery] Resubscribing channel in state: ${state}`)
+      if (channel.state === 'closed' || channel.state === 'errored') {
+        console.log(`[RealtimeRecovery] Resubscribing dead channel (state: ${channel.state})`)
         try {
           channel.subscribe((status) => {
             if (status === 'TIMED_OUT' || status === 'CHANNEL_ERROR') {
@@ -75,50 +67,25 @@ async function reconnectAllChannels() {
 
 /**
  * useRealtimeRecovery – Call this once at the app level (e.g., in AuthProvider)
- * to enable global realtime connection recovery.
  */
 export function useRealtimeRecovery() {
   const [connectionHealthy, setConnectionHealthy] = useState(true)
   const lastVisibleRef = useRef(Date.now())
-  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const healthCheckRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const isRecoveringRef = useRef(false)
 
-  // Handle tab visibility changes
+  // Handle tab visibility changes — NO auth calls, just channel+data recovery
   const handleVisibilityChange = useCallback(() => {
     if (document.visibilityState === 'visible') {
       const timeSinceHidden = Date.now() - lastVisibleRef.current
 
       if (timeSinceHidden > MIN_HIDDEN_FOR_RECONNECT) {
-        // Tab was hidden for a significant time – full recovery
-        if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current)
-        if (isRecoveringRef.current) return // Prevent overlapping recoveries
-
-        isRecoveringRef.current = true
-        reconnectTimerRef.current = setTimeout(async () => {
-          try {
-            console.log('[RealtimeRecovery] Tab returned after', Math.round(timeSinceHidden / 1000), 's – recovering...')
-
-            // 1. Refresh the auth token so channels re-auth
-            try {
-              await supabase.auth.getSession()
-            } catch (e) {
-              console.warn('[RealtimeRecovery] Token refresh failed:', e)
-            }
-
-            // 2. Reconnect any dead channels
-            await reconnectAllChannels()
-
-            // 3. Tell all pages to refetch their data
-            triggerGlobalRefetch()
-
-            setConnectionHealthy(true)
-          } finally {
-            isRecoveringRef.current = false
-          }
-        }, VISIBILITY_RECONNECT_DELAY)
+        console.log('[RealtimeRecovery] Tab returned after', Math.round(timeSinceHidden / 1000), 's')
+        // Reconnect dead channels and refetch data
+        reconnectDeadChannels()
+        triggerGlobalRefetch()
+        setConnectionHealthy(true)
       } else {
-        // Short absence, just trigger a data refetch without reconnecting channels
+        // Short absence — just refetch data
         triggerGlobalRefetch()
       }
 
@@ -128,22 +95,11 @@ export function useRealtimeRecovery() {
     }
   }, [])
 
-  // Handle network online/offline
-  const handleOnline = useCallback(async () => {
-    console.log('[RealtimeRecovery] Network came online – recovering...')
+  // Handle network online — NO auth calls
+  const handleOnline = useCallback(() => {
+    console.log('[RealtimeRecovery] Network came online')
     setConnectionHealthy(true)
-
-    // Refresh auth token
-    try {
-      await supabase.auth.getSession()
-    } catch (e) {
-      console.warn('[RealtimeRecovery] Online token refresh failed:', e)
-    }
-
-    // Reconnect channels
-    await reconnectAllChannels()
-
-    // Refetch all data
+    reconnectDeadChannels()
     triggerGlobalRefetch()
   }, [])
 
@@ -152,47 +108,35 @@ export function useRealtimeRecovery() {
     setConnectionHealthy(false)
   }, [])
 
-  // Periodic health check
+  // Periodic health check — only reconnect dead channels, no auth calls
   const performHealthCheck = useCallback(() => {
-    // Skip health check if tab is hidden
     if (document.visibilityState !== 'visible') return
     
     const channels = supabase.getChannels()
-    if (channels.length === 0) {
-      setConnectionHealthy(true)
-      return
-    }
+    if (channels.length === 0) return
 
-    const hasErroredChannels = channels.some(ch => ch.state === 'errored' || ch.state === 'closed')
+    const hasDeadChannels = channels.some(ch => ch.state === 'errored' || ch.state === 'closed')
     
-    if (hasErroredChannels) {
-      console.log('[RealtimeRecovery] Health check found errored channels – recovering...')
+    if (hasDeadChannels) {
+      console.log('[RealtimeRecovery] Health check found dead channels')
       setConnectionHealthy(false)
-      // Attempt recovery
-      reconnectAllChannels().then(() => {
-        triggerGlobalRefetch()
-        setConnectionHealthy(true)
-      })
-    } else {
+      reconnectDeadChannels()
+      triggerGlobalRefetch()
       setConnectionHealthy(true)
     }
   }, [])
 
   useEffect(() => {
-    // Register event listeners
     document.addEventListener('visibilitychange', handleVisibilityChange)
     window.addEventListener('online', handleOnline)
     window.addEventListener('offline', handleOffline)
 
-    // Start periodic health check
     healthCheckRef.current = setInterval(performHealthCheck, HEALTH_CHECK_INTERVAL)
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       window.removeEventListener('online', handleOnline)
       window.removeEventListener('offline', handleOffline)
-
-      if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current)
       if (healthCheckRef.current) clearInterval(healthCheckRef.current)
     }
   }, [handleVisibilityChange, handleOnline, handleOffline, performHealthCheck])
@@ -201,9 +145,7 @@ export function useRealtimeRecovery() {
 }
 
 /**
- * usePageRefetch – Call in each page component to register a refetch callback.
- * The callback will be called whenever the global recovery mechanism detects
- * the need to refetch data (visibility change, network reconnect, etc.)
+ * usePageRefetch – pages register a callback to be called on global recovery events.
  */
 export function usePageRefetch(refetchFn: RefetchCallback) {
   const refetchRef = useRef(refetchFn)
