@@ -257,6 +257,10 @@
       "title": "Terms and Conditions",
       "subtitle": "Please read and accept our terms:",
       "step": "4/4",
+      "instructions": {
+        "title": "Instructions",
+        "text": "Carefully read all terms and conditions below before accepting this agreement to proceed with your registration."
+      },
       "accept": "I have read and agree to the Terms and Conditions and Privacy Policy",
       "acceptDescription": "By checking this box, you electronically sign and agree to the above terms.",
       "submitApplication": "Submit Application",

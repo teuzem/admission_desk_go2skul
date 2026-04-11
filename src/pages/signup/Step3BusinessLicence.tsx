@@ -78,7 +78,7 @@ export default function Step3BusinessLicence() {
         <div className="wizard-card-body">
           {/* File Upload Zone */}
           <div className="form-group" style={{ marginBottom: '2rem' }}>
-            <label className="form-label">{t('signup_wizard.step3.fields.uploadLicence')} <span className="required">(Optional)</span></label>
+            <label className="form-label">{t('signup_wizard.step3.fields.uploadLicence')} <span className="required">({t('common.optional')})</span></label>
             
             {!file ? (
               <div {...getRootProps()} className={`upload-zone ${isDragActive ? 'active' : ''}`}>

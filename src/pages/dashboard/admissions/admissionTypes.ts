@@ -163,13 +163,13 @@ export interface DocumentEntry {
 export const MANDATORY_DOCUMENT_TYPES = [
   'Birth Certificate',
   'CV / Resume',
-  'SOP / Statement of Purpose',
-  'Awards',
-  'Certifications'
+  'SOP / Statement of Purpose'
 ]
 
 export const ALL_DOCUMENT_TYPES = [
   ...MANDATORY_DOCUMENT_TYPES,
+  'Awards',
+  'Certifications',
   'Recommendation Letter (Academic)',
   'Professional License',
   'Internship Certificate',

@@ -15,6 +15,7 @@ import { supabase } from '../../lib/supabase'
 import { getSecureUrl, uploadAvatar, uploadCoverImage } from '../../lib/storageHelpers'
 import toast from 'react-hot-toast'
 import ImageCropperModal from '../../components/ui/ImageCropperModal'
+import VerifiedBadge from '../../components/ui/VerifiedBadge'
 import '../dashboard/DashboardPages.css'
 import './AgentProfilePage.css'
 
@@ -958,7 +959,10 @@ export default function AgentProfilePage() {
             {/* Name and Info */}
             <div className="fb-profile-info">
               <div className="fb-profile-name-section">
-                <h1 className="fb-profile-name">{displayName}</h1>
+                <h1 className="fb-profile-name" style={{ display: 'flex', alignItems: 'center' }}>
+                  {displayName}
+                  <VerifiedBadge isVerified={kycStatus === 'approved'} size={24} style={{ marginLeft: '12px' }} />
+                </h1>
                 <div
                   className="fb-kyc-badge"
                   style={{ background: kycConfig.bg, color: kycConfig.color }}

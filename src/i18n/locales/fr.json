@@ -257,6 +257,10 @@
       "title": "Conditions Générales",
       "subtitle": "Veuillez lire et accepter nos conditions :",
       "step": "4/4",
+      "instructions": {
+        "title": "Instructions",
+        "text": "Lisez attentivement l'intégralité des termes et conditions ci-dessous avant d'accepter cet accord afin de poursuivre votre enregistrement."
+      },
       "accept": "J'ai lu et j'accepte les Conditions Générales et la Politique de confidentialité",
       "acceptDescription": "En cochant cette case, vous signez electronically et acceptez les conditions ci-dessus.",
       "submitApplication": "Soumettre la candidature",

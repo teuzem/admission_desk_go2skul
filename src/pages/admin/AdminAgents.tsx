@@ -6,7 +6,9 @@ import {
   Building2, ToggleLeft, ToggleRight, ExternalLink
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { getSecureUrl } from '../../lib/storageHelpers'
 import toast from 'react-hot-toast'
+import { VerifiedBadgeInline } from '../../components/ui/VerifiedBadge'
 import '../dashboard/DashboardPages.css'
 import './AdminPages.css'
 
@@ -146,7 +148,10 @@ export default function AdminAgents() {
                 ) : filtered.map(agent => (
                   <tr key={agent.id}>
                     <td>
-                      <div style={{ fontWeight: 600, color: '#1e293b' }}>{agent.first_name} {agent.last_name}</div>
+                      <div style={{ fontWeight: 600, color: '#1e293b' }}>
+                        {agent.first_name} {agent.last_name}
+                        <VerifiedBadgeInline isVerified={agent.kyc_status === 'approved'} size={15} />
+                      </div>
                       <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{agent.email}</div>
                     </td>
                     <td style={{ fontSize: '0.85rem', color: '#475569' }}>{agent.agency_name || '—'}</td>
@@ -189,7 +194,11 @@ export default function AdminAgents() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
                   <h3 style={{ margin: 0, fontWeight: 700, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <Shield size={18} style={{ color: '#3A4391' }} />
-                    {agent.first_name} {agent.last_name} — Full Profile
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                      {agent.first_name} {agent.last_name}
+                      <VerifiedBadgeInline isVerified={agent.kyc_status === 'approved'} size={18} />
+                    </div>
+                    — Full Profile
                   </h3>
                   <button onClick={() => setExpandedAgent(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8' }}><X size={18} /></button>
                 </div>
@@ -234,10 +243,16 @@ export default function AdminAgents() {
                       ))}
                     </div>
                     {kyc.business_licence_url && (
-                      <a href={kyc.business_licence_url} target="_blank" rel="noopener noreferrer"
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', marginTop: '0.5rem', color: '#3A4391', fontSize: '0.85rem', fontWeight: 600 }}>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const url = await getSecureUrl('kyc-documents', kyc.business_licence_url)
+                          if (url) window.open(url, '_blank')
+                        }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px', marginTop: '0.5rem', color: '#3A4391', fontSize: '0.85rem', fontWeight: 600 }}
+                      >
                         <ExternalLink size={13} /> View Business Licence
-                      </a>
+                      </button>
                     )}
                     {kyc.admin_notes && (
                       <div style={{ marginTop: '0.5rem', padding: '0.5rem', background: '#fffbeb', borderRadius: '6px', fontSize: '0.8rem', color: '#92400e' }}>

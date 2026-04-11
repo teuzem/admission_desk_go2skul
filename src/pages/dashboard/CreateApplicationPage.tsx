@@ -178,6 +178,9 @@ export default function CreateApplicationPage() {
         terms_accepted: formData.terms_accepted,
         no_work_experience: formData.no_work_experience,
         no_work_experience_explanation: formData.no_work_experience_explanation,
+        how_heard_about_program: formData.how_heard_about_program || null,
+        applied_before: formData.applied_before,
+        previous_application_year: formData.previous_application_year || null,
         university_id: formData.university_id || null,
         program_id: formData.program_id || null,
         updated_at: new Date().toISOString()
@@ -234,6 +237,8 @@ export default function CreateApplicationPage() {
           passport_number: formData.passport_number || null,
           passport_expiry_date: formData.passport_expiry_date || null,
           country_applying_from: formData.country_applying_from || null,
+          nationality: formData.primary_citizenship || formData.intake_country || null,
+          country_of_residence: formData.home_country || null,
           primary_phone: formData.primary_phone || null,
           secondary_phone: formData.secondary_phone || null,
         }).eq('id', studentId)
@@ -349,7 +354,115 @@ export default function CreateApplicationPage() {
       const studentName = `${formData.first_name}_${formData.last_name}`.replace(/\s+/g, '_')
       const appId = applicationId
 
-      // 1. Upload all pending file objects to Supabase storage
+      // ╔══════════════════════════════════════════════════════════════════╗
+      // ║  STEP 0: FINAL COMPREHENSIVE DATA SAVE                        ║
+      // ║  Must happen BEFORE file uploads to ensure no data loss        ║
+      // ╚══════════════════════════════════════════════════════════════════╝
+
+      // ── Save ALL student fields (the definitive save) ──
+      const { error: studentError } = await supabase.from('students').update({
+        first_name: formData.first_name || formData.intake_first_name,
+        last_name: formData.last_name || formData.intake_last_name,
+        email: formData.email || formData.intake_email,
+        phone: formData.primary_phone || formData.intake_phone,
+        prefix: formData.prefix || null,
+        middle_name: formData.middle_name || null,
+        no_last_name_on_doc: formData.no_last_name_on_doc,
+        legal_name_confirmed: formData.legal_name_confirmed,
+        date_of_birth: formData.date_of_birth || null,
+        gender: formData.gender || null,
+        marital_status: formData.marital_status || null,
+        country_of_birth: formData.country_of_birth || null,
+        state_of_birth: formData.state_of_birth || null,
+        city_of_birth: formData.city_of_birth || null,
+        pronouns: formData.pronouns || null,
+        preferred_name: formData.preferred_name || null,
+        how_did_you_hear: formData.how_did_you_hear || null,
+        races: formData.races.length > 0 ? formData.races : null,
+        is_hispanic_latino: formData.is_hispanic_latino,
+        primary_phone: formData.primary_phone || null,
+        secondary_phone: formData.secondary_phone || null,
+        nationality: formData.primary_citizenship || formData.intake_country || null,
+        primary_citizenship: formData.primary_citizenship || null,
+        secondary_citizenship: formData.secondary_citizenship || null,
+        passport_number: formData.passport_number || null,
+        passport_expiry_date: formData.passport_expiry_date || null,
+        country_applying_from: formData.country_applying_from || null,
+        country_of_residence: formData.home_country || null,
+        home_country: formData.home_country || null,
+        home_state: formData.home_state || null,
+        home_city: formData.home_city || null,
+        home_address_1: formData.home_address_1 || null,
+        home_address_2: formData.home_address_2 || null,
+        home_zip_code: formData.home_zip_code || null,
+        mailing_same_as_permanent: formData.mailing_same_as_permanent,
+        mailing_country: formData.mailing_country || null,
+        mailing_state: formData.mailing_state || null,
+        mailing_city: formData.mailing_city || null,
+        mailing_address_1: formData.mailing_address_1 || null,
+        mailing_address_2: formData.mailing_address_2 || null,
+        mailing_zip_code: formData.mailing_zip_code || null,
+        emergency_full_name: formData.emergency_full_name || null,
+        emergency_relationship: formData.emergency_relationship || null,
+        emergency_email: formData.emergency_email || null,
+        emergency_phone: formData.emergency_phone || null,
+        emergency_country: formData.emergency_country || null,
+        emergency_state: formData.emergency_state || null,
+        emergency_city: formData.emergency_city || null,
+        emergency_address_1: formData.emergency_address_1 || null,
+        emergency_address_2: formData.emergency_address_2 || null,
+        emergency_zip: formData.emergency_zip || null,
+        emergency_speaks_english: formData.emergency_speaks_english,
+      }).eq('id', studentId)
+
+      if (studentError) {
+        console.error('Student save error:', studentError)
+        toast.error('Failed to save student data. Please try again.')
+        setSubmitting(false)
+        return
+      }
+
+      // ── Save ALL application fields (the definitive save) ──
+      const { error: appSaveError } = await supabase.from('applications').update({
+        university_id: formData.university_id || null,
+        program_id: formData.program_id || null,
+        representative_name: formData.representative_name || null,
+        representative_email: formData.representative_email || null,
+        representative_phone: formData.representative_phone || null,
+        representative_address: formData.representative_address || null,
+        representative_city: formData.representative_city || null,
+        representative_state: formData.representative_state || null,
+        representative_zip: formData.representative_zip || null,
+        representative_country: formData.representative_country || null,
+        english_proficiency_method: formData.english_proficiency_method || null,
+        english_test_name: formData.english_test_name || null,
+        english_trf_number: formData.english_trf_number || null,
+        english_test_date: formData.english_test_date || null,
+        english_overall_score: formData.english_overall_score || null,
+        funding_source: formData.funding_source || null,
+        scholarship_release_auth: formData.scholarship_release_auth || null,
+        applicant_signature: formData.applicant_signature || null,
+        signature_date: formData.signature_date || null,
+        terms_accepted: formData.terms_accepted,
+        no_work_experience: formData.no_work_experience,
+        no_work_experience_explanation: formData.no_work_experience_explanation || null,
+        how_heard_about_program: formData.how_heard_about_program || null,
+        applied_before: formData.applied_before,
+        previous_application_year: formData.previous_application_year || null,
+        updated_at: new Date().toISOString()
+      }).eq('id', appId)
+
+      if (appSaveError) {
+        console.error('Application save error:', appSaveError)
+        toast.error('Failed to save application data. Please try again.')
+        setSubmitting(false)
+        return
+      }
+
+      // ╔══════════════════════════════════════════════════════════════════╗
+      // ║  STEP 1: UPLOAD FILES & INSERT CHILD ROWS                     ║
+      // ╚══════════════════════════════════════════════════════════════════╝
+
       // ── Passport
       if (passportFile) {
         const url = await uploadAdmissionDocument(studentId, studentName, appId, 'citizenship', passportFile)
@@ -362,19 +475,32 @@ export default function CreateApplicationPage() {
         await supabase.from('applications').update({ english_test_url: url }).eq('id', appId)
       }
 
-      // ── Financial Proofs
+      // ── Financial Proofs — save ALL files (not just the first)
       for (let i = 0; i < financialFiles.length; i++) {
         const url = await uploadAdmissionDocument(studentId, studentName, appId, 'financial', financialFiles[i], `proof-${i + 1}`)
         if (i === 0) {
           await supabase.from('applications').update({ financial_proof_url: url }).eq('id', appId)
         }
+        // Also save each financial proof as an application_document for full traceability
+        await supabase.from('application_documents').insert({
+          application_id: appId,
+          document_type: `Financial Proof ${i + 1}`,
+          file_url: url,
+          file_name: financialFiles[i].name,
+          file_size: financialFiles[i].size,
+          notes: 'Uploaded as financial proof document',
+          is_mandatory: false,
+          sort_order: 1000 + i  // high sort order to appear after main docs
+        })
       }
 
       // ── Education documents (transcript + certificate)
       for (let i = 0; i < educationEntries.length; i++) {
         const entry = educationEntries[i]
-        let transcriptUrl: string | null = null
-        let certificateUrl: string | null = null
+        if (!entry.level_of_study || !entry.school_name || !entry.country) continue // skip empty entries
+
+        let transcriptUrl: string | null = entry.transcript_url || null
+        let certificateUrl: string | null = entry.certificate_url || null
 
         if (entry.transcript_file) {
           transcriptUrl = await uploadAdmissionDocument(studentId, studentName, appId, 'education', entry.transcript_file, `entry-${i + 1}/transcript`)
@@ -383,15 +509,19 @@ export default function CreateApplicationPage() {
           certificateUrl = await uploadAdmissionDocument(studentId, studentName, appId, 'education', entry.certificate_file, `entry-${i + 1}/certificate`)
         }
 
-        // Upsert education entry row
-        await supabase.from('education_entries').insert({
+        // Normalize status string safely
+        const rawStatus = (entry.status || 'in_progress').toLowerCase().replace(/\s+/g, '_')
+        const validStatuses = ['graduated', 'in_progress', 'withdrawn', 'deferred']
+        const normalizedStatus = validStatuses.includes(rawStatus) ? rawStatus : 'in_progress'
+
+        const { error: eduError } = await supabase.from('education_entries').insert({
           application_id: appId,
           level_of_study: entry.level_of_study,
           school_type: entry.school_type || null,
           country: entry.country,
           school_name: entry.school_name,
           ceeb_code: entry.ceeb_code || null,
-          status: entry.status.toLowerCase().replace(' ', '_') as 'graduated' | 'in_progress' | 'withdrawn' | 'deferred',
+          status: normalizedStatus as 'graduated' | 'in_progress' | 'withdrawn' | 'deferred',
           graduation_date: entry.graduation_date || null,
           degree_obtained: entry.degree_obtained || null,
           gpa_score: entry.gpa_score || null,
@@ -401,15 +531,19 @@ export default function CreateApplicationPage() {
           certificate_url: certificateUrl,
           sort_order: i
         })
+
+        if (eduError) console.error(`Education entry ${i + 1} insert error:`, eduError)
       }
 
       // ── Work Experience documents
       if (!formData.no_work_experience) {
         for (let i = 0; i < workEntries.length; i++) {
           const entry = workEntries[i]
-          let recLetterUrl: string | null = null
-          let attestationUrl: string | null = null
-          let additionalUrl: string | null = null
+          if (!entry.employer_name || !entry.job_title) continue // skip empty entries
+
+          let recLetterUrl: string | null = entry.recommendation_letter_url || null
+          let attestationUrl: string | null = entry.work_attestation_url || null
+          let additionalUrl: string | null = entry.additional_doc_url || null
 
           if (entry.recommendation_letter_file) {
             recLetterUrl = await uploadAdmissionDocument(studentId, studentName, appId, 'work-experience', entry.recommendation_letter_file, `entry-${i + 1}/recommendation`)
@@ -421,11 +555,16 @@ export default function CreateApplicationPage() {
             additionalUrl = await uploadAdmissionDocument(studentId, studentName, appId, 'work-experience', entry.additional_doc_file, `entry-${i + 1}/additional`)
           }
 
-          await supabase.from('work_experience_entries').insert({
+          // Normalize employment type safely
+          const rawType = (entry.employment_type || 'full_time').toLowerCase().replace(/-/g, '_').replace(/\s+/g, '_')
+          const validTypes = ['full_time', 'part_time', 'contract', 'internship', 'freelance', 'volunteer']
+          const normalizedType = validTypes.includes(rawType) ? rawType : 'full_time'
+
+          const { error: workError } = await supabase.from('work_experience_entries').insert({
             application_id: appId,
             employer_name: entry.employer_name,
             job_title: entry.job_title,
-            employment_type: entry.employment_type.toLowerCase().replace(/-/g, '_').replace(' ', '_') as 'full_time' | 'part_time' | 'contract' | 'internship' | 'freelance' | 'volunteer',
+            employment_type: normalizedType as 'full_time' | 'part_time' | 'contract' | 'internship' | 'freelance' | 'volunteer',
             industry: entry.industry,
             country: entry.country,
             city_state: entry.city_state,
@@ -439,10 +578,12 @@ export default function CreateApplicationPage() {
             additional_doc_url: additionalUrl,
             sort_order: i
           })
+
+          if (workError) console.error(`Work entry ${i + 1} insert error:`, workError)
         }
       }
 
-      // ── Personal documents
+      // ── Personal documents (Step 7)
       for (let i = 0; i < documentEntries.length; i++) {
         const doc = documentEntries[i]
         if (!doc.document_type || (!doc.file && !doc.file_url)) continue
@@ -452,7 +593,7 @@ export default function CreateApplicationPage() {
           fileUrl = await uploadAdmissionDocument(studentId, studentName, appId, 'personal-documents', doc.file, doc.document_type.toLowerCase().replace(/[\s/]+/g, '-'))
         }
 
-        await supabase.from('application_documents').insert({
+        const { error: docError } = await supabase.from('application_documents').insert({
           application_id: appId,
           document_type: doc.document_type,
           file_url: fileUrl,
@@ -465,12 +606,17 @@ export default function CreateApplicationPage() {
           is_mandatory: doc.is_mandatory,
           sort_order: i
         })
+
+        if (docError) console.error(`Document ${i + 1} insert error:`, docError)
       }
 
-      // 2. Generate Submission Reference
+      // ╔══════════════════════════════════════════════════════════════════╗
+      // ║  STEP 2: FINALIZE — Generate ref, snapshot, mark submitted    ║
+      // ╚══════════════════════════════════════════════════════════════════╝
+
       const submissionRef = `AVU-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`
 
-      // 3. Build snapshot for archive
+      // Build snapshot for archive (complete record at time of submission)
       const snapshot = {
         formData,
         educationEntries: educationEntries.map(({ transcript_file, certificate_file, ...rest }) => rest),
@@ -480,15 +626,23 @@ export default function CreateApplicationPage() {
         university: selectedUniversity
       }
 
-      // 4. Finalize application
-      await supabase.from('applications').update({
+      // Final status update
+      const { error: finalizeError } = await supabase.from('applications').update({
         status: 'submitted',
         submission_reference: submissionRef,
         submitted_at: new Date().toISOString(),
         submission_snapshot: snapshot,
         current_step: TOTAL_STEPS,
-        progress_percent: 100
+        progress_percent: 100,
+        updated_at: new Date().toISOString()
       }).eq('id', appId)
+
+      if (finalizeError) {
+        console.error('Finalize error:', finalizeError)
+        toast.error('Application data saved but finalization failed. Please try again.')
+        setSubmitting(false)
+        return
+      }
 
       toast.success(`Application submitted! Reference: ${submissionRef}`, { duration: 6000 })
       navigate('/dashboard/applications')
@@ -642,6 +796,7 @@ export default function CreateApplicationPage() {
             <Step10TermsConditions
               data={formData}
               onChange={handleFormChange}
+              selectedUniversity={selectedUniversity}
               onNext={goNext}
               onBack={goBack}
             />

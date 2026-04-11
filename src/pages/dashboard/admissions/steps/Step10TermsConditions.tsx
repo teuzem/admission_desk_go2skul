@@ -4,14 +4,21 @@ import type { AdmissionFormData } from '../admissionTypes'
 interface Props {
   data: AdmissionFormData
   onChange: (updates: Partial<AdmissionFormData>) => void
+  selectedUniversity?: any
   onNext: () => void
   onBack: () => void
 }
 
-export default function Step10TermsConditions({ data, onChange, onNext, onBack }: Props) {
+export default function Step10TermsConditions({ data, onChange, selectedUniversity, onNext, onBack }: Props) {
   const set = (k: keyof AdmissionFormData, v: any) => onChange({ [k]: v })
 
-  const isValid = data.scholarship_release_auth && data.applicant_signature && data.signature_date && data.terms_accepted
+  const rawExpectedName = [data.first_name, data.middle_name, data.last_name].filter(Boolean).join(' ')
+  const expectedSignature = rawExpectedName.trim().toLowerCase().replace(/\s+/g, ' ')
+  
+  const currentSignature = (data.applicant_signature || '').trim().toLowerCase().replace(/\s+/g, ' ')
+  const isSignatureValid = currentSignature === expectedSignature && currentSignature.length > 0
+
+  const isValid = data.scholarship_release_auth && isSignatureValid && data.signature_date && data.terms_accepted
 
   return (
     <div>
@@ -22,7 +29,7 @@ export default function Step10TermsConditions({ data, onChange, onNext, onBack }
       <div className="adm-terms-content">
         <h3>1. Acceptance of Terms</h3>
         <p>
-          By accessing and using the Online Application Portal ("Portal") of Avila University Arizona ("University"), 
+          By accessing and using the Online Application Portal ("Portal") of {selectedUniversity?.name || 'the University'} ("University"), 
           you agree to comply with and be bound by these Terms &amp; Conditions. If you do not agree, please refrain from using this Portal.
         </p>
 
@@ -42,8 +49,7 @@ export default function Step10TermsConditions({ data, onChange, onNext, onBack }
         <h3>4. Data Collection and Privacy</h3>
         <p>
           • Personal information collected through this Portal will be used solely for admissions purposes.<br />
-          • The University complies with all applicable privacy laws, including the Arizona Consumer Fraud Act 
-          (A.R.S. §§ 44-1521 to 44-1534) and the Family Educational Rights and Privacy Act (FERPA).<br />
+          • The University complies with all applicable privacy laws, including regional consumer fraud acts and educational privacy rights.<br />
           • By submitting your application, you consent to the collection and processing of your personal data 
           as described in our Privacy Policy.
         </p>
@@ -121,14 +127,19 @@ export default function Step10TermsConditions({ data, onChange, onNext, onBack }
           <label className="adm-label">Applicant's Signature (Full Legal Name) <span className="required">*</span></label>
           <div className="adm-input-wrapper">
             <input
-              className={`adm-input ${data.applicant_signature ? 'valid' : ''}`}
+              className={`adm-input ${isSignatureValid ? 'valid' : ''}`}
               value={data.applicant_signature}
               onChange={e => set('applicant_signature', e.target.value)}
-              placeholder="Type your full legal name as signature"
+              placeholder={`Type exactly: ${rawExpectedName || "your full legal name"}`}
               style={{ fontFamily: "'Dancing Script', cursive, 'Inter', sans-serif", fontSize: '1.1rem', fontStyle: 'italic' }}
             />
-            {data.applicant_signature && <CheckCircle2 size={16} className="valid-check" />}
+            {isSignatureValid && <CheckCircle2 size={16} className="valid-check" />}
           </div>
+          {data.applicant_signature && !isSignatureValid && (
+            <div style={{ color: '#ef4444', fontSize: '0.85rem', marginTop: '0.5rem', fontWeight: 500 }}>
+              Signature must exactly match the student's full legal name: <strong>{rawExpectedName}</strong>
+            </div>
+          )}
         </div>
 
         <div className="adm-form-group">

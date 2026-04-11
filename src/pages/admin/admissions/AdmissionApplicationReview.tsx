@@ -326,6 +326,26 @@ export default function AdmissionApplicationReview() {
             )}
           </SectionCard>
 
+          {/* Representative */}
+          {application.representative_name && (
+            <SectionCard icon={<User size={16} style={{ color: '#f59e0b' }} />} title="Representative / Agent">
+              <div className="adm-form-grid">
+                <div>
+                  <InfoRow label="Name" value={application.representative_name} />
+                  <InfoRow label="Email" value={application.representative_email} />
+                  <InfoRow label="Phone" value={application.representative_phone} />
+                </div>
+                <div>
+                  <InfoRow label="Address" value={application.representative_address} />
+                  <InfoRow label="City" value={application.representative_city} />
+                  <InfoRow label="State" value={application.representative_state} />
+                  <InfoRow label="Country" value={application.representative_country} />
+                  <InfoRow label="Zip" value={application.representative_zip} />
+                </div>
+              </div>
+            </SectionCard>
+          )}
+
           {/* Program & University */}
           <SectionCard icon={<GraduationCap size={16} style={{ color: '#00CCA0' }} />} title="Program & University">
             <div className="adm-form-grid">
@@ -342,6 +362,12 @@ export default function AdmissionApplicationReview() {
                 <InfoRow label="Intake" value={`${application.intake_month || '—'} ${application.intake_year || ''}`} />
               </div>
             </div>
+            {(application.how_heard_about_program || application.applied_before) && (
+              <div style={{ marginTop: '0.75rem', padding: '0.75rem', background: '#f8fafc', borderRadius: 10 }}>
+                <InfoRow label="How Heard About Program" value={application.how_heard_about_program} />
+                <InfoRow label="Applied Before" value={application.applied_before ? `Yes${application.previous_application_year ? ` (${application.previous_application_year})` : ''}` : 'No'} />
+              </div>
+            )}
           </SectionCard>
 
           {/* Education History */}

@@ -11,6 +11,7 @@ import { supabase } from '../../lib/supabase'
 import { usePageRefetch } from '../../lib/useRealtimeRecovery'
 import { useAuth } from '../../contexts/AuthContext'
 import ActivatePartnerModal from './ActivatePartnerModal'
+import VerifiedBadge from '../../components/ui/VerifiedBadge'
 import './DashboardHome.css'
 
 type SearchResult = {
@@ -605,8 +606,10 @@ export default function DashboardHome() {
       {/* Welcome Hero */}
       <div className="pathfinder-section" style={{ marginBottom: '2rem' }}>
         <div style={{ marginBottom: '1.5rem' }}>
-          <h1 className="pathfinder-title" style={{ fontSize: '1.8rem', marginBottom: '0.4rem' }}>
-            {t('dashboard.welcome', { name: firstName })} 👋
+          <h1 className="pathfinder-title" style={{ fontSize: '1.8rem', marginBottom: '0.4rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            {t('dashboard.welcome', { name: firstName })} 
+            <VerifiedBadge isVerified={profile?.kyc_status === 'approved'} size={24} />
+            👋
           </h1>
           <p className="pathfinder-subtitle" style={{ fontSize: '1rem' }}>
             {t('dashboard.subtitle')}
