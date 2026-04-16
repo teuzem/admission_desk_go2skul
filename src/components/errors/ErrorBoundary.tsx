@@ -49,7 +49,7 @@ export default class ErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="error-page">
+        <div className="error-page type-500">
           {/* Floating decorative shapes */}
           <div className="error-floating-shapes">
             <div className="error-shape error-shape-1" />
@@ -59,7 +59,7 @@ export default class ErrorBoundary extends Component<Props, State> {
             <div className="error-shape error-shape-5" />
           </div>
 
-          <div className="error-boundary-card">
+          <div className="error-card">
             {/* Logo */}
             <div className="error-logo">
               <div className="error-logo-icon">
@@ -75,14 +75,14 @@ export default class ErrorBoundary extends Component<Props, State> {
             </div>
 
             {/* Icon */}
-            <div className="error-icon-circle warning">
+            <div className="error-icon-circle danger">
               <AlertTriangle size={36} />
             </div>
 
             <h1 className="error-title">Something Went Wrong</h1>
             <p className="error-description">
-              We're sorry — an unexpected error occurred. Our team has been notified.
-              Please try reloading the page or go back to the home screen.
+              Oops! An unexpected error occurred in the application. 
+              Our team has been notified, and we're working to fix it.
             </p>
 
             {/* Actions */}

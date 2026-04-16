@@ -53,6 +53,10 @@ import LoadingScreen from './components/ui/LoadingScreen'
 
 // Error Pages
 import NotFoundPage from './pages/errors/NotFoundPage'
+import ForbiddenPage from './pages/errors/ForbiddenPage'
+import ServerErrorPage from './pages/errors/ServerErrorPage'
+import MaintenancePage from './pages/errors/MaintenancePage'
+import NotImplementedPage from './pages/errors/NotImplementedPage'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, session, profile, loading } = useAuth()
@@ -87,7 +91,7 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
   if (profile?.role !== 'admin') {
     if (profile?.role === 'admission_manager') return <Navigate to="/admin/admissions" replace />
     if (profile?.role === 'program_manager') return <Navigate to="/admin/programs" replace />
-    return <Navigate to="/dashboard" replace />
+    return <ForbiddenPage />
   }
   return <>{children}</>
 }
@@ -99,7 +103,7 @@ function AdmissionRoute({ children }: { children: React.ReactNode }) {
   if (loading) return <LoadingScreen />
   if (!user || !session) return <Navigate to="/admin/login" replace />
   if (profile?.role !== 'admin' && profile?.role !== 'admission_manager') {
-    return <Navigate to="/dashboard" replace />
+    return <ForbiddenPage />
   }
   return <Suspense fallback={<LoadingScreen />}>{children}</Suspense>
 }
@@ -111,7 +115,7 @@ function ProgramRoute({ children }: { children: React.ReactNode }) {
   if (loading) return <LoadingScreen />
   if (!user || !session) return <Navigate to="/admin/login" replace />
   if (profile?.role !== 'admin' && profile?.role !== 'program_manager') {
-    return <Navigate to="/dashboard" replace />
+    return <ForbiddenPage />
   }
   return <Suspense fallback={<LoadingScreen />}>{children}</Suspense>
 }
@@ -182,6 +186,14 @@ export default function App() {
       <Route path="/admin/students" element={<AdminRoute><AdminStudents /></AdminRoute>} />
       <Route path="/admin/agents" element={<AdminRoute><AdminAgents /></AdminRoute>} />
       <Route path="/admin/applications/:id" element={<AdminRoute><AdminApplicationDetail /></AdminRoute>} />
+
+      {/* Manual Error Routes & Aliases */}
+      <Route path="/403" element={<ForbiddenPage />} />
+      <Route path="/404" element={<NotFoundPage />} />
+      <Route path="/500" element={<ServerErrorPage />} />
+      <Route path="/501" element={<NotImplementedPage />} />
+      <Route path="/503" element={<MaintenancePage />} />
+      <Route path="/maintenance" element={<MaintenancePage />} />
 
       {/* 404 Fallback */}
       <Route path="*" element={<NotFoundPage />} />
