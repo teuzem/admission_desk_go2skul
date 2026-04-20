@@ -1,7 +1,7 @@
 .loading-screen {
   position: fixed;
   inset: 0;
-  background: linear-gradient(135deg, #3A4391 0%, #2d3470 50%, #1a2058 100%);
+  background: #141a4e;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -12,24 +12,18 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1rem;
+  gap: 1.5rem;
 }
 
 .loading-logo {
   animation: pulse 2s ease-in-out infinite;
 }
 
-.loading-text {
-  font-family: 'Montserrat', sans-serif;
-  font-size: 1.75rem;
-  font-weight: 800;
-  color: white;
-  letter-spacing: 0.5px;
-}
-
-.loading-text .accent {
-  color: #00CCA0;
-  margin-left: 6px;
+.loading-logo-img {
+  width: 400px;
+  height: auto;
+  object-fit: contain;
+  filter: brightness(1.6) contrast(0.9);
 }
 
 .loading-dots {

@@ -75,14 +75,13 @@ export default function LoginPage() {
         <div className="auth-brand-content">
           {/* Logo */}
           <div className="auth-logo">
-            <div className="auth-logo-icon">
-              <svg width="32" height="32" viewBox="0 0 48 48" fill="none">
-                <rect width="48" height="48" rx="10" fill="rgba(255,255,255,0.15)"/>
-                <path d="M14 24L22 16L30 24L22 32L14 24Z" fill="#00CCA0"/>
-                <path d="M22 16L30 24L38 16" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-              </svg>
-            </div>
-            <span className="auth-logo-name">Admission<span>Desk</span></span>
+            <img
+              src="/admission-desk-logo.png"
+              alt="Admission Desk — International University Admissions Portal"
+              className="auth-logo-img"
+              width="260"
+              height="140"
+            />
           </div>
 
           {/* Tagline */}

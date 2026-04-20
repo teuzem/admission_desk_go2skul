@@ -42,11 +42,13 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     <div className={`sidebar ${isOpen ? 'open' : ''}`}>
       <div className="sidebar-header">
         <Link to="/dashboard" className="sidebar-logo" onClick={onClose}>
-          <svg width="28" height="28" viewBox="0 0 48 48" fill="none">
-            <rect width="48" height="48" rx="10" fill="white"/>
-            <path d="M14 24L22 16L30 24L22 32L14 24Z" fill="#00CCA0"/>
-          </svg>
-          <span>Admission<span>Desk</span></span>
+          <img
+            src="/admission-desk-logo.png"
+            alt="Admission Desk — International University Admissions Portal"
+            className="sidebar-logo-img"
+            width="160"
+            height="100"
+          />
         </Link>
         <button className="sidebar-close-btn" onClick={onClose}>
           <X size={20} />

@@ -22,11 +22,13 @@ export default function EmailVerifiedPage() {
 
       <div className="auth-center-topbar">
         <Link to="/" className="auth-center-logo">
-          <svg width="32" height="32" viewBox="0 0 48 48" fill="none">
-            <rect width="48" height="48" rx="10" fill="rgba(255,255,255,0.15)"/>
-            <path d="M14 24L22 16L30 24L22 32L14 24Z" fill="#00CCA0"/>
-          </svg>
-          <span className="auth-center-logo-text">Admission<span>Desk</span></span>
+          <img
+            src="/admission-desk-logo.png"
+            alt="Admission Desk — International University Admissions Portal"
+            className="auth-center-logo-img"
+            width="200"
+            height="100"
+          />
         </Link>
         <LanguageToggle />
       </div>

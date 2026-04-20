@@ -446,27 +446,18 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: var(--space-2);
   margin-bottom: var(--space-8);
 }
 
-.error-logo-icon {
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.error-logo-img {
+  width: 200px;
+  height: auto;
+  object-fit: contain;
+  transition: transform 0.3s ease;
 }
 
-.error-logo-text {
-  font-family: var(--font-heading);
-  font-size: var(--font-lg);
-  font-weight: 700;
-  color: var(--color-text-primary);
-}
-
-.error-logo-text span {
-  color: var(--color-accent);
+.error-logo-img:hover {
+  transform: scale(1.04);
 }
 
 /* ── Responsive ─────────────────────────────── */

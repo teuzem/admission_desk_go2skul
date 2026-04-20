@@ -37,11 +37,13 @@ export default function SignupWizard() {
         {/* Header */}
         <div className="wizard-header">
           <Link to="/" className="wizard-logo">
-            <svg width="32" height="32" viewBox="0 0 48 48" fill="none">
-              <rect width="48" height="48" rx="10" fill="#3A4391"/>
-              <path d="M14 24L22 16L30 24L22 32L14 24Z" fill="#00CCA0"/>
-            </svg>
-            <span>Admission<span>Desk</span></span>
+            <img
+              src="/admission-desk-logo.png"
+              alt="Admission Desk — International University Admissions Portal"
+              className="wizard-logo-img"
+              width="200"
+              height="100"
+            />
           </Link>
           <LanguageToggle />
         </div>

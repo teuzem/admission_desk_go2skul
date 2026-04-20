@@ -45,16 +45,13 @@ export default function BaseErrorPage({
         <div className="error-card">
           {/* Logo */}
           <div className="error-logo">
-            <div className="error-logo-icon">
-              <svg width="36" height="36" viewBox="0 0 48 48" fill="none">
-                <rect width="48" height="48" rx="10" fill="var(--color-primary)" />
-                <path d="M14 24L22 16L30 24L22 32L14 24Z" fill="#00CCA0" />
-                <path d="M22 16L30 24L38 16" stroke="white" strokeWidth="2" strokeLinecap="round" />
-              </svg>
-            </div>
-            <span className="error-logo-text">
-              Admission<span>Desk</span>
-            </span>
+            <img
+              src="/admission-desk-logo.png"
+              alt="Admission Desk — International University Admissions Portal"
+              className="error-logo-img"
+              width="200"
+              height="128"
+            />
           </div>
 
           {/* Animated error code */}

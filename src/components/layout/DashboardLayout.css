@@ -35,14 +35,18 @@
   align-items: center;
   gap: 0.5rem;
   text-decoration: none;
-  font-family: var(--font-heading);
-  font-size: 1.15rem;
-  font-weight: 800;
-  color: white;
 }
 
-.sidebar-logo span {
-  color: #00CCA0;
+.sidebar-logo-img {
+  width: 160px;
+  height: auto;
+  object-fit: contain;
+  filter: brightness(1.6) contrast(0.9);
+  transition: transform 0.3s ease;
+}
+
+.sidebar-logo:hover .sidebar-logo-img {
+  transform: scale(1.04);
 }
 
 .sidebar-close-btn {
