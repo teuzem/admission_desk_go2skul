@@ -12,7 +12,8 @@
 /* ===== SIDEBAR ===== */
 .sidebar {
   width: 260px;
-  background: #141a4e; /* Darker brand blue */
+  background: linear-gradient(180deg, rgba(5, 7, 22, 0.98) 0%, rgba(12, 16, 48, 0.96) 20%, rgba(20, 26, 78, 0.94) 100%);
+  backdrop-filter: blur(12px);
   color: white;
   display: flex;
   flex-direction: column;
@@ -41,7 +42,7 @@
   width: 160px;
   height: auto;
   object-fit: contain;
-  filter: brightness(1.6) contrast(0.9);
+  filter: brightness(1.7) contrast(1.05) drop-shadow(0 4px 6px rgba(0, 0, 0, 0.4));
   transition: transform 0.3s ease;
 }
 
