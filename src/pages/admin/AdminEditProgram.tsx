@@ -65,7 +65,7 @@ interface ProgramFormData {
   category: string
   duration: string
   duration_months: number | null
-  language: string
+  language: string[]
   delivery_mode: string
   campus_type: string
   tuition_fee: number | null
@@ -96,7 +96,7 @@ const INITIAL_FORM: ProgramFormData = {
   category: '',
   duration: '',
   duration_months: null,
-  language: 'English',
+  language: ['English'],
   delivery_mode: 'on-campus',
   campus_type: '',
   tuition_fee: null,
@@ -168,7 +168,7 @@ export default function AdminEditProgram() {
           category: data.category || '',
           duration: data.duration || '',
           duration_months: data.duration_months,
-          language: data.language || 'English',
+          language: (data.language as any) || ['English'],
           delivery_mode: data.delivery_mode || 'on-campus',
           campus_type: data.campus_type || '',
           tuition_fee: data.tuition_fee,
@@ -490,10 +490,31 @@ export default function AdminEditProgram() {
                 <input className="form-input" type="number" value={form.duration_months ?? ''} onChange={e => f('duration_months', e.target.value ? parseInt(e.target.value) : null)} placeholder="e.g., 48" />
               </div>
               <div className="form-group">
-                <label className="form-label">Language of Instruction</label>
-                <select className="form-input" value={form.language} onChange={e => f('language', e.target.value)}>
-                  {LANGUAGES.map(l => <option key={l} value={l}>{l}</option>)}
-                </select>
+                <label className="form-label">Languages of Instruction</label>
+                <div className="languages-multi-select">
+                  <div className="languages-badges">
+                    {form.language.map(lang => (
+                      <span key={lang} className="lang-badge">
+                        {lang}
+                        <button type="button" onClick={() => f('language', form.language.filter(l => l !== lang))} className="lang-remove">×</button>
+                      </span>
+                    ))}
+                  </div>
+                  <select 
+                    className="form-input" 
+                    value="" 
+                    onChange={e => {
+                      if (e.target.value && !form.language.includes(e.target.value)) {
+                        f('language', [...form.language, e.target.value])
+                      }
+                    }}
+                  >
+                    <option value="">Add language...</option>
+                    {LANGUAGES.map(l => (
+                      <option key={l} value={l} disabled={form.language.includes(l)}>{l}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
               <div className="form-group">
                 <label className="form-label">Delivery Mode</label>
@@ -702,7 +723,7 @@ export default function AdminEditProgram() {
                   ['Level', form.level ? form.level.charAt(0).toUpperCase() + form.level.slice(1) : '—'],
                   ['Category', form.category || '—'],
                   ['Duration', form.duration || '—'],
-                  ['Language', form.language],
+                  ['Language', form.language.join(', ')],
                   ['Delivery', form.delivery_mode.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())],
                   ['Campus', form.campus_type || '—'],
                   ['Tuition', form.tuition_fee ? `${form.currency} ${form.tuition_fee.toLocaleString()}/yr` : '—'],

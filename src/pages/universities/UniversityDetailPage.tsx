@@ -69,7 +69,7 @@ interface ProgramRow {
   duration: string | null
   tuition_fee: number | null
   currency: string | null
-  language: string
+  language: string[]
   description: string | null
   img_url: string | null
   is_all_campuses: boolean
@@ -618,7 +618,7 @@ export default function UniversityDetailPage() {
                           </span>
                           <span>
                             <Globe size={14} />
-                            {program.language}
+                            {Array.isArray(program.language) ? program.language.join(', ') : program.language}
                           </span>
                         </div>
 

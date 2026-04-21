@@ -315,7 +315,7 @@ export default function MySubmissions({ submissions, refreshData }: MySubmission
                             ].filter(([, v]) => v != null && v !== '').map(([k, v]) => (
                               <div key={k as string} style={{ background: '#f8fafc', borderRadius: '8px', padding: '8px 12px' }}>
                                 <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', marginBottom: '2px' }}>{k}</div>
-                                <div style={{ fontSize: '0.82rem', fontWeight: 600, color: '#1e293b' }}>{String(v)}</div>
+                                <div style={{ fontSize: '0.82rem', fontWeight: 600, color: '#1e293b' }}>{Array.isArray(v) ? v.join(', ') : String(v)}</div>
                               </div>
                             ))}
                           </div>

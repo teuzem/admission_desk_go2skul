@@ -65,7 +65,7 @@ interface ProgramFormData {
   category: string
   duration: string
   duration_months: number | null
-  language: string
+  language: string[]
   delivery_mode: string
   campus_type: string
   tuition_fee: number | null
@@ -96,7 +96,7 @@ const INITIAL_FORM: ProgramFormData = {
   category: '',
   duration: '',
   duration_months: null,
-  language: 'English',
+  language: ['English'],
   delivery_mode: 'on-campus',
   campus_type: '',
   tuition_fee: null,
@@ -165,7 +165,7 @@ export default function AdminAddProgram() {
               category: p.category || '',
               duration: p.duration || '',
               duration_months: p.duration_months || null,
-              language: p.language || 'English',
+              language: (p.language as string[]) || ['English'],
               delivery_mode: p.delivery_mode || 'on-campus',
               campus_type: p.campus_type || '',
               tuition_fee: p.tuition_fee || null,
@@ -315,7 +315,6 @@ export default function AdminAddProgram() {
               } catch (e) { }
             }
 
-            // 2. Handle campus assignments
             if (!form.is_all_campuses && form.campus_ids.length > 0) {
               const assignments = form.campus_ids.map(cid => ({
                 program_id: inserted.id,
@@ -324,7 +323,6 @@ export default function AdminAddProgram() {
               await supabase.from('program_campus_assignments').insert(assignments)
             }
 
-            // 3. Update submission status
             await supabase.from('pending_submissions')
               .update({ status: 'approved', reviewer_notes: 'Approved via full review' })
               .eq('id', submissionId)
@@ -333,7 +331,6 @@ export default function AdminAddProgram() {
             navigate('/admin')
           }
         } else {
-          // Just save the edits to the submission without approving yet
           const { error } = await supabase.from('pending_submissions')
             .update({ payload })
             .eq('id', submissionId)
@@ -346,20 +343,20 @@ export default function AdminAddProgram() {
 
       if (isPending) {
         const newId = crypto.randomUUID()
-        const payload: any = {
-          ...form,
-          id: newId,
-          campuses_details: !form.is_all_campuses && campuses.length > 0
-            ? campuses.filter(c => form.campus_ids.includes(c.id)).map(c => ({
-              id: c.id,
-              campus_name: c.campus_name,
-              city: c.city,
-              country: c.country,
-              is_main: c.is_main
-            }))
-            : [],
-          slug: generateSlug(form.name, form.level),
-          img_url: form.img_url
+        const payload = {
+            ...form,
+            id: newId,
+            slug: generateSlug(form.name, form.level),
+            campuses_details: !form.is_all_campuses && campuses.length > 0
+              ? campuses.filter(c => form.campus_ids.includes(c.id)).map(c => ({
+                id: c.id,
+                campus_name: c.campus_name,
+                city: c.city,
+                country: c.country,
+                is_main: c.is_main
+              }))
+              : [],
+            img_url: form.img_url
         }
 
         if (coverImage) {
@@ -378,7 +375,7 @@ export default function AdminAddProgram() {
         const { data: inserted, error } = await supabase.from('programs').insert({
           university_id: form.university_id, name: form.name, level: form.level,
           category: form.category || null, duration: form.duration || null,
-          duration_months: form.duration_months, language: form.language,
+          duration_months: form.duration_months,
           delivery_mode: form.delivery_mode, campus_type: form.campus_type || null,
           tuition_fee: form.tuition_fee, currency: form.currency,
           application_fee: form.application_fee,
@@ -392,10 +389,12 @@ export default function AdminAddProgram() {
           curriculum_summary: form.curriculum_summary || null,
           scholarship_available: form.scholarship_available,
           accommodation_available: form.accommodation_available,
-          visa_support: form.visa_support, img_url: null,
+          visa_support: form.visa_support,
           is_active: form.is_active, is_all_campuses: form.is_all_campuses,
+          language: form.language,
           submitted_by: user?.id,
-          slug: generateSlug(form.name, form.level)
+          slug: generateSlug(form.name, form.level),
+          img_url: form.img_url
         }).select('id').single()
         if (error) throw error
 
@@ -584,10 +583,31 @@ export default function AdminAddProgram() {
                 <input className="form-input" type="number" value={form.duration_months ?? ''} onChange={e => f('duration_months', e.target.value ? parseInt(e.target.value) : null)} placeholder="e.g., 48" />
               </div>
               <div className="form-group">
-                <label className="form-label">Language of Instruction</label>
-                <select className="form-input" value={form.language} onChange={e => f('language', e.target.value)}>
-                  {LANGUAGES.map(l => <option key={l} value={l}>{l}</option>)}
-                </select>
+                <label className="form-label">Languages of Instruction</label>
+                <div className="languages-multi-select">
+                  <div className="languages-badges">
+                    {form.language.map(lang => (
+                      <span key={lang} className="lang-badge">
+                        {lang}
+                        <button type="button" onClick={() => f('language', form.language.filter(l => l !== lang))} className="lang-remove">×</button>
+                      </span>
+                    ))}
+                  </div>
+                  <select 
+                    className="form-input" 
+                    value="" 
+                    onChange={e => {
+                      if (e.target.value && !form.language.includes(e.target.value)) {
+                        f('language', [...form.language, e.target.value])
+                      }
+                    }}
+                  >
+                    <option value="">Add language...</option>
+                    {LANGUAGES.map(l => (
+                      <option key={l} value={l} disabled={form.language.includes(l)}>{l}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
               <div className="form-group">
                 <label className="form-label">Delivery Mode</label>
@@ -796,7 +816,7 @@ export default function AdminAddProgram() {
                   ['Level', form.level ? form.level.charAt(0).toUpperCase() + form.level.slice(1) : '—'],
                   ['Category', form.category || '—'],
                   ['Duration', form.duration || '—'],
-                  ['Language', form.language],
+                  ['Language', form.language.join(', ')],
                   ['Delivery', form.delivery_mode.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())],
                   ['Campus', form.campus_type || '—'],
                   ['Tuition', form.tuition_fee ? `${form.currency} ${form.tuition_fee.toLocaleString()}/yr` : '—'],

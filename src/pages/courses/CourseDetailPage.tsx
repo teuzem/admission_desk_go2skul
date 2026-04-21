@@ -44,7 +44,7 @@ interface ProgramDetail {
   duration_months: number | null
   tuition_fee: number | null
   currency: string | null
-  language: string
+  language: string[]
   description: string | null
   requirements: string | null
   requirements_list: string[] | null
@@ -223,7 +223,7 @@ export default function CourseDetailPage() {
             <Globe size={20} className="cdp-stat-icon" style={{ color: '#8B5CF6' }} />
             <div className="cdp-stat-text">
               <span className="cdp-stat-label">Language</span>
-              <span className="cdp-stat-value">{program.language}</span>
+              <span className="cdp-stat-value">{Array.isArray(program.language) ? program.language.join(', ') : program.language}</span>
             </div>
           </div>
           <div className="cdp-stat-divider" />

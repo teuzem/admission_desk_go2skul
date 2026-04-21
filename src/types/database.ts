@@ -126,7 +126,7 @@ export type ProgramRow = {
   duration: string | null
   tuition_fee: number | null
   currency: string | null
-  language: string
+  language: string[]
   description: string | null
   requirements: string | null
   requirements_list: string[] | null

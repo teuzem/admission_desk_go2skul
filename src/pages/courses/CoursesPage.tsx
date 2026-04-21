@@ -49,7 +49,7 @@ interface Program {
   duration_months: number | null
   tuition_fee: number | null
   currency: string | null
-  language: string
+  language: string[]
   description: string | null
   requirements: string | null
   start_dates: string[]
@@ -436,9 +436,9 @@ export default function CoursesPage() {
                       🎓 Scholarship
                     </span>
                   )}
-                  {program.language && program.language !== 'English' && (
+                  {program.language && (Array.isArray(program.language) ? (program.language.length > 1 || program.language[0] !== 'English') : program.language !== 'English') && (
                     <span style={{ background: '#eff6ff', color: '#3b82f6', fontSize: '11px', padding: '2px 8px', borderRadius: '99px', fontWeight: 500 }}>
-                      🗣 {program.language}
+                      🗣 {Array.isArray(program.language) ? program.language.join(', ') : program.language}
                     </span>
                   )}
                   {program.category && (
