@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import {
   ArrowLeft, Building2, Globe, ImageIcon, CheckCircle2,
@@ -83,6 +83,7 @@ const STEPS_MULTI = [
 
 export default function AdminAddUniversity() {
   const navigate = useNavigate()
+  const { submissionId } = useParams()
   const [step, setStep] = useState(1)
   const [form, setForm] = useState<UniversityFormData>({ ...INITIAL_FORM })
   const [logoFile, setLogoFile] = useState<File | null>(null)
@@ -91,11 +92,57 @@ export default function AdminAddUniversity() {
   const [campusPreview, setCampusPreview] = useState<string | null>(null)
   const { user, isAdmissionManager, isAdmin, isSuperAdmin } = useAuth()
   const [submitting, setSubmitting] = useState(false)
+  const [fetchingSubmission, setFetchingSubmission] = useState(!!submissionId)
   const [newFeature, setNewFeature] = useState('')
   const [campuses, setCampuses] = useState<CampusData[]>([])
   const [expandedCampus, setExpandedCampus] = useState<number | null>(null)
   const logoInputRef = useRef<HTMLInputElement>(null)
   const campusInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (submissionId) {
+      const fetchSubmission = async () => {
+        try {
+          const { data, error } = await supabase
+            .from('pending_submissions')
+            .select('*')
+            .eq('id', submissionId)
+            .single()
+          
+          if (error) throw error
+          if (data) {
+            const payload = data.payload
+            setForm({
+              name: payload.name || '',
+              country: payload.country || '',
+              region: payload.region || '',
+              city: payload.city || '',
+              established: payload.established || null,
+              ranking: payload.ranking || '',
+              global_ranking: payload.global_ranking || null,
+              accreditation: payload.accreditation || '',
+              student_count: payload.student_count || null,
+              acceptance_rate: payload.acceptance_rate || null,
+              about: payload.about || '',
+              description: payload.description || '',
+              website_url: payload.website_url || '',
+              features: payload.features || [],
+              is_active: payload.is_active ?? true,
+              is_multisite: payload.is_multisite ?? false
+            })
+            if (payload.campuses) {
+              setCampuses(payload.campuses)
+            }
+          }
+        } catch (err: any) {
+          toast.error('Failed to load submission: ' + err.message)
+        } finally {
+          setFetchingSubmission(false)
+        }
+      }
+      fetchSubmission()
+    }
+  }, [submissionId])
 
   const f = (key: string, value: any) => setForm(p => ({ ...p, [key]: value }))
 
@@ -151,6 +198,68 @@ export default function AdminAddUniversity() {
     const isPending = isAdmissionManager && !isAdmin && !isSuperAdmin
 
     try {
+      if (submissionId) {
+        // Super Admin Approving/Saving changes to a submission
+        const payload = { ...form, campuses: form.is_multisite ? campuses : [] }
+        
+        // If Super Admin, they might want to "Approve" directly from here
+        const shouldApprove = window.confirm('Do you want to Approve this university now?')
+        
+        if (shouldApprove) {
+          // 1. Create the university
+          const { data: inserted, error: uniError } = await supabase.from('universities').insert({
+            name: form.name, country: form.country, region: form.region || null,
+            city: form.is_multisite ? null : (form.city || null),
+            established: form.established, ranking: form.ranking || null,
+            global_ranking: form.global_ranking, accreditation: form.accreditation || null,
+            student_count: form.student_count, acceptance_rate: form.acceptance_rate,
+            about: form.about || null, description: form.description || null,
+            website_url: form.website_url || null,
+            features: form.features.length > 0 ? form.features : null,
+            is_active: form.is_active, is_multisite: form.is_multisite
+          }).select('id').single()
+          
+          if (uniError) throw uniError
+
+          if (inserted) {
+            // Handle images (if provided in form or already in payload - note: images are usually separate)
+            // For now, if Super Admin uploads new ones during review:
+            const updates: any = {}
+            if (logoFile) { try { updates.logo_url = await uploadUniversityLogo(inserted.id, logoFile) } catch (e) { } }
+            if (campusFile) { try { updates.image_url = await uploadUniversityCampusImage(inserted.id, campusFile) } catch (e) { } }
+            if (Object.keys(updates).length > 0) await supabase.from('universities').update(updates).eq('id', inserted.id)
+
+            // 2. Create campuses
+            if (form.is_multisite && campuses.length > 0) {
+              const campusRows = campuses.map(c => ({
+                university_id: inserted.id, campus_name: c.campus_name, country: c.country,
+                city: c.city || null, region: c.region || null, address: c.address || null,
+                postal_code: c.postal_code || null, phone: c.phone || null, email: c.email || null,
+                website_url: c.website_url || null, student_count: c.student_count, is_main: c.is_main
+              }))
+              await supabase.from('university_campuses').insert(campusRows)
+            }
+
+            // 3. Update submission status
+            await supabase.from('pending_submissions')
+              .update({ status: 'approved', reviewer_notes: 'Approved via full review' })
+              .eq('id', submissionId)
+            
+            toast.success('University approved and created!')
+            navigate('/admin')
+          }
+        } else {
+          // Just save the edits to the submission without approving yet
+          const { error } = await supabase.from('pending_submissions')
+            .update({ payload })
+            .eq('id', submissionId)
+          if (error) throw error
+          toast.success('Submission edits saved')
+          navigate('/admin')
+        }
+        return
+      }
+
       if (isPending) {
         const payload = { ...form, campuses: form.is_multisite ? campuses : [] }
         const { error } = await supabase.from('pending_submissions').insert({
@@ -211,8 +320,8 @@ export default function AdminAddUniversity() {
             <ArrowLeft size={16} /> Back
           </button>
           <div>
-            <h1 className="page-title" style={{ margin: 0 }}>Add New University</h1>
-            <p className="page-subtitle" style={{ margin: 0 }}>Register a new partner institution.</p>
+            <h1 className="page-title" style={{ margin: 0 }}>{submissionId ? 'Review University Submission' : 'Add New University'}</h1>
+            <p className="page-subtitle" style={{ margin: 0 }}>{submissionId ? 'Review and edit submission details before approval.' : 'Register a new partner institution.'}</p>
           </div>
         </div>
 
@@ -537,7 +646,14 @@ export default function AdminAddUniversity() {
               <button className="btn btn-outline btn-lg" onClick={() => setStep(webStep)}>← Back</button>
               <button className="btn btn-primary btn-lg" onClick={handleSubmit} disabled={submitting}
                 style={{ background: '#00CCA0', borderColor: '#00CCA0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                {submitting ? <><Loader2 size={16} className="spinning" /> Submitting...</> : <><Save size={16} /> {(isAdmissionManager && !isAdmin && !isSuperAdmin) ? 'Submit for Approval' : 'Create University'}</>}
+                {submitting ? (
+                  <><Loader2 size={16} className="spinning" /> Processing...</>
+                ) : (
+                  <>
+                    <Save size={16} /> 
+                    {submissionId ? 'Complete Review' : (isAdmissionManager && !isAdmin && !isSuperAdmin) ? 'Submit for Approval' : 'Create University'}
+                  </>
+                )}
               </button>
             </div>
           </div>

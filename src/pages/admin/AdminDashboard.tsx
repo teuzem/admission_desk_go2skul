@@ -1687,6 +1687,9 @@ export default function AdminDashboard() {
                         <td style={{ padding: '0.875rem 1rem' }}>
                           {sub.status === 'pending' ? (
                             <div style={{ display: 'flex', gap: 6 }}>
+                              <button onClick={() => navigate(`/admin/${isUni ? 'universities' : 'programs'}/review/${sub.id}`)} style={{ padding: '5px 12px', borderRadius: 7, border: '1px solid #3b82f6', background: '#eff6ff', color: '#3b82f6', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <Eye size={12} /> Review & Edit
+                              </button>
                               <button onClick={async () => {
                                 const userId = (await supabase.auth.getUser()).data.user?.id
                                 // ── Strip non-DB fields from payload ──
@@ -1749,7 +1752,7 @@ export default function AdminDashboard() {
                                   toast.error('Approval failed: ' + (err.message || 'Unknown error'))
                                 }
                               }} style={{ padding: '5px 12px', borderRadius: 7, border: 'none', background: '#10b981', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                                <CheckCircle2 size={12} /> Approve
+                                <CheckCircle2 size={12} /> Quick Approve
                               </button>
                               <button onClick={async () => {
                                 const notes = prompt('Rejection reason (optional):')

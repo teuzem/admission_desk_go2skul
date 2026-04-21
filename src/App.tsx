@@ -181,8 +181,10 @@ export default function App() {
       <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
       <Route path="/admin/programs/new" element={<ProgramRoute><AdminAddProgram /></ProgramRoute>} />
       <Route path="/admin/programs/edit/:id" element={<ProgramRoute><AdminEditProgram /></ProgramRoute>} />
+      <Route path="/admin/programs/review/:submissionId" element={<AdminRoute><AdminAddProgram /></AdminRoute>} />
       <Route path="/admin/universities/new" element={<ProgramRoute><AdminAddUniversity /></ProgramRoute>} />
       <Route path="/admin/universities/edit/:id" element={<ProgramRoute><AdminEditUniversity /></ProgramRoute>} />
+      <Route path="/admin/universities/review/:submissionId" element={<AdminRoute><AdminAddUniversity /></AdminRoute>} />
       <Route path="/admin/students" element={<AdminRoute><AdminStudents /></AdminRoute>} />
       <Route path="/admin/agents" element={<AdminRoute><AdminAgents /></AdminRoute>} />
       <Route path="/admin/applications/:id" element={<AdminRoute><AdminApplicationDetail /></AdminRoute>} />

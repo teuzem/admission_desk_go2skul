@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import {
   ArrowLeft, GraduationCap, BookOpen, DollarSign, ClipboardList,
@@ -119,18 +119,73 @@ const STEPS = [
 
 export default function AdminAddProgram() {
   const navigate = useNavigate()
+  const { submissionId } = useParams()
   const [step, setStep] = useState(1)
   const [form, setForm] = useState<ProgramFormData>({ ...INITIAL_FORM })
   const [universities, setUniversities] = useState<any[]>([])
   const [coverImage, setCoverImage] = useState<File | null>(null)
   const [coverPreview, setCoverPreview] = useState<string | null>(null)
-  const { user, isAdmissionManager, isAdmin, isSuperAdmin } = useAuth()
+  const { user, profile, isAdmissionManager, isAdmin, isSuperAdmin } = useAuth()
   const [submitting, setSubmitting] = useState(false)
+  const [fetchingSubmission, setFetchingSubmission] = useState(!!submissionId)
   const [newStartDate, setNewStartDate] = useState('')
   const [newRequirement, setNewRequirement] = useState('')
   const [campuses, setCampuses] = useState<any[]>([])
   const [isMultisite, setIsMultisite] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (submissionId) {
+      const fetchSubmission = async () => {
+        try {
+          const { data, error } = await supabase
+            .from('pending_submissions')
+            .select('*')
+            .eq('id', submissionId)
+            .single()
+          
+          if (error) throw error
+          if (data) {
+            const p = data.payload
+            setForm({
+              university_id: p.university_id || '',
+              name: p.name || '',
+              level: p.level || '',
+              category: p.category || '',
+              duration: p.duration || '',
+              duration_months: p.duration_months || null,
+              language: p.language || 'English',
+              delivery_mode: p.delivery_mode || 'on-campus',
+              campus_type: p.campus_type || '',
+              tuition_fee: p.tuition_fee || null,
+              currency: p.currency || 'USD',
+              application_fee: p.application_fee || null,
+              application_deadline: p.application_deadline || '',
+              start_dates: p.start_dates || [],
+              intake: p.intake || '',
+              description: p.description || '',
+              requirements: p.requirements || '',
+              requirements_list: p.requirements_list || [],
+              english_requirements: p.english_requirements || '',
+              prerequisites: p.prerequisites || '',
+              curriculum_summary: p.curriculum_summary || '',
+              scholarship_available: p.scholarship_available ?? false,
+              accommodation_available: p.accommodation_available ?? false,
+              visa_support: p.visa_support ?? true,
+              is_active: p.is_active ?? true,
+              is_all_campuses: p.is_all_campuses ?? true,
+              campus_ids: p.campus_ids || []
+            })
+          }
+        } catch (err: any) {
+          toast.error('Failed to load submission: ' + err.message)
+        } finally {
+          setFetchingSubmission(false)
+        }
+      }
+      fetchSubmission()
+    }
+  }, [submissionId])
 
   const f = (key: string, value: any) => setForm(p => ({ ...p, [key]: value }))
 
@@ -201,6 +256,80 @@ export default function AdminAddProgram() {
     const isPending = isAdmissionManager && !isAdmin && !isSuperAdmin
 
     try {
+      if (submissionId) {
+        // Super Admin Approving/Saving changes to a submission
+        const payload = { ...form }
+        
+        // If Super Admin, they might want to "Approve" directly from here
+        const shouldApprove = window.confirm('Do you want to Approve this program now?')
+        
+        if (shouldApprove) {
+          // 1. Create the program
+          const { data: inserted, error: progError } = await supabase.from('programs').insert({
+            university_id: form.university_id,
+            name: form.name,
+            level: form.level,
+            category: form.category,
+            duration: form.duration || null,
+            duration_months: form.duration_months,
+            language: form.language,
+            delivery_mode: form.delivery_mode,
+            campus_type: form.campus_type || null,
+            tuition_fee: form.tuition_fee,
+            currency: form.currency,
+            application_fee: form.application_fee,
+            application_deadline: form.application_deadline || null,
+            start_dates: form.start_dates,
+            intake: form.intake || null,
+            description: form.description || null,
+            requirements: form.requirements || null,
+            requirements_list: form.requirements_list,
+            english_requirements: form.english_requirements || null,
+            prerequisites: form.prerequisites || null,
+            curriculum_summary: form.curriculum_summary || null,
+            scholarship_available: form.scholarship_available,
+            accommodation_available: form.accommodation_available,
+            visa_support: form.visa_support,
+            is_active: form.is_active
+          }).select('id').single()
+          
+          if (progError) throw progError
+
+          if (inserted) {
+            // Handle cover image
+            if (coverImage) {
+              try { await uploadProgramCover(inserted.id, coverImage) } catch (e) { }
+            }
+
+            // 2. Handle campus assignments
+            if (!form.is_all_campuses && form.campus_ids.length > 0) {
+              const assignments = form.campus_ids.map(cid => ({
+                program_id: inserted.id,
+                campus_id: cid
+              }))
+              await supabase.from('program_campus_assignments').insert(assignments)
+            }
+
+            // 3. Update submission status
+            await supabase.from('pending_submissions')
+              .update({ status: 'approved', reviewer_notes: 'Approved via full review' })
+              .eq('id', submissionId)
+            
+            toast.success('Program approved and created!')
+            navigate('/admin')
+          }
+        } else {
+          // Just save the edits to the submission without approving yet
+          const { error } = await supabase.from('pending_submissions')
+            .update({ payload })
+            .eq('id', submissionId)
+          if (error) throw error
+          toast.success('Submission edits saved')
+          navigate('/admin')
+        }
+        return
+      }
+
       if (isPending) {
         const payload = {
           ...form,
@@ -272,12 +401,12 @@ export default function AdminAddProgram() {
       <div style={{ maxWidth: '860px', margin: '0 auto' }}>
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem' }}>
-          <button onClick={() => navigate((isAdmissionManager && !isAdmin && !isSuperAdmin) ? '/admin/programs' : '/admin')} className="admin-back-btn">
+          <button onClick={() => navigate(submissionId ? '/admin' : (isAdmissionManager && !isAdmin && !isSuperAdmin) ? '/admin/programs' : '/admin')} className="admin-back-btn">
             <ArrowLeft size={16} /> Back
           </button>
           <div>
-            <h1 className="page-title" style={{ margin: 0 }}>Add New Program</h1>
-            <p className="page-subtitle" style={{ margin: 0 }}>Create a study program for a partner university.</p>
+            <h1 className="page-title" style={{ margin: 0 }}>{submissionId ? 'Review Program Submission' : 'Add New Program'}</h1>
+            <p className="page-subtitle" style={{ margin: 0 }}>{submissionId ? 'Review and edit submission details before approval.' : 'Create a study program for a partner university.'}</p>
           </div>
         </div>
 
@@ -665,13 +794,16 @@ export default function AdminAddProgram() {
 
             <div className="admin-form-actions">
               <button className="btn btn-outline btn-lg" onClick={() => setStep(4)}>← Back</button>
-              <button
-                className="btn btn-primary btn-lg"
-                onClick={handleSubmit}
-                disabled={submitting}
-                style={{ background: '#00CCA0', borderColor: '#00CCA0', display: 'flex', alignItems: 'center', gap: '8px' }}
-              >
-                {submitting ? <><Loader2 size={16} className="spinning" /> Submitting...</> : <><Save size={16} /> {(isAdmissionManager && !isAdmin && !isSuperAdmin) ? 'Submit for Approval' : 'Create Program'}</>}
+              <button className="btn btn-primary btn-lg" onClick={handleSubmit} disabled={submitting}
+                style={{ background: '#00CCA0', borderColor: '#00CCA0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {submitting ? (
+                  <><Loader2 size={16} className="spinning" /> Processing...</>
+                ) : (
+                  <>
+                    <Save size={16} /> 
+                    {submissionId ? 'Complete Review' : (isAdmissionManager && !isAdmin && !isSuperAdmin) ? 'Submit for Approval' : 'Create Program'}
+                  </>
+                )}
               </button>
             </div>
           </div>
