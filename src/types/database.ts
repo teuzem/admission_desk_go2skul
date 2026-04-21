@@ -111,6 +111,7 @@ export type UniversityRow = {
   student_count: number | null
   acceptance_rate: number | null
   is_active: boolean
+  is_multisite: boolean
   created_at: string
 }
 
@@ -137,6 +138,7 @@ export type ProgramRow = {
   application_fee: number | null
   img_url: string | null
   is_active: boolean
+  is_all_campuses: boolean
   created_at: string
   scholarship_available: boolean
   campus_type: string | null
@@ -388,7 +390,22 @@ export type UniversityCampusRow = {
   country: string
   city: string | null
   campus_name: string | null
+  region: string | null
+  address: string | null
+  postal_code: string | null
+  phone: string | null
+  email: string | null
+  website_url: string | null
+  student_count: number | null
   is_main: boolean
+  is_active: boolean
+  created_at: string
+}
+
+export type ProgramCampusAssignmentRow = {
+  id: string
+  program_id: string
+  campus_id: string
   created_at: string
 }
 
@@ -636,6 +653,12 @@ export interface Database {
         Row: UniversityCampusRow
         Insert: Partial<UniversityCampusRow> & { university_id: string; country: string }
         Update: Partial<UniversityCampusRow>
+        Relationships: []
+      }
+      program_campus_assignments: {
+        Row: ProgramCampusAssignmentRow
+        Insert: Partial<ProgramCampusAssignmentRow> & { program_id: string; campus_id: string }
+        Update: Partial<ProgramCampusAssignmentRow>
         Relationships: []
       }
       news_posts: {

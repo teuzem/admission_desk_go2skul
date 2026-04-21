@@ -29,8 +29,8 @@ export default function ProgramManagerDashboard() {
     setLoading(true)
     try {
       const [uniRes, progRes, subRes] = await Promise.all([
-        supabase.from('universities').select('*').eq('is_active', true).order('name'),
-        supabase.from('programs').select('*, universities(name, country)').eq('is_active', true).order('name'),
+        supabase.from('universities').select('*, university_campuses(*)').eq('is_active', true).order('name'),
+        supabase.from('programs').select('*, universities(name, country, is_multisite)').eq('is_active', true).order('name'),
         supabase.from('pending_submissions').select('*, profiles:submitted_by(first_name, last_name, email)').order('created_at', { ascending: false })
       ])
       

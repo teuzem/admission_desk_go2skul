@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import {
   ArrowLeft, GraduationCap, BookOpen, DollarSign, ClipboardList,
-  ImageIcon, CheckCircle2, Plus, X, Upload, Loader2, Save
+  ImageIcon, CheckCircle2, Plus, X, Upload, Loader2, Save, MapPin
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { uploadProgramCover } from '../../lib/storageHelpers'
@@ -75,6 +75,8 @@ interface ProgramFormData {
   accommodation_available: boolean
   visa_support: boolean
   is_active: boolean
+  is_all_campuses: boolean
+  campus_ids: string[]
 }
 
 const INITIAL_FORM: ProgramFormData = {
@@ -102,7 +104,9 @@ const INITIAL_FORM: ProgramFormData = {
   scholarship_available: false,
   accommodation_available: false,
   visa_support: true,
-  is_active: true
+  is_active: true,
+  is_all_campuses: true,
+  campus_ids: []
 }
 
 const STEPS = [
@@ -120,18 +124,35 @@ export default function AdminAddProgram() {
   const [universities, setUniversities] = useState<any[]>([])
   const [coverImage, setCoverImage] = useState<File | null>(null)
   const [coverPreview, setCoverPreview] = useState<string | null>(null)
-  const { user, isProgramManager, isAdmin, isSuperAdmin } = useAuth()
+  const { user, isAdmissionManager, isAdmin, isSuperAdmin } = useAuth()
   const [submitting, setSubmitting] = useState(false)
   const [newStartDate, setNewStartDate] = useState('')
   const [newRequirement, setNewRequirement] = useState('')
+  const [campuses, setCampuses] = useState<any[]>([])
+  const [isMultisite, setIsMultisite] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const f = (key: string, value: any) => setForm(p => ({ ...p, [key]: value }))
 
   useEffect(() => {
-    supabase.from('universities').select('id, name, country, city').eq('is_active', true).order('name')
+    supabase.from('universities').select('id, name, country, city, is_multisite').eq('is_active', true).order('name')
       .then(({ data }) => setUniversities(data || []))
   }, [])
+
+  // Fetch campuses when university changes
+  useEffect(() => {
+    const uni = universities.find(u => u.id === form.university_id)
+    if (uni?.is_multisite) {
+      setIsMultisite(true)
+      supabase.from('university_campuses').select('*').eq('university_id', uni.id).eq('is_active', true).order('is_main', { ascending: false })
+        .then(({ data }) => setCampuses(data || []))
+    } else {
+      setIsMultisite(false)
+      setCampuses([])
+      f('is_all_campuses', true)
+      f('campus_ids', [])
+    }
+  }, [form.university_id, universities])
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -171,49 +192,45 @@ export default function AdminAddProgram() {
 
   const handleSubmit = async () => {
     if (!form.university_id || !form.name || !form.level) {
-      toast.error('University, program name and level are required')
-      return
+      toast.error('University, program name and level are required'); return
+    }
+    if (isMultisite && !form.is_all_campuses && form.campus_ids.length === 0) {
+      toast.error('Please select at least one campus'); return
     }
     setSubmitting(true)
-    
-    // Program Managers submit to pending_submissions unless they are also admins
-    const isPending = isProgramManager && !isAdmin && !isSuperAdmin
+    const isPending = isAdmissionManager && !isAdmin && !isSuperAdmin
 
     try {
       if (isPending) {
-        // Prepare payload, omitting local file objects
-        const payload = { ...form }
-        
+        const payload = {
+          ...form,
+          campuses_details: !form.is_all_campuses && campuses.length > 0
+            ? campuses.filter(c => form.campus_ids.includes(c.id)).map(c => ({
+              id: c.id,
+              campus_name: c.campus_name,
+              city: c.city,
+              country: c.country,
+              is_main: c.is_main
+            }))
+            : []
+        }
         const { error } = await supabase.from('pending_submissions').insert({
-          submitted_by: user?.id,
-          submission_type: 'program',
-          payload: payload,
-          status: 'pending'
+          submitted_by: user?.id, submission_type: 'program', payload, status: 'pending'
         })
         if (error) throw error
         toast.success('Program submitted for approval!')
         navigate('/admin/programs')
       } else {
-        let imgUrl: string | null = null
-
-        // Insert program
         const { data: inserted, error } = await supabase.from('programs').insert({
-          university_id: form.university_id,
-          name: form.name,
-          level: form.level,
-          category: form.category || null,
-          duration: form.duration || null,
-          duration_months: form.duration_months,
-          language: form.language,
-          delivery_mode: form.delivery_mode,
-          campus_type: form.campus_type || null,
-          tuition_fee: form.tuition_fee,
-          currency: form.currency,
+          university_id: form.university_id, name: form.name, level: form.level,
+          category: form.category || null, duration: form.duration || null,
+          duration_months: form.duration_months, language: form.language,
+          delivery_mode: form.delivery_mode, campus_type: form.campus_type || null,
+          tuition_fee: form.tuition_fee, currency: form.currency,
           application_fee: form.application_fee,
           application_deadline: form.application_deadline || null,
           start_dates: form.start_dates.length > 0 ? form.start_dates : null,
-          intake: form.intake || null,
-          description: form.description || null,
+          intake: form.intake || null, description: form.description || null,
           requirements: form.requirements || null,
           requirements_list: form.requirements_list.length > 0 ? form.requirements_list : null,
           english_requirements: form.english_requirements || null,
@@ -221,25 +238,27 @@ export default function AdminAddProgram() {
           curriculum_summary: form.curriculum_summary || null,
           scholarship_available: form.scholarship_available,
           accommodation_available: form.accommodation_available,
-          visa_support: form.visa_support,
-          img_url: imgUrl,
-          is_active: form.is_active
+          visa_support: form.visa_support, img_url: null,
+          is_active: form.is_active, is_all_campuses: form.is_all_campuses
         }).select('id').single()
-
         if (error) throw error
 
-        // Upload cover image after we have the program ID
-        if (coverImage && inserted) {
-          try {
-            imgUrl = await uploadProgramCover(inserted.id, coverImage)
-            await supabase.from('programs').update({ img_url: imgUrl }).eq('id', inserted.id)
-          } catch (imgErr) {
-            console.error('Cover upload failed:', imgErr)
+        if (inserted) {
+          // Upload cover image
+          if (coverImage) {
+            try {
+              const imgUrl = await uploadProgramCover(inserted.id, coverImage)
+              await supabase.from('programs').update({ img_url: imgUrl }).eq('id', inserted.id)
+            } catch (imgErr) { console.error('Cover upload failed:', imgErr) }
+          }
+          // Insert campus assignments for campus-specific programs
+          if (!form.is_all_campuses && form.campus_ids.length > 0) {
+            const rows = form.campus_ids.map((cid: string) => ({ program_id: inserted.id, campus_id: cid }))
+            await supabase.from('program_campus_assignments').insert(rows)
           }
         }
-
         toast.success('Program created successfully!')
-        navigate(isProgramManager ? '/admin/programs' : '/admin')
+        navigate(isAdmissionManager ? '/admin/programs' : '/admin')
       }
     } catch (err: any) {
       toast.error(err.message || 'Failed to submit program')
@@ -253,7 +272,7 @@ export default function AdminAddProgram() {
       <div style={{ maxWidth: '860px', margin: '0 auto' }}>
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem' }}>
-          <button onClick={() => navigate((isProgramManager && !isAdmin && !isSuperAdmin) ? '/admin/programs' : '/admin')} className="admin-back-btn">
+          <button onClick={() => navigate((isAdmissionManager && !isAdmin && !isSuperAdmin) ? '/admin/programs' : '/admin')} className="admin-back-btn">
             <ArrowLeft size={16} /> Back
           </button>
           <div>
@@ -308,8 +327,38 @@ export default function AdminAddProgram() {
                 <GraduationCap size={20} />
                 <div>
                   <strong>{selectedUni.name}</strong>
-                  <span>{selectedUni.city ? `${selectedUni.city}, ` : ''}{selectedUni.country}</span>
+                  <span>{selectedUni.city ? `${selectedUni.city}, ` : ''}{selectedUni.country}{selectedUni.is_multisite ? ' — Multisite' : ''}</span>
                 </div>
+              </div>
+            )}
+            {isMultisite && campuses.length > 0 && (
+              <div className="form-group" style={{ marginTop: '1rem' }}>
+                <label className="form-label">Campus Availability</label>
+                <p style={{ fontSize: '0.78rem', color: '#64748b', margin: '0 0 8px' }}>Choose whether this program is available at all campuses or only specific ones.</p>
+                <label className="admin-checkbox" style={{ marginBottom: '10px' }}>
+                  <input type="checkbox" checked={form.is_all_campuses} onChange={e => { f('is_all_campuses', e.target.checked); if (e.target.checked) f('campus_ids', []) }} />
+                  <span>Available at all campuses</span>
+                </label>
+                {!form.is_all_campuses && (
+                  <div className="campus-assign-grid">
+                    {campuses.map(c => {
+                      const sel = form.campus_ids.includes(c.id)
+                      return (
+                        <div key={c.id} className={`campus-assign-item ${sel ? 'selected' : ''}`} onClick={() => {
+                          f('campus_ids', sel ? form.campus_ids.filter((x: string) => x !== c.id) : [...form.campus_ids, c.id])
+                        }}>
+                          <input type="checkbox" checked={sel} readOnly />
+                          <MapPin size={14} style={{ color: c.is_main ? '#f59e0b' : '#94a3b8' }} />
+                          <div style={{ flex: 1 }}>
+                            <strong>{c.campus_name}</strong>
+                            <span style={{ fontSize: '0.78rem', color: '#64748b', marginLeft: '6px' }}>{c.city}, {c.country}</span>
+                          </div>
+                          {c.is_main && <span style={{ fontSize: '0.68rem', color: '#b45309', background: '#fef3c7', padding: '1px 6px', borderRadius: '4px' }}>Main</span>}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
             )}
             <div className="admin-form-actions">
@@ -622,7 +671,7 @@ export default function AdminAddProgram() {
                 disabled={submitting}
                 style={{ background: '#00CCA0', borderColor: '#00CCA0', display: 'flex', alignItems: 'center', gap: '8px' }}
               >
-                {submitting ? <><Loader2 size={16} className="spinning" /> Submitting...</> : <><Save size={16} /> {(isProgramManager && !isAdmin && !isSuperAdmin) ? 'Submit for Approval' : 'Create Program'}</>}
+                {submitting ? <><Loader2 size={16} className="spinning" /> Submitting...</> : <><Save size={16} /> {(isAdmissionManager && !isAdmin && !isSuperAdmin) ? 'Submit for Approval' : 'Create Program'}</>}
               </button>
             </div>
           </div>

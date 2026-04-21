@@ -75,7 +75,7 @@ export default function AdminDashboard() {
       supabase.from('profiles').select('id, first_name, last_name, email, kyc_status, agency_name, country, created_at').eq('role', 'agent').order('created_at', { ascending: false }),
       supabase.from('applications').select('id, status, created_at, profiles!agent_id(first_name, last_name, agency_name), universities(name), programs(name)').order('created_at', { ascending: false }).limit(50),
       supabase.from('announcements').select('*').order('published_at', { ascending: false }),
-      supabase.from('universities').select('id, name, country, city, logo_url, is_active, ranking, established').order('name'),
+      supabase.from('universities').select('id, name, country, city, logo_url, is_active, ranking, established, is_multisite, university_campuses(*)').order('name'),
       supabase.from('programs').select('id, name, level, category, tuition_fee, currency, is_active, university_id, universities(name, country)').order('created_at', { ascending: false }).limit(100),
       supabase.from('students').select('id, first_name, last_name, email, nationality, created_at').order('created_at', { ascending: false }).limit(50)
     ])
@@ -1566,7 +1566,7 @@ export default function AdminDashboard() {
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
-                    {['Type', 'Name', 'Submitted By', 'Status', 'Date', 'Actions'].map(h => (
+                    {['Type', 'Name / Details', 'Submitted By', 'Status', 'Date', 'Actions'].map(h => (
                       <th key={h} style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.72rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', borderBottom: '1px solid #f1f5f9' }}>{h}</th>
                     ))}
                   </tr>
@@ -1575,23 +1575,107 @@ export default function AdminDashboard() {
                   {pendingSubmissions.map(sub => {
                     const colors: Record<string, { c: string; bg: string }> = { pending: { c: '#f59e0b', bg: '#fffbeb' }, approved: { c: '#10b981', bg: '#f0fdf4' }, rejected: { c: '#ef4444', bg: '#fef2f2' } }
                     const sc = colors[sub.status] || colors.pending
+                    const isUni = sub.submission_type === 'university'
+                    const submittedCampuses: any[] = sub.payload?.campuses || []
+                    const submittedCampusIds: string[] = sub.payload?.campus_ids || []
                     return (
                       <tr key={sub.id} style={{ borderBottom: '1px solid #f8fafc' }}>
                         <td style={{ padding: '0.875rem 1rem' }}>
-                          <span style={{ fontSize: '0.72rem', fontWeight: 700, padding: '2px 8px', borderRadius: 4, background: sub.submission_type === 'program' ? '#f5f3ff' : '#eff6ff', color: sub.submission_type === 'program' ? '#8b5cf6' : '#3A4391', textTransform: 'uppercase' }}>{sub.submission_type}</span>
+                          <span style={{ fontSize: '0.72rem', fontWeight: 700, padding: '2px 8px', borderRadius: 4, background: isUni ? '#eff6ff' : '#f5f3ff', color: isUni ? '#3A4391' : '#8b5cf6', textTransform: 'uppercase' }}>{sub.submission_type}</span>
                         </td>
                         <td style={{ padding: '0.875rem 1rem', fontWeight: 600, color: '#1e293b', fontSize: '0.875rem' }}>
-                          {sub.payload?.name || '—'}
+                          <div>{sub.payload?.name || '—'}</div>
+                          {isUni && sub.payload?.is_multisite && (
+                            <div style={{ fontSize: '0.72rem', color: '#f59e0b', fontWeight: 600, marginTop: '2px' }}>🌐 Multisite — {submittedCampuses.length} campus{submittedCampuses.length !== 1 ? 'es' : ''}</div>
+                          )}
+                          {isUni && sub.payload?.country && (
+                            <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '1px' }}>{sub.payload.country}{sub.payload.city ? `, ${sub.payload.city}` : ''}</div>
+                          )}
+                          {!isUni && sub.payload?.level && (
+                            <div style={{ fontSize: '0.72rem', color: '#8b5cf6', marginTop: '1px' }}>{sub.payload.level}{sub.payload.category ? ` · ${sub.payload.category}` : ''}</div>
+                          )}
                           <div style={{ marginTop: '4px' }}>
                             <button onClick={() => setExpandedSub(expandedSub === sub.id ? null : sub.id)} style={{ background: 'none', border: 'none', color: '#10b981', fontSize: '0.75rem', fontWeight: 600, padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
                               {expandedSub === sub.id ? 'Hide Details' : 'View Details'} <ChevronDown size={12} style={{ transform: expandedSub === sub.id ? 'rotate(180deg)' : 'none' }} />
                             </button>
                           </div>
                           {expandedSub === sub.id && (
-                            <div style={{ marginTop: '1rem', padding: '1rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', width: '400px', fontSize: '0.8rem' }}>
-                              <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontFamily: 'monospace', color: '#475569' }}>
-                                {JSON.stringify(sub.payload, null, 2)}
-                              </pre>
+                            <div style={{ marginTop: '1rem', padding: '1rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', maxWidth: '440px', fontSize: '0.8rem' }}>
+                              {isUni ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                  {([
+                                    ['Established', sub.payload.established],
+                                    ['Ranking', sub.payload.ranking],
+                                    ['Global Rank #', sub.payload.global_ranking],
+                                    ['Accreditation', sub.payload.accreditation],
+                                    ['Students', sub.payload.student_count?.toLocaleString()],
+                                    ['Acceptance Rate', sub.payload.acceptance_rate ? `${sub.payload.acceptance_rate}%` : null],
+                                    ['Website', sub.payload.website_url],
+                                    ['Active', sub.payload.is_active ? '✓ Yes' : '✗ No'],
+                                    ['Multisite', sub.payload.is_multisite ? `✓ Yes (${submittedCampuses.length} campuses)` : '✗ No'],
+                                  ] as [string, any][]).filter(([, v]) => v != null && v !== '' && v !== undefined).map(([k, v]) => (
+                                    <div key={k} style={{ display: 'flex', gap: '8px' }}>
+                                      <span style={{ color: '#94a3b8', minWidth: '120px', flexShrink: 0 }}>{k}:</span>
+                                      <span style={{ color: '#1e293b', fontWeight: 600 }}>{String(v)}</span>
+                                    </div>
+                                  ))}
+                                  {sub.payload.about && (
+                                    <div style={{ marginTop: '6px', color: '#475569', lineHeight: 1.5 }}><strong>About:</strong> {String(sub.payload.about).substring(0, 200)}{String(sub.payload.about).length > 200 ? '...' : ''}</div>
+                                  )}
+                                  {submittedCampuses.length > 0 && (
+                                    <div style={{ marginTop: '8px' }}>
+                                      <strong style={{ color: '#475569' }}>Campuses:</strong>
+                                      <div style={{ marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                        {submittedCampuses.map((c: any, i: number) => (
+                                          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 8px', background: c.is_main ? '#fef3c7' : '#f1f5f9', borderRadius: '6px' }}>
+                                            <span style={{ fontSize: '0.68rem', fontWeight: 700, color: c.is_main ? '#b45309' : '#64748b' }}>{c.is_main ? '★ MAIN' : `#${i + 1}`}</span>
+                                            <span style={{ fontWeight: 600, color: '#1e293b' }}>{c.campus_name}</span>
+                                            <span style={{ color: '#64748b' }}>— {c.city}, {c.country}</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                  {([
+                                    ['Duration', sub.payload.duration],
+                                    ['Language', sub.payload.language],
+                                    ['Delivery', sub.payload.delivery_mode],
+                                    ['Tuition', sub.payload.tuition_fee ? `${sub.payload.currency} ${Number(sub.payload.tuition_fee).toLocaleString()}/yr` : null],
+                                    ['App. Fee', sub.payload.application_fee ? `${sub.payload.currency} ${sub.payload.application_fee}` : null],
+                                    ['Deadline', sub.payload.application_deadline],
+                                    ['Scholarship', sub.payload.scholarship_available ? '✓ Yes' : null],
+                                    ['Campus', !sub.payload.is_all_campuses ? `Specific (${submittedCampusIds.length} campus${submittedCampusIds.length !== 1 ? 'es' : ''})` : 'All campuses'],
+                                    ['Active', sub.payload.is_active ? '✓ Yes' : '✗ No'],
+                                  ] as [string, any][]).filter(([, v]) => v != null && v !== '' && v !== undefined).map(([k, v]) => (
+                                    <div key={k} style={{ display: 'flex', gap: '8px' }}>
+                                      <span style={{ color: '#94a3b8', minWidth: '120px', flexShrink: 0 }}>{k}:</span>
+                                      <span style={{ color: '#1e293b', fontWeight: 600 }}>{String(v)}</span>
+                                    </div>
+                                  ))}
+                                  {sub.payload.description && (
+                                    <div style={{ marginTop: '6px', color: '#475569', lineHeight: 1.5 }}><strong>Description:</strong> {String(sub.payload.description).substring(0, 200)}{String(sub.payload.description).length > 200 ? '...' : ''}</div>
+                                  )}
+                                  {!sub.payload.is_all_campuses && sub.payload.campuses_details?.length > 0 && (
+                                    <div style={{ marginTop: '10px' }}>
+                                      <strong style={{ fontSize: '0.78rem', color: '#94a3b8', textTransform: 'uppercase' }}>Selected Campuses ({sub.payload.campuses_details.length})</strong>
+                                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '0.5rem', marginTop: '6px' }}>
+                                        {sub.payload.campuses_details.map((c: any, i: number) => (
+                                          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: '#f8fafc', borderRadius: '6px', border: `1px solid ${c.is_main ? '#fde68a' : '#e2e8f0'}` }}>
+                                            <span style={{ fontSize: '0.65rem', fontWeight: 700, color: c.is_main ? '#b45309' : '#64748b' }}>{c.is_main ? '★ MAIN' : `#${i + 1}`}</span>
+                                            <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                                              <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.campus_name}</span>
+                                              <span style={{ fontSize: '0.68rem', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.city}, {c.country}</span>
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           )}
                         </td>
@@ -1605,40 +1689,65 @@ export default function AdminDashboard() {
                             <div style={{ display: 'flex', gap: 6 }}>
                               <button onClick={async () => {
                                 const userId = (await supabase.auth.getUser()).data.user?.id
-                                // Create the actual record
-                                const dbPayload = { ...sub.payload }
-                                delete dbPayload.target_id
-                                delete dbPayload.edit_mode
-                                
-                                if (sub.submission_type === 'program') {
-                                  if (sub.payload.edit_mode && sub.payload.target_id) {
-                                    const { error } = await supabase.from('programs').update(dbPayload).eq('id', sub.payload.target_id)
-                                    if (error) { toast.error('Failed to update program: ' + error.message); return }
+                                // ── Strip non-DB fields from payload ──
+                                const {
+                                  campuses: campPayload,
+                                  campus_ids: campIdsPayload,
+                                  campuses_details,
+                                  target_id: tgtId,
+                                  edit_mode: editMode,
+                                  ...dbPayload
+                                } = sub.payload
+                                const campRows: any[] = campPayload || []
+                                const campIdRows: string[] = campIdsPayload || []
+                                try {
+                                  if (sub.submission_type === 'program') {
+                                    // ── PROGRAM APPROVAL ──
+                                    if (editMode && tgtId) {
+                                      const { error } = await supabase.from('programs').update(dbPayload).eq('id', tgtId)
+                                      if (error) { toast.error('Failed to update program: ' + error.message); return }
+                                      await supabase.from('program_campus_assignments').delete().eq('program_id', tgtId)
+                                      if (!dbPayload.is_all_campuses && campIdRows.length > 0) {
+                                        await supabase.from('program_campus_assignments').insert(campIdRows.map((cid: string) => ({ program_id: tgtId, campus_id: cid })))
+                                      }
+                                    } else {
+                                      const { data: newProg, error } = await supabase.from('programs').insert({ ...dbPayload, is_active: dbPayload.is_active ?? true }).select('id').single()
+                                      if (error) { toast.error('Failed to create program: ' + error.message); return }
+                                      if (newProg && !dbPayload.is_all_campuses && campIdRows.length > 0) {
+                                        const { error: ce } = await supabase.from('program_campus_assignments').insert(campIdRows.map((cid: string) => ({ program_id: newProg.id, campus_id: cid })))
+                                        if (ce) console.error('Campus assignment failed:', ce)
+                                      }
+                                    }
                                   } else {
-                                    const { error } = await supabase.from('programs').insert({
-                                      ...dbPayload,
-                                      is_active: dbPayload.is_active ?? true,
-                                    })
-                                    if (error) { toast.error('Failed to create program: ' + error.message); return }
+                                    // ── UNIVERSITY APPROVAL ──
+                                    if (editMode && tgtId) {
+                                      const { error } = await supabase.from('universities').update(dbPayload).eq('id', tgtId)
+                                      if (error) { toast.error('Failed to update university: ' + error.message); return }
+                                      await supabase.from('university_campuses').delete().eq('university_id', tgtId)
+                                      if (dbPayload.is_multisite && campRows.length > 0) {
+                                        const rows = campRows.map((c: any) => ({ university_id: tgtId, campus_name: c.campus_name, country: c.country, city: c.city || null, region: c.region || null, address: c.address || null, postal_code: c.postal_code || null, phone: c.phone || null, email: c.email || null, website_url: c.website_url || null, student_count: c.student_count || null, is_main: !!c.is_main, is_active: true }))
+                                        const { error: ce } = await supabase.from('university_campuses').insert(rows)
+                                        if (ce) console.error('Campus insert failed:', ce)
+                                      }
+                                    } else {
+                                      const { data: newUni, error } = await supabase.from('universities').insert({ ...dbPayload, is_active: dbPayload.is_active ?? true }).select('id').single()
+                                      if (error) { toast.error('Failed to create university: ' + error.message); return }
+                                      if (newUni && dbPayload.is_multisite && campRows.length > 0) {
+                                        const rows = campRows.map((c: any) => ({ university_id: newUni.id, campus_name: c.campus_name, country: c.country, city: c.city || null, region: c.region || null, address: c.address || null, postal_code: c.postal_code || null, phone: c.phone || null, email: c.email || null, website_url: c.website_url || null, student_count: c.student_count || null, is_main: !!c.is_main, is_active: true }))
+                                        const { error: ce } = await supabase.from('university_campuses').insert(rows)
+                                        if (ce) { toast.error('University created but campus insert failed: ' + ce.message); console.error(ce) }
+                                      }
+                                    }
                                   }
-                                } else {
-                                  if (sub.payload.edit_mode && sub.payload.target_id) {
-                                    const { error } = await supabase.from('universities').update(dbPayload).eq('id', sub.payload.target_id)
-                                    if (error) { toast.error('Failed to update university: ' + error.message); return }
-                                  } else {
-                                    const { error } = await supabase.from('universities').insert({
-                                      ...dbPayload,
-                                      is_active: dbPayload.is_active ?? true,
-                                    })
-                                    if (error) { toast.error('Failed to create university: ' + error.message); return }
-                                  }
+                                  await supabase.from('pending_submissions').update({ status: 'approved', reviewer_id: userId, reviewed_at: new Date().toISOString() }).eq('id', sub.id)
+                                  const campMsg = isUni && dbPayload.is_multisite && campRows.length > 0 ? ` with ${campRows.length} campuses` : ''
+                                  toast.success(`${isUni ? 'University' : 'Program'}${campMsg} approved and published!`)
+                                  setExpandedSub(null)
+                                  fetchNewData()
+                                  fetchAll()
+                                } catch (err: any) {
+                                  toast.error('Approval failed: ' + (err.message || 'Unknown error'))
                                 }
-                                // Update submission status
-                                await supabase.from('pending_submissions').update({ status: 'approved', reviewer_id: userId, reviewed_at: new Date().toISOString() }).eq('id', sub.id)
-                                toast.success(`${sub.submission_type} approved and created!`)
-                                setExpandedSub(null)
-                                fetchNewData()
-                                fetchAll()
                               }} style={{ padding: '5px 12px', borderRadius: 7, border: 'none', background: '#10b981', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
                                 <CheckCircle2 size={12} /> Approve
                               </button>

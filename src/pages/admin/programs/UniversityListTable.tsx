@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Building2, Search, Plus, MapPin, Edit, Eye, Filter, X, ChevronDown, RotateCcw } from 'lucide-react'
+import { Building2, Search, Plus, MapPin, Edit, Eye, Filter, X, ChevronDown, RotateCcw, Globe } from 'lucide-react'
 
 interface UniversityListTableProps {
   universities: any[]
@@ -14,6 +14,7 @@ export default function UniversityListTable({ universities, refreshData }: Unive
   const [filters, setFilters] = useState({
     country: 'all',
     status: 'all',
+    multisite: 'all',
     minRanking: '',
     maxRanking: ''
   })
@@ -43,6 +44,12 @@ export default function UniversityListTable({ universities, refreshData }: Unive
         if (u.is_active !== isActive) return false
       }
 
+      // Multisite filter
+      if (filters.multisite !== 'all') {
+        const isMultisite = filters.multisite === 'yes'
+        if (!!u.is_multisite !== isMultisite) return false
+      }
+
       // Ranking filter
       const ranking = parseInt(u.ranking) || 0
       if (filters.minRanking && ranking < parseInt(filters.minRanking)) return false
@@ -67,12 +74,15 @@ export default function UniversityListTable({ universities, refreshData }: Unive
     setFilters({
       country: 'all',
       status: 'all',
+      multisite: 'all',
       minRanking: '',
       maxRanking: ''
     })
     setSearch('')
     setSortBy('name-asc')
   }
+
+  const multisiteCount = universities.filter(u => u.is_multisite).length
 
   return (
     <div className="card-panel" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 120px)' }}>
@@ -82,7 +92,10 @@ export default function UniversityListTable({ universities, refreshData }: Unive
           <h2 className="section-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Building2 size={22} style={{ color: '#10b981' }} /> Institutions Directory
           </h2>
-          <p className="section-subtitle" style={{ margin: 0 }}>Manage partner universities and their active status.</p>
+          <p className="section-subtitle" style={{ margin: 0 }}>
+            Manage partner universities and their active status.
+            {multisiteCount > 0 && <span style={{ marginLeft: '8px', fontSize: '0.78rem', color: '#f59e0b', fontWeight: 600 }}>🌐 {multisiteCount} multisite</span>}
+          </p>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
           <div className="search-box">
@@ -168,6 +181,22 @@ export default function UniversityListTable({ universities, refreshData }: Unive
             </div>
           </div>
 
+          <div style={{ flex: '1 1 150px' }}>
+            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: '6px' }}>Multisite</label>
+            <div style={{ position: 'relative' }}>
+              <select 
+                className="form-input" 
+                value={filters.multisite} 
+                onChange={e => setFilters({...filters, multisite: e.target.value})}
+              >
+                <option value="all">All Types</option>
+                <option value="yes">🌐 Multisite Only</option>
+                <option value="no">Single Campus</option>
+              </select>
+              <ChevronDown size={14} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#94a3b8' }} />
+            </div>
+          </div>
+
           <div style={{ flex: '1 1 250px', display: 'flex', gap: '0.75rem' }}>
             <div style={{ flex: 1 }}>
               <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: '6px' }}>Min Ranking</label>
@@ -218,6 +247,7 @@ export default function UniversityListTable({ universities, refreshData }: Unive
             <tr>
               <th>Institution Name</th>
               <th>Location</th>
+              <th>Type</th>
               <th>Ranking</th>
               <th>Active</th>
               <th>Actions</th>
@@ -226,46 +256,82 @@ export default function UniversityListTable({ universities, refreshData }: Unive
           <tbody>
             {filteredUnis.length === 0 ? (
               <tr>
-                <td colSpan={5} style={{ textAlign: 'center', padding: '3rem', color: '#94a3b8' }}>
+                <td colSpan={6} style={{ textAlign: 'center', padding: '3rem', color: '#94a3b8' }}>
                   <Building2 size={40} style={{ margin: '0 auto 1rem', opacity: 0.5 }} />
                   No institutions found.
                 </td>
               </tr>
-            ) : filteredUnis.map(uni => (
-              <tr key={uni.id} style={{ opacity: uni.is_active ? 1 : 0.6 }}>
-                <td>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #f1f5f9', overflow: 'hidden' }}>
-                      {uni.logo_url ? <img src={uni.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <Building2 size={16} color="#94a3b8" />}
+            ) : filteredUnis.map(uni => {
+              const campuses: any[] = uni.university_campuses || []
+              const isMultisite = uni.is_multisite && campuses.length > 0
+              return (
+                <tr key={uni.id} style={{ opacity: uni.is_active ? 1 : 0.6 }}>
+                  <td>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #f1f5f9', overflow: 'hidden' }}>
+                        {uni.logo_url ? <img src={uni.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <Building2 size={16} color="#94a3b8" />}
+                      </div>
+                      <div>
+                        <div style={{ fontWeight: 600, color: '#1e293b' }}>{uni.name}</div>
+                        {isMultisite && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                            <span style={{ fontSize: '0.68rem', fontWeight: 700, padding: '1px 6px', borderRadius: '4px', background: '#fef3c7', color: '#b45309', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                              <Globe size={10} /> {campuses.length} campuses
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <div style={{ fontWeight: 600, color: '#1e293b' }}>{uni.name}</div>
-                  </div>
-                </td>
-                <td>
-                  <div style={{ fontSize: '0.85rem', color: '#475569', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <MapPin size={12} /> {uni.city ? `${uni.city}, ` : ''}{uni.country}
-                  </div>
-                </td>
-                <td>
-                  <div style={{ fontSize: '0.85rem', color: '#64748b' }}>{uni.ranking || '—'}</div>
-                </td>
-                <td>
-                  <span className={`status-badge ${uni.is_active ? 'offer' : 'draft'}`}>
-                    {uni.is_active ? 'Active' : 'Inactive'}
-                  </span>
-                </td>
-                <td>
-                  <div style={{ display: 'flex', gap: '6px' }}>
-                    <Link to={`/dashboard/university/${uni.slug || uni.id}`} target="_blank" className="action-icon-btn" title="View Portal">
-                      <Eye size={16} />
-                    </Link>
-                    <button onClick={() => navigate(`/admin/universities/edit/${uni.id}`)} className="action-icon-btn" title="Edit">
-                      <Edit size={16} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+                  </td>
+                  <td>
+                    <div style={{ fontSize: '0.85rem', color: '#475569', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <MapPin size={12} />
+                      {isMultisite ? (
+                        <span>
+                          {Array.from(new Set(campuses.map((c: any) => c.country))).join(', ')}
+                        </span>
+                      ) : (
+                        <span>{uni.city ? `${uni.city}, ` : ''}{uni.country}</span>
+                      )}
+                    </div>
+                    {isMultisite && (
+                      <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '2px', paddingLeft: '16px' }}>
+                        {campuses.map((c: any) => c.campus_name || c.city).join(' · ')}
+                      </div>
+                    )}
+                  </td>
+                  <td>
+                    {isMultisite ? (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.72rem', fontWeight: 700, padding: '3px 8px', borderRadius: '99px', background: '#fef3c7', color: '#b45309', border: '1px solid #fde68a' }}>
+                        🌐 Multisite
+                      </span>
+                    ) : (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.72rem', fontWeight: 700, padding: '3px 8px', borderRadius: '99px', background: '#f1f5f9', color: '#64748b', border: '1px solid #e2e8f0' }}>
+                        Single
+                      </span>
+                    )}
+                  </td>
+                  <td>
+                    <div style={{ fontSize: '0.85rem', color: '#64748b' }}>{uni.ranking || '—'}</div>
+                  </td>
+                  <td>
+                    <span className={`status-badge ${uni.is_active ? 'offer' : 'draft'}`}>
+                      {uni.is_active ? 'Active' : 'Inactive'}
+                    </span>
+                  </td>
+                  <td>
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <Link to={`/dashboard/university/${uni.slug || uni.id}`} target="_blank" className="action-icon-btn" title="View Portal">
+                        <Eye size={16} />
+                      </Link>
+                      <button onClick={() => navigate(`/admin/universities/edit/${uni.id}`)} className="action-icon-btn" title="Edit">
+                        <Edit size={16} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
