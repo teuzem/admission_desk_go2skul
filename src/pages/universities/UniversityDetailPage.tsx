@@ -246,7 +246,14 @@ export default function UniversityDetailPage() {
             <div className="uni-hero-main">
               <div className="uni-logo-wrapper">
                 {university.logo_url ? (
-                  <img src={university.logo_url} alt={university.name} className="uni-logo" />
+                  <img 
+                    src={university.logo_url} 
+                    alt={university.name} 
+                    className="uni-logo" 
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
                 ) : (
                   <div className="uni-logo-placeholder">
                     <GraduationCap size={40} />
@@ -553,7 +560,14 @@ export default function UniversityDetailPage() {
                     >
                       <div className="uni-program-image">
                         <img
-                          src={program.img_url || university?.image_url || 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&q=80&w=400'}
+                          src={program.img_url || university?.image_url || 'https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&q=80&w=600'}
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            const fallback = university?.image_url || 'https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&q=80&w=600';
+                            if (target.src !== fallback) {
+                              target.src = fallback;
+                            }
+                          }}
                           alt={program.name}
                         />
                         <span
