@@ -88,6 +88,27 @@ export default function UniversityDetailPage() {
   const [filterLevel, setFilterLevel] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
 
+  const scrollToContact = () => {
+    const contactSection = document.querySelector('.uni-contact-card');
+    if (contactSection) {
+      contactSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      contactSection.classList.add('highlight-flash');
+      setTimeout(() => contactSection.classList.remove('highlight-flash'), 2000);
+    }
+  }
+
+  const handleContactClick = () => {
+    const activeCampus = campuses.find(c => c.id === activeCampusId)
+    const targetEmail = activeCampus?.email || university?.email
+    const targetName = activeCampus?.campus_name || university?.name
+
+    if (targetEmail) {
+      window.location.href = `mailto:${targetEmail}?subject=Inquiry regarding Admission to ${targetName}`;
+    } else {
+      scrollToContact();
+    }
+  }
+
   useEffect(() => {
     if (!slug) return
 
@@ -306,16 +327,21 @@ export default function UniversityDetailPage() {
                 )}
 
                 <div className="uni-hero-actions">
-                  <a
-                    href={university.website_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn btn-outline btn-lg"
+                  {university.website_url && (
+                    <a
+                      href={university.website_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-outline btn-lg"
+                    >
+                      <ExternalLink size={18} />
+                      University Website
+                    </a>
+                  )}
+                  <button 
+                    onClick={handleContactClick}
+                    className="btn btn-primary btn-lg"
                   >
-                    <ExternalLink size={18} />
-                    University Website
-                  </a>
-                  <button className="btn btn-primary btn-lg">
                     <Send size={18} />
                     Contact University
                   </button>
@@ -652,7 +678,10 @@ export default function UniversityDetailPage() {
                 )}
               </div>
 
-              <button className="btn btn-primary btn-block">
+              <button 
+                onClick={handleContactClick}
+                className="btn btn-primary btn-block"
+              >
                 <Send size={18} />
                 Request Information
               </button>

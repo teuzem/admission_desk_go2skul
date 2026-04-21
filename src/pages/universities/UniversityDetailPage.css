@@ -11,7 +11,7 @@
 .uni-detail-container {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 2rem;
+  padding: 1.5rem;
 }
 
 /* Hero Section */
@@ -39,7 +39,7 @@
 .uni-hero-content {
   position: relative;
   z-index: 1;
-  padding: 3rem 2rem;
+  padding: 3rem 1.5rem;
 }
 
 .uni-hero-container {
@@ -166,8 +166,8 @@
 /* Content Grid */
 .uni-content-grid {
   display: grid;
-  grid-template-columns: 1fr 380px;
-  gap: 2rem;
+  grid-template-columns: 1fr 340px;
+  gap: 1.5rem;
   align-items: start;
 }
 
@@ -928,3 +928,18 @@
   }
 }
 
+/* Animations */
+@keyframes highlight-flash {
+  0% { box-shadow: 0 0 0 0 rgba(58, 67, 145, 0.4); border-color: #3A4391; }
+  50% { box-shadow: 0 0 0 15px rgba(58, 67, 145, 0); border-color: #3A4391; }
+  100% { box-shadow: 0 0 0 0 rgba(58, 67, 145, 0); }
+}
+
+.highlight-flash {
+  animation: highlight-flash 1s ease-out 2;
+  border: 2px solid #3A4391 !important;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
