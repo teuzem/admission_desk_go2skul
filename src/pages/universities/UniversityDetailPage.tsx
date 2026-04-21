@@ -62,6 +62,7 @@ interface CampusData {
 
 interface ProgramRow {
   id: string
+  slug: string | null
   name: string
   level: string
   category: string | null
@@ -75,7 +76,7 @@ interface ProgramRow {
 }
 
 export default function UniversityDetailPage() {
-  const { id } = useParams<{ id: string }>()
+  const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
   const { t } = useTranslation()
   const [university, setUniversity] = useState<UniversityDetail | null>(null)
@@ -88,15 +89,14 @@ export default function UniversityDetailPage() {
   const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
-    if (!id) return
+    if (!slug) return
 
     const fetchUniversityData = async () => {
-      // Fetch university details
-      const { data: uniData, error: uniError } = await supabase
-        .from('universities')
-        .select('*')
-        .eq('id', id)
-        .single()
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(slug || '');
+      const { data: uniData, error: uniError } = await (isUUID 
+        ? supabase.from('universities').select('*').eq('id', slug as string)
+        : supabase.from('universities').select('*').eq('slug', slug as string)
+      ).single();
 
       if (uniError || !uniData) {
         setLoading(false)
@@ -104,26 +104,26 @@ export default function UniversityDetailPage() {
       }
 
       setUniversity(uniData as unknown as UniversityDetail)
+      const uniId = uniData.id
 
       // Fetch campuses if multisite
       if (uniData.is_multisite) {
         const { data: campData } = await supabase
           .from('university_campuses')
           .select('*')
-          .eq('university_id', id)
+          .eq('university_id', uniId)
           .order('is_main', { ascending: false })
         
         if (campData) {
           setCampuses(campData as CampusData[])
-          if (activeCampusId === 'all') setActiveCampusId('all')
         }
       }
 
       // Fetch all programs for this university
       const { data: progData } = await supabase
         .from('programs')
-        .select('id, name, level, category, duration, tuition_fee, currency, language, description, img_url, is_all_campuses')
-        .eq('university_id', id)
+        .select('id, slug, name, level, category, duration, tuition_fee, currency, language, description, img_url, is_all_campuses')
+        .eq('university_id', uniId)
         .eq('is_active', true)
 
       if (progData) {
@@ -132,18 +132,20 @@ export default function UniversityDetailPage() {
         // If multisite, fetch program-campus assignments
         if (uniData.is_multisite) {
           const progIds = progData.map(p => p.id)
-          const { data: assignData } = await supabase
-            .from('program_campus_assignments')
-            .select('program_id, campus_id')
-            .in('program_id', progIds)
-          
-          if (assignData) {
-            const mapping: Record<string, string[]> = {}
-            assignData.forEach(a => {
-              if (!mapping[a.program_id]) mapping[a.program_id] = []
-              mapping[a.program_id].push(a.campus_id)
-            })
-            setProgramAssignments(mapping)
+          if (progIds.length > 0) {
+            const { data: assignData } = await supabase
+              .from('program_campus_assignments')
+              .select('program_id, campus_id')
+              .in('program_id', progIds)
+            
+            if (assignData) {
+              const mapping: Record<string, string[]> = {}
+              assignData.forEach(a => {
+                if (!mapping[a.program_id]) mapping[a.program_id] = []
+                mapping[a.program_id].push(a.campus_id)
+              })
+              setProgramAssignments(mapping)
+            }
           }
         }
       }
@@ -154,18 +156,17 @@ export default function UniversityDetailPage() {
     fetchUniversityData()
 
     // ═══════════ REAL-TIME SUBSCRIPTIONS ═══════════
-    const uniSub = supabase
-      .channel(`uni-${id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'universities', filter: `id=eq.${id}` }, () => fetchUniversityData())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'university_campuses', filter: `university_id=eq.${id}` }, () => fetchUniversityData())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'programs', filter: `university_id=eq.${id}` }, () => fetchUniversityData())
+    const uniSub = supabase.channel(`uni-page-sync`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'universities' }, () => fetchUniversityData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'university_campuses' }, () => fetchUniversityData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'programs' }, () => fetchUniversityData())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'program_campus_assignments' }, () => fetchUniversityData())
       .subscribe()
 
     return () => {
       supabase.removeChannel(uniSub)
     }
-  }, [id])
+  }, [slug])
 
   const filteredPrograms = programs.filter(p => {
     // Level filter
@@ -323,109 +324,150 @@ export default function UniversityDetailPage() {
         <div className="uni-content-grid">
           {/* Left Column - About & Programs */}
           <div className="uni-main-column">
-            {/* About Section */}
-            {(university.description || university.is_multisite) && (
-              <section className="uni-section">
-                <div className="uni-section-header">
-                  <BookOpen size={24} />
-                  <h2>About {university.name}</h2>
-                </div>
-                <div className="uni-about-content">
-                  <p>{university.description || `Discover ${university.name}, a leading institution dedicated to academic excellence across multiple locations.`}</p>
+            {/* About & Campus Section */}
+            <section className="uni-section">
+              <div className="uni-section-header">
+                <BookOpen size={24} />
+                <h2>{t('University Profile')}</h2>
+              </div>
+              <div className="uni-about-content">
+                <p>{university.description || `Discover ${university.name}, a leading institution dedicated to academic excellence.`}</p>
 
-                  {/* Campus Tabs if Multisite */}
-                  {university.is_multisite && campuses.length > 0 && (
-                    <div className="uni-campus-tabs-container">
-                      <h3 className="uni-campus-tabs-title">Our Campuses</h3>
-                      <div className="uni-campus-tabs">
-                        <button 
-                          className={`uni-campus-tab ${activeCampusId === 'all' ? 'active' : ''}`}
-                          onClick={() => setActiveCampusId('all')}
-                        >
-                          <Globe size={16} /> All Campuses
-                        </button>
-                        {campuses.map(campus => (
-                          <button 
-                            key={campus.id}
-                            className={`uni-campus-tab ${activeCampusId === campus.id ? 'active' : ''}`}
-                            onClick={() => setActiveCampusId(campus.id)}
-                          >
-                            <Building size={16} /> {campus.campus_name}
-                            {campus.is_main && <span className="main-tag">Main</span>}
-                          </button>
-                        ))}
+                {/* Multisite Campus Explorer */}
+                {university.is_multisite && campuses.length > 0 && (
+                  <div className="uni-campus-explorer">
+                    <div className="explorer-header">
+                      <div className="explorer-title">
+                        <Globe size={18} />
+                        <h3>Campus Explorer</h3>
                       </div>
+                      <p className="explorer-subtitle">Explore details and programmes specific to each location.</p>
+                    </div>
 
-                      {/* Active Campus Info Card */}
-                      {activeCampusId !== 'all' && activeCampus && (
-                        <div className="uni-active-campus-card animate-in">
-                          <div className="campus-card-header">
-                            <h4>{activeCampus.campus_name} Campus</h4>
-                            <span className="campus-location-tag">
-                              <MapPin size={14} /> {activeCampus.city}, {activeCampus.country}
-                            </span>
+                    <div className="uni-campus-tabs">
+                      <button 
+                        className={`uni-campus-tab ${activeCampusId === 'all' ? 'active' : ''}`}
+                        onClick={() => setActiveCampusId('all')}
+                      >
+                        <Globe size={16} /> All Locations
+                      </button>
+                      {campuses.map(campus => (
+                        <button 
+                          key={campus.id}
+                          className={`uni-campus-tab ${activeCampusId === campus.id ? 'active' : ''}`}
+                          onClick={() => setActiveCampusId(campus.id)}
+                        >
+                          <Building size={16} /> {campus.campus_name}
+                          {campus.is_main && <span className="main-tag">Main</span>}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Active Campus Detail View */}
+                    <div className="uni-active-campus-view animate-in" key={activeCampusId}>
+                      {activeCampusId === 'all' ? (
+                        <div className="all-campuses-summary">
+                          <div className="summary-grid">
+                            {campuses.map(c => (
+                              <div key={c.id} className="summary-card" onClick={() => setActiveCampusId(c.id)}>
+                                <div className="summary-card-icon">
+                                  {c.is_main ? <Star size={20} fill="#3A4391" /> : <MapPin size={20} />}
+                                </div>
+                                <div className="summary-card-info">
+                                  <h4>{c.campus_name}</h4>
+                                  <span>{c.city}, {c.country}</span>
+                                </div>
+                                <ChevronRight size={18} className="summary-arrow" />
+                              </div>
+                            ))}
                           </div>
-                          <div className="campus-card-details">
-                            <div className="campus-detail">
-                              <Users size={16} />
-                              <span>{activeCampus.student_count?.toLocaleString() || 'Contact'} Students</span>
-                            </div>
-                            {activeCampus.phone && (
-                              <div className="campus-detail">
-                                <Phone size={16} />
-                                <span>{activeCampus.phone}</span>
+                        </div>
+                      ) : activeCampus && (
+                        <div className="campus-detailed-profile">
+                          <div className="profile-main-info">
+                            <div className="profile-header">
+                              <div className="profile-title">
+                                <h4>{activeCampus.campus_name} Campus</h4>
+                                {activeCampus.is_main && <span className="main-label">Flagship Campus</span>}
                               </div>
-                            )}
-                            {activeCampus.email && (
-                              <div className="campus-detail">
-                                <Mail size={16} />
-                                <span>{activeCampus.email}</span>
-                              </div>
-                            )}
-                            {activeCampus.address && (
-                              <div className="campus-detail full-width">
+                              <div className="profile-location">
                                 <MapPin size={16} />
-                                <span>{activeCampus.address}</span>
+                                <span>{activeCampus.address || `${activeCampus.city}, ${activeCampus.country}`}</span>
                               </div>
-                            )}
+                            </div>
+                            
+                            <div className="profile-stats">
+                              <div className="profile-stat">
+                                <Users size={18} />
+                                <div>
+                                  <span className="stat-val">{activeCampus.student_count?.toLocaleString() || 'N/A'}</span>
+                                  <span className="stat-lab">Students</span>
+                                </div>
+                              </div>
+                              {activeCampus.phone && (
+                                <div className="profile-stat">
+                                  <Phone size={18} />
+                                  <div>
+                                    <span className="stat-val">Contact</span>
+                                    <span className="stat-lab">{activeCampus.phone}</span>
+                                  </div>
+                                </div>
+                              )}
+                              {activeCampus.email && (
+                                <div className="profile-stat">
+                                  <Mail size={18} />
+                                  <div>
+                                    <span className="stat-val">Email</span>
+                                    <span className="stat-lab">{activeCampus.email}</span>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
                           </div>
+
+                          {activeCampus.website_url && (
+                            <a href={activeCampus.website_url} target="_blank" rel="noopener noreferrer" className="campus-web-link">
+                              <ExternalLink size={16} />
+                              Visit Campus Page
+                            </a>
+                          )}
                         </div>
                       )}
                     </div>
-                  )}
-
-                  {/* Quick Facts */}
-                  <div className="uni-quick-facts">
-                    {university.established && (
-                      <div className="uni-fact">
-                        <span className="uni-fact-label">Established</span>
-                        <span className="uni-fact-value">{university.established}</span>
-                      </div>
-                    )}
-                    {university.accreditation && (
-                      <div className="uni-fact">
-                        <span className="uni-fact-label">Accreditation</span>
-                        <span className="uni-fact-value">{university.accreditation}</span>
-                      </div>
-                    )}
-                    <div className="uni-fact">
-                      <span className="uni-fact-label">Total Students</span>
-                      <span className="uni-fact-value">
-                        {university.is_multisite 
-                          ? `${campuses.reduce((acc, c) => acc + (c.student_count || 0), 0).toLocaleString()}+`
-                          : `${university.student_count?.toLocaleString() || 'N/A'}+`}
-                      </span>
-                    </div>
-                    {university.acceptance_rate && (
-                      <div className="uni-fact">
-                        <span className="uni-fact-label">Acceptance Rate</span>
-                        <span className="uni-fact-value">{university.acceptance_rate}%</span>
-                      </div>
-                    )}
                   </div>
+                )}
+
+                {/* Quick Facts */}
+                <div className="uni-quick-facts">
+                  {university.established && (
+                    <div className="uni-fact">
+                      <span className="uni-fact-label">Established</span>
+                      <span className="uni-fact-value">{university.established}</span>
+                    </div>
+                  )}
+                  {university.accreditation && (
+                    <div className="uni-fact">
+                      <span className="uni-fact-label">Accreditation</span>
+                      <span className="uni-fact-value">{university.accreditation}</span>
+                    </div>
+                  )}
+                  <div className="uni-fact">
+                    <span className="uni-fact-label">Total Students</span>
+                    <span className="uni-fact-value">
+                      {university.is_multisite 
+                        ? `${campuses.reduce((acc, c) => acc + (c.student_count || 0), 0).toLocaleString()}+`
+                        : `${university.student_count?.toLocaleString() || 'N/A'}+`}
+                    </span>
+                  </div>
+                  {university.acceptance_rate && (
+                    <div className="uni-fact">
+                      <span className="uni-fact-label">Acceptance Rate</span>
+                      <span className="uni-fact-value">{university.acceptance_rate}%</span>
+                    </div>
+                  )}
                 </div>
-              </section>
-            )}
+              </div>
+            </section>
 
             {/* Programs Section */}
             <section className="uni-section">
@@ -506,12 +548,12 @@ export default function UniversityDetailPage() {
                   {filteredPrograms.map(program => (
                     <Link
                       key={program.id}
-                      to={`/dashboard/courses/${program.id}`}
+                      to={`/dashboard/courses/${program.slug || program.id}`}
                       className="uni-program-card"
                     >
                       <div className="uni-program-image">
                         <img
-                          src={program.img_url || 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&q=80&w=400'}
+                          src={program.img_url || university?.image_url || 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&q=80&w=400'}
                           alt={program.name}
                         />
                         <span

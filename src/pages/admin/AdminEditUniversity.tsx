@@ -11,6 +11,15 @@ import toast from 'react-hot-toast'
 import '../dashboard/DashboardPages.css'
 import './AdminPages.css'
 
+const generateSlug = (name: string, country: string) => {
+  const base = `${name}-${country}`.toLowerCase()
+    .replace(/[^\w\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .trim()
+  return `${base}-${Math.floor(Math.random() * 1000)}`
+}
+
 const REGIONS = ['North America', 'Europe', 'Asia', 'Africa', 'Caribbean', 'South America', 'Oceania', 'Middle East']
 const COUNTRIES = [
   'Canada', 'United States', 'United Kingdom', 'France', 'Germany', 'Australia',
@@ -59,13 +68,16 @@ interface UniversityFormData {
   features: string[]
   is_active: boolean
   is_multisite: boolean
+  logo_url?: string
+  image_url?: string
 }
 
 const INITIAL_FORM: UniversityFormData = {
   name: '', country: '', region: '', city: '', established: null,
   ranking: '', global_ranking: null, accreditation: '', student_count: null,
   acceptance_rate: null, about: '', description: '', website_url: '',
-  features: [], is_active: true, is_multisite: false
+  features: [], is_active: true, is_multisite: false,
+  logo_url: '', image_url: ''
 }
 
 const STEPS_SINGLE = [
@@ -114,7 +126,8 @@ export default function AdminEditUniversity() {
           student_count: data.student_count, acceptance_rate: data.acceptance_rate,
           about: data.about || '', description: data.description || '',
           website_url: data.website_url || '', features: (data.features as string[]) || [],
-          is_active: data.is_active, is_multisite: data.is_multisite ?? false
+          is_active: data.is_active, is_multisite: data.is_multisite ?? false,
+          logo_url: data.logo_url || '', image_url: data.image_url || ''
         })
         // Fetch existing campuses
         if (data.is_multisite) {
@@ -192,11 +205,30 @@ export default function AdminEditUniversity() {
         about: form.about || null, description: form.description || null,
         website_url: form.website_url || null,
         features: form.features.length > 0 ? form.features : null,
-        is_active: form.is_active, is_multisite: form.is_multisite
+        is_active: form.is_active, is_multisite: form.is_multisite,
+        slug: generateSlug(form.name, form.country),
+        logo_url: form.logo_url,
+        image_url: form.image_url
       }
 
       if (isPending) {
-        const payload = { ...form, target_id: id, edit_mode: true, campuses: form.is_multisite ? campuses : [] }
+        const payload: any = { 
+          ...form, 
+          target_id: id, 
+          edit_mode: true, 
+          campuses: form.is_multisite ? campuses : [],
+          slug: updates.slug
+        }
+
+        if (logoFile) { 
+          try { payload.logo_url = await uploadUniversityLogo(id, logoFile) } 
+          catch (e) { console.error('Logo upload failed:', e) } 
+        }
+        if (campusFile) { 
+          try { payload.image_url = await uploadUniversityCampusImage(id, campusFile) } 
+          catch (e) { console.error('Campus image upload failed:', e) } 
+        }
+
         const { error } = await supabase.from('pending_submissions').insert({
           submitted_by: user?.id, submission_type: 'university', payload, status: 'pending'
         })

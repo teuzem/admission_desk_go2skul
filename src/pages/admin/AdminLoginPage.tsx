@@ -52,7 +52,8 @@ export default function AdminLoginPage() {
           await supabase.from('admin_user_invites').update({
             status: 'registered'
           }).eq('id', invite.id)
-          toast.success(`Welcome! You've been assigned as ${invite.role === 'admin' ? 'Admin' : 'Admission Manager'}.`)
+          const roleLabel = invite.role === 'admin' ? 'Admin' : (invite.role === 'program_manager' ? 'Program Manager' : 'Admission Manager')
+          toast.success(`Welcome! You've been assigned as ${roleLabel}.`)
         }
       }
       

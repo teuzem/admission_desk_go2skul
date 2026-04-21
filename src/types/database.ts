@@ -112,6 +112,7 @@ export type UniversityRow = {
   acceptance_rate: number | null
   is_active: boolean
   is_multisite: boolean
+  slug: string | null
   created_at: string
 }
 
@@ -139,6 +140,7 @@ export type ProgramRow = {
   img_url: string | null
   is_active: boolean
   is_all_campuses: boolean
+  slug: string | null
   created_at: string
   scholarship_available: boolean
   campus_type: string | null

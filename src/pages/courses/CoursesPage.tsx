@@ -41,6 +41,7 @@ const LEVEL_COLORS: Record<string, string> = {
 
 interface Program {
   id: string
+  slug: string | null
   name: string
   level: string
   category: string | null
@@ -63,6 +64,7 @@ interface Program {
     country: string
     city: string | null
     logo_url: string | null
+    image_url: string | null
     ranking: string | null
   } | null
 }
@@ -93,10 +95,10 @@ export default function CoursesPage() {
       let query = supabase
         .from('programs')
         .select(`
-          id, name, level, category, duration, duration_months,
+          id, slug, name, level, category, duration, duration_months,
           tuition_fee, currency, language, description, requirements,
           start_dates, intake, img_url, delivery_mode, scholarship_available, visa_support,
-          universities!inner(id, name, country, city, logo_url, ranking)
+          universities!inner(id, name, country, city, logo_url, ranking, image_url)
         `)
         .eq('is_active', true)
 
@@ -366,7 +368,7 @@ export default function CoursesPage() {
               {/* Image */}
               <div style={{
                 height: '160px',
-                backgroundImage: `url(${program.img_url || 'https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&q=80&w=600'})`,
+                backgroundImage: `url(${program.img_url || program.universities?.image_url || 'https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&q=80&w=600'})`,
                 backgroundSize: 'cover', backgroundPosition: 'center', position: 'relative'
               }}>
                 <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(0deg, rgba(0,0,0,0.5) 0%, transparent 60%)' }} />
@@ -449,7 +451,7 @@ export default function CoursesPage() {
                 {/* Actions */}
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <Link
-                    to={`/dashboard/courses/${program.id}`}
+                    to={`/dashboard/courses/${program.slug || program.id}`}
                     className="btn btn-outline btn-sm"
                     style={{ flex: 1, justifyContent: 'center', fontWeight: 600 }}
                   >

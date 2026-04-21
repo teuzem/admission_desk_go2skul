@@ -8,6 +8,24 @@ import { useAuth } from '../../contexts/AuthContext'
 import toast from 'react-hot-toast'
 import '../dashboard/DashboardPages.css'
 
+const generateUniSlug = (name: string, country: string) => {
+  const base = `${name}-${country}`.toLowerCase()
+    .replace(/[^\w\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .trim()
+  return `${base}-${Math.floor(Math.random() * 1000)}`
+}
+
+const generateProgSlug = (name: string, level: string) => {
+  const base = `${name}-${level}`.toLowerCase()
+    .replace(/[^\w\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .trim()
+  return `${base}-${Math.floor(Math.random() * 10000)}`
+}
+
 type Tab = 'overview' | 'agents' | 'programs' | 'applications' | 'announcements' | 'universities' | 'students' | 'events' | 'news' | 'blog' | 'activations' | 'pending_approvals' | 'admin_users'
 
 const KYC_COLORS: Record<string, string> = {
@@ -118,7 +136,7 @@ export default function AdminDashboard() {
 
   const fetchAdminUsers = useCallback(async () => {
     const [usersRes, invitesRes] = await Promise.all([
-      supabase.from('profiles').select('id, first_name, last_name, email, role, is_super_admin, is_active, approved_by, approved_at, created_at').in('role', ['admin', 'admission_manager']).order('created_at', { ascending: false }),
+      supabase.from('profiles').select('id, first_name, last_name, email, role, is_super_admin, is_active, approved_by, approved_at, created_at').in('role', ['admin', 'admission_manager', 'program_manager']).order('created_at', { ascending: false }),
       supabase.from('admin_user_invites').select('*, profiles:invited_by(first_name, last_name, email)').order('created_at', { ascending: false }),
     ])
     setAdminUsers(usersRes.data || [])
@@ -1300,8 +1318,8 @@ export default function AdminDashboard() {
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
             <div>
-              <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.1rem', fontWeight: 700, color: '#1e293b', margin: 0 }}>Admin & Admission Manager Users</h2>
-              <p style={{ fontSize: '0.82rem', color: '#94a3b8', margin: '4px 0 0' }}>Manage admin users who can access the admission management desk and admin dashboard</p>
+              <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.1rem', fontWeight: 700, color: '#1e293b', margin: 0 }}>Admin, Admission & Program Manager Users</h2>
+              <p style={{ fontSize: '0.82rem', color: '#94a3b8', margin: '4px 0 0' }}>Manage admin users who can access the admission management desk, program dashboard, and admin panel</p>
             </div>
             <div style={{ display: 'flex', gap: '8px' }}>
               <button onClick={() => navigate('/admin/admissions')} className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem' }}>
@@ -1338,6 +1356,7 @@ export default function AdminDashboard() {
                   <label className="form-label">Assign Role <span className="required">*</span></label>
                   <select className="form-input" value={inviteForm.role} onChange={e => setInviteForm(p => ({ ...p, role: e.target.value }))}>
                     <option value="admission_manager">Admission Manager</option>
+                    <option value="program_manager">Program Manager</option>
                     <option value="admin">Full Admin</option>
                   </select>
                 </div>
@@ -1355,7 +1374,8 @@ export default function AdminDashboard() {
                 <div style={{ fontSize: '0.82rem', color: '#475569', lineHeight: 1.6 }}>
                   <strong style={{ color: '#3A4391' }}>How it works:</strong>
                   <ul style={{ margin: '4px 0 0', paddingLeft: '16px' }}>
-                    <li><strong>Admission Manager</strong> — Can access the Admission Management desk, review applications, request documents, submit program/university proposals, and communicate with agents.</li>
+                    <li><strong>Admission Manager</strong> — Can access the Admission Management desk, review applications, request documents, and communicate with agents.</li>
+                    <li><strong>Program Manager</strong> — Can access the Program Management dashboard, submit university and program proposals, and manage academic content.</li>
                     <li><strong>Full Admin</strong> — Has complete access to the Admin Dashboard including all management capabilities plus approval rights.</li>
                   </ul>
                   The invited user will sign up via <strong>/admin/login</strong> with this email and be automatically assigned the selected role.
@@ -1405,12 +1425,12 @@ export default function AdminDashboard() {
                           <span style={{
                             display: 'inline-flex', alignItems: 'center', gap: '4px',
                             padding: '3px 10px', borderRadius: '99px', fontSize: '0.72rem', fontWeight: 700,
-                            background: u.role === 'admin' ? '#eff6ff' : '#f5f3ff',
-                            color: u.role === 'admin' ? '#3A4391' : '#8b5cf6',
-                            border: `1px solid ${u.role === 'admin' ? '#3A439125' : '#8b5cf625'}`
+                            background: u.role === 'admin' ? '#eff6ff' : u.role === 'program_manager' ? '#ecfdf5' : '#f5f3ff',
+                            color: u.role === 'admin' ? '#3A4391' : u.role === 'program_manager' ? '#10b981' : '#8b5cf6',
+                            border: `1px solid ${u.role === 'admin' ? '#3A439125' : u.role === 'program_manager' ? '#10b98125' : '#8b5cf625'}`
                           }}>
-                            {u.role === 'admin' ? <Shield size={10} /> : <ShieldCheck size={10} />}
-                            {u.role === 'admin' ? 'Admin' : 'Admission Manager'}
+                            {u.role === 'admin' ? <Shield size={10} /> : u.role === 'program_manager' ? <BookOpen size={10} /> : <ShieldCheck size={10} />}
+                            {u.role === 'admin' ? 'Admin' : u.role === 'program_manager' ? 'Program Manager' : 'Admission Manager'}
                           </span>
                         </td>
                         <td>
@@ -1713,12 +1733,16 @@ export default function AdminDashboard() {
                                       if (!dbPayload.is_all_campuses && campIdRows.length > 0) {
                                         await supabase.from('program_campus_assignments').insert(campIdRows.map((cid: string) => ({ program_id: tgtId, campus_id: cid })))
                                       }
-                                    } else {
-                                      const { data: newProg, error } = await supabase.from('programs').insert({ ...dbPayload, is_active: dbPayload.is_active ?? true }).select('id').single()
-                                      if (error) { toast.error('Failed to create program: ' + error.message); return }
-                                      if (newProg && !dbPayload.is_all_campuses && campIdRows.length > 0) {
-                                        const { error: ce } = await supabase.from('program_campus_assignments').insert(campIdRows.map((cid: string) => ({ program_id: newProg.id, campus_id: cid })))
-                                        if (ce) console.error('Campus assignment failed:', ce)
+                                      } else {
+                                        const { data: newProg, error } = await supabase.from('programs').insert({ 
+                                          ...dbPayload, 
+                                          is_active: dbPayload.is_active ?? true,
+                                          slug: dbPayload.slug || generateProgSlug(dbPayload.name, dbPayload.level)
+                                        }).select('id').single()
+                                        if (error) { toast.error('Failed to create program: ' + error.message); return }
+                                        if (newProg && !dbPayload.is_all_campuses && campIdRows.length > 0) {
+                                          const { error: ce } = await supabase.from('program_campus_assignments').insert(campIdRows.map((cid: string) => ({ program_id: newProg.id, campus_id: cid })))
+                                          if (ce) console.error('Campus assignment failed:', ce)
                                       }
                                     }
                                   } else {
@@ -1733,7 +1757,11 @@ export default function AdminDashboard() {
                                         if (ce) console.error('Campus insert failed:', ce)
                                       }
                                     } else {
-                                      const { data: newUni, error } = await supabase.from('universities').insert({ ...dbPayload, is_active: dbPayload.is_active ?? true }).select('id').single()
+                                      const { data: newUni, error } = await supabase.from('universities').insert({ 
+                                        ...dbPayload, 
+                                        is_active: dbPayload.is_active ?? true,
+                                        slug: dbPayload.slug || generateUniSlug(dbPayload.name, dbPayload.country)
+                                      }).select('id').single()
                                       if (error) { toast.error('Failed to create university: ' + error.message); return }
                                       if (newUni && dbPayload.is_multisite && campRows.length > 0) {
                                         const rows = campRows.map((c: any) => ({ university_id: newUni.id, campus_name: c.campus_name, country: c.country, city: c.city || null, region: c.region || null, address: c.address || null, postal_code: c.postal_code || null, phone: c.phone || null, email: c.email || null, website_url: c.website_url || null, student_count: c.student_count || null, is_main: !!c.is_main, is_active: true }))

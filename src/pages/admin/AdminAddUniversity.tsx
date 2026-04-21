@@ -11,6 +11,15 @@ import toast from 'react-hot-toast'
 import '../dashboard/DashboardPages.css'
 import './AdminPages.css'
 
+const generateSlug = (name: string, country: string) => {
+  const base = `${name}-${country}`.toLowerCase()
+    .replace(/[^\w\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .trim()
+  return `${base}-${Math.floor(Math.random() * 1000)}`
+}
+
 const REGIONS = ['North America', 'Europe', 'Asia', 'Africa', 'Caribbean', 'South America', 'Oceania', 'Middle East']
 const COUNTRIES = [
   'Canada', 'United States', 'United Kingdom', 'France', 'Germany', 'Australia',
@@ -60,13 +69,16 @@ interface UniversityFormData {
   features: string[]
   is_active: boolean
   is_multisite: boolean
+  logo_url?: string
+  image_url?: string
 }
 
 const INITIAL_FORM: UniversityFormData = {
   name: '', country: '', region: '', city: '', established: null,
   ranking: '', global_ranking: null, accreditation: '', student_count: null,
   acceptance_rate: null, about: '', description: '', website_url: '',
-  features: [], is_active: true, is_multisite: false
+  features: [], is_active: true, is_multisite: false,
+  logo_url: '', image_url: ''
 }
 
 const STEPS_SINGLE = [
@@ -90,7 +102,7 @@ export default function AdminAddUniversity() {
   const [logoPreview, setLogoPreview] = useState<string | null>(null)
   const [campusFile, setCampusFile] = useState<File | null>(null)
   const [campusPreview, setCampusPreview] = useState<string | null>(null)
-  const { user, isAdmissionManager, isAdmin, isSuperAdmin } = useAuth()
+  const { user, isAdmissionManager, isProgramManager, isAdmin, isSuperAdmin } = useAuth()
   const [submitting, setSubmitting] = useState(false)
   const [fetchingSubmission, setFetchingSubmission] = useState(!!submissionId)
   const [newFeature, setNewFeature] = useState('')
@@ -195,7 +207,7 @@ export default function AdminAddUniversity() {
     if (form.is_multisite && campuses.length < 2) { toast.error('Multisite universities need at least 2 campuses'); return }
     setSubmitting(true)
 
-    const isPending = isAdmissionManager && !isAdmin && !isSuperAdmin
+    const isPending = (isAdmissionManager || isProgramManager) && !isAdmin && !isSuperAdmin
 
     try {
       if (submissionId) {
@@ -216,7 +228,8 @@ export default function AdminAddUniversity() {
             about: form.about || null, description: form.description || null,
             website_url: form.website_url || null,
             features: form.features.length > 0 ? form.features : null,
-            is_active: form.is_active, is_multisite: form.is_multisite
+            is_active: form.is_active, is_multisite: form.is_multisite,
+            slug: generateSlug(form.name, form.country)
           }).select('id').single()
           
           if (uniError) throw uniError
@@ -261,7 +274,25 @@ export default function AdminAddUniversity() {
       }
 
       if (isPending) {
-        const payload = { ...form, campuses: form.is_multisite ? campuses : [] }
+        const newId = crypto.randomUUID()
+        const payload: any = { 
+          ...form, 
+          id: newId,
+          campuses: form.is_multisite ? campuses : [],
+          slug: generateSlug(form.name, form.country),
+          logo_url: form.logo_url,
+          image_url: form.image_url
+        }
+
+        if (logoFile) { 
+          try { payload.logo_url = await uploadUniversityLogo(newId, logoFile) } 
+          catch (e) { console.error('Logo upload failed:', e) } 
+        }
+        if (campusFile) { 
+          try { payload.image_url = await uploadUniversityCampusImage(newId, campusFile) } 
+          catch (e) { console.error('Campus image upload failed:', e) } 
+        }
+
         const { error } = await supabase.from('pending_submissions').insert({
           submitted_by: user?.id, submission_type: 'university', payload, status: 'pending'
         })
@@ -278,7 +309,11 @@ export default function AdminAddUniversity() {
           about: form.about || null, description: form.description || null,
           website_url: form.website_url || null,
           features: form.features.length > 0 ? form.features : null,
-          is_active: form.is_active, is_multisite: form.is_multisite
+          is_active: form.is_active, is_multisite: form.is_multisite,
+          submitted_by: user?.id,
+          slug: generateSlug(form.name, form.country),
+          logo_url: form.logo_url,
+          image_url: form.image_url
         }).select('id').single()
         if (error) throw error
 
@@ -300,6 +335,17 @@ export default function AdminAddUniversity() {
             const { error: campErr } = await supabase.from('university_campuses').insert(campusRows)
             if (campErr) console.error('Campus insert failed:', campErr)
           }
+
+          // Create an approved submission record for history/tracking
+          await supabase.from('pending_submissions').insert({
+            submitted_by: user?.id,
+            submission_type: 'university',
+            status: 'approved',
+            reviewer_id: user?.id,
+            reviewed_at: new Date().toISOString(),
+            reviewer_notes: 'Created directly by Admin/Super Admin',
+            payload: { ...form, campuses: form.is_multisite ? campuses : [] }
+          })
         }
         toast.success('University created successfully!')
         navigate(isAdmissionManager ? '/admin/programs' : '/admin')

@@ -76,9 +76,10 @@ export default function ProgramManagerDashboard() {
   // Let's filter to current user's submissions unless admin? The implementation plan said:
   // "My Submissions" -> "eq('submitted_by', user?.id || '')" for submitted items.
   const mySubmissions = useMemo(() => {
-    if (isAdmin) return submissions // Admin sees everything
+    // Show only the user's own submissions in this tab, 
+    // even for admins, to keep the "My Submissions" view personal and focused.
     return submissions.filter(s => s.submitted_by === user?.id)
-  }, [submissions, isAdmin, user?.id])
+  }, [submissions, user?.id])
 
   if (loading && universities.length === 0) {
     return (

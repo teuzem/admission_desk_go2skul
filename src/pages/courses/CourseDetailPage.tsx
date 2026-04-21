@@ -63,6 +63,7 @@ interface ProgramDetail {
   visa_support: boolean | null
   universities: {
     id: string
+    slug: string | null
     name: string
     country: string
     city: string | null
@@ -98,7 +99,7 @@ export default function CourseDetailPage() {
           english_requirements, prerequisites, curriculum_summary,
           application_fee, scholarship_available, campus_type,
           delivery_mode, accommodation_available, visa_support,
-          universities(id, name, country, city, logo_url, image_url, website_url,
+          universities(id, slug, name, country, city, logo_url, image_url, website_url,
             description, established, ranking, accreditation, student_count,
             acceptance_rate, global_ranking)
         `)
@@ -482,7 +483,7 @@ export default function CourseDetailPage() {
                   )}
                 </div>
 
-                <Link to={`/dashboard/university/${uni.id}`} className="cdp-view-uni-btn">
+                <Link to={`/dashboard/university/${uni.slug || uni.id}`} className="cdp-view-uni-btn">
                   View Full University Profile <ChevronRight size={16} />
                 </Link>
               </div>

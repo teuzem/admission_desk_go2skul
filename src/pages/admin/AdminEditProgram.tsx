@@ -11,6 +11,15 @@ import toast from 'react-hot-toast'
 import '../dashboard/DashboardPages.css'
 import './AdminPages.css'
 
+const generateSlug = (name: string, level: string) => {
+  const base = `${name}-${level}`.toLowerCase()
+    .replace(/[^\w\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .trim()
+  return `${base}-${Math.floor(Math.random() * 10000)}`
+}
+
 const LEVELS = [
   'certificate', 'certificate_of_higher_education', 'continuing_education',
   'diploma', 'executive_course', 'executive_education', 'foundation',
@@ -77,6 +86,7 @@ interface ProgramFormData {
   is_active: boolean
   is_all_campuses: boolean
   campus_ids: string[]
+  img_url?: string
 }
 
 const INITIAL_FORM: ProgramFormData = {
@@ -106,7 +116,8 @@ const INITIAL_FORM: ProgramFormData = {
   visa_support: true,
   is_active: true,
   is_all_campuses: true,
-  campus_ids: []
+  campus_ids: [],
+  img_url: ''
 }
 
 const STEPS = [
@@ -177,7 +188,8 @@ export default function AdminEditProgram() {
           visa_support: Boolean(data.visa_support),
           is_active: Boolean(data.is_active),
           is_all_campuses: data.is_all_campuses ?? true,
-          campus_ids: []
+          campus_ids: [],
+          img_url: data.img_url || ''
         })
         if (data.img_url) setCoverPreview(data.img_url)
         // Fetch existing campus assignments
@@ -268,15 +280,26 @@ export default function AdminEditProgram() {
         scholarship_available: form.scholarship_available,
         accommodation_available: form.accommodation_available,
         visa_support: form.visa_support, is_active: form.is_active,
-        is_all_campuses: form.is_all_campuses
+        is_all_campuses: form.is_all_campuses,
+        slug: generateSlug(form.name, form.level),
+        img_url: form.img_url
       }
 
       if (isPending) {
-        const payload = { 
-          ...form, 
+        const payload: any = { 
+          ...form,
           target_id: id, 
           edit_mode: true,
-          campuses_details: !form.is_all_campuses && campuses.length > 0
+          slug: updates.slug
+        }
+
+        if (coverImage) {
+          try { 
+            payload.img_url = await uploadProgramCover(id, coverImage)
+          } catch (e) { console.error('Cover upload failed:', e) }
+        }
+
+        payload.campuses_details = !form.is_all_campuses && campuses.length > 0
             ? campuses.filter(c => form.campus_ids.includes(c.id)).map(c => ({
                 id: c.id,
                 campus_name: c.campus_name,
@@ -285,7 +308,7 @@ export default function AdminEditProgram() {
                 is_main: c.is_main
               }))
             : []
-        }
+        
         const { error } = await supabase.from('pending_submissions').insert({
           submitted_by: user?.id, submission_type: 'program', payload, status: 'pending'
         })

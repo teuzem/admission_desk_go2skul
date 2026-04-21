@@ -13,6 +13,7 @@ interface University {
   city?: string | null
   logo_url?: string | null
   description?: string | null
+  slug?: string | null
 }
 
 interface ActivatePartnerModalProps {

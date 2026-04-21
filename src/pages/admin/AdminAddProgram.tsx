@@ -11,6 +11,15 @@ import toast from 'react-hot-toast'
 import '../dashboard/DashboardPages.css'
 import './AdminPages.css'
 
+const generateSlug = (name: string, level: string) => {
+  const base = `${name}-${level}`.toLowerCase()
+    .replace(/[^\w\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .trim()
+  return `${base}-${Math.floor(Math.random() * 1000)}`
+}
+
 const LEVELS = [
   'certificate', 'certificate_of_higher_education', 'continuing_education',
   'diploma', 'executive_course', 'executive_education', 'foundation',
@@ -77,6 +86,7 @@ interface ProgramFormData {
   is_active: boolean
   is_all_campuses: boolean
   campus_ids: string[]
+  img_url?: string
 }
 
 const INITIAL_FORM: ProgramFormData = {
@@ -106,7 +116,8 @@ const INITIAL_FORM: ProgramFormData = {
   visa_support: true,
   is_active: true,
   is_all_campuses: true,
-  campus_ids: []
+  campus_ids: [],
+  img_url: ''
 }
 
 const STEPS = [
@@ -125,7 +136,7 @@ export default function AdminAddProgram() {
   const [universities, setUniversities] = useState<any[]>([])
   const [coverImage, setCoverImage] = useState<File | null>(null)
   const [coverPreview, setCoverPreview] = useState<string | null>(null)
-  const { user, profile, isAdmissionManager, isAdmin, isSuperAdmin } = useAuth()
+  const { user, profile, isAdmissionManager, isProgramManager, isAdmin, isSuperAdmin } = useAuth()
   const [submitting, setSubmitting] = useState(false)
   const [fetchingSubmission, setFetchingSubmission] = useState(!!submissionId)
   const [newStartDate, setNewStartDate] = useState('')
@@ -253,7 +264,7 @@ export default function AdminAddProgram() {
       toast.error('Please select at least one campus'); return
     }
     setSubmitting(true)
-    const isPending = isAdmissionManager && !isAdmin && !isSuperAdmin
+    const isPending = (isAdmissionManager || isProgramManager) && !isAdmin && !isSuperAdmin
 
     try {
       if (submissionId) {
@@ -290,15 +301,18 @@ export default function AdminAddProgram() {
             scholarship_available: form.scholarship_available,
             accommodation_available: form.accommodation_available,
             visa_support: form.visa_support,
-            is_active: form.is_active
+            is_active: form.is_active,
+            slug: generateSlug(form.name, form.level)
           }).select('id').single()
           
           if (progError) throw progError
 
           if (inserted) {
-            // Handle cover image
             if (coverImage) {
-              try { await uploadProgramCover(inserted.id, coverImage) } catch (e) { }
+              try { 
+                const url = await uploadProgramCover(inserted.id, coverImage)
+                await supabase.from('programs').update({ img_url: url }).eq('id', inserted.id)
+              } catch (e) { }
             }
 
             // 2. Handle campus assignments
@@ -331,8 +345,10 @@ export default function AdminAddProgram() {
       }
 
       if (isPending) {
-        const payload = {
+        const newId = crypto.randomUUID()
+        const payload: any = {
           ...form,
+          id: newId,
           campuses_details: !form.is_all_campuses && campuses.length > 0
             ? campuses.filter(c => form.campus_ids.includes(c.id)).map(c => ({
               id: c.id,
@@ -341,8 +357,17 @@ export default function AdminAddProgram() {
               country: c.country,
               is_main: c.is_main
             }))
-            : []
+            : [],
+          slug: generateSlug(form.name, form.level),
+          img_url: form.img_url
         }
+
+        if (coverImage) {
+          try { 
+            payload.img_url = await uploadProgramCover(newId, coverImage)
+          } catch (e) { console.error('Cover upload failed:', e) }
+        }
+
         const { error } = await supabase.from('pending_submissions').insert({
           submitted_by: user?.id, submission_type: 'program', payload, status: 'pending'
         })
@@ -368,7 +393,9 @@ export default function AdminAddProgram() {
           scholarship_available: form.scholarship_available,
           accommodation_available: form.accommodation_available,
           visa_support: form.visa_support, img_url: null,
-          is_active: form.is_active, is_all_campuses: form.is_all_campuses
+          is_active: form.is_active, is_all_campuses: form.is_all_campuses,
+          submitted_by: user?.id,
+          slug: generateSlug(form.name, form.level)
         }).select('id').single()
         if (error) throw error
 
@@ -385,6 +412,24 @@ export default function AdminAddProgram() {
             const rows = form.campus_ids.map((cid: string) => ({ program_id: inserted.id, campus_id: cid }))
             await supabase.from('program_campus_assignments').insert(rows)
           }
+
+          // Create an approved submission record for history/tracking
+          await supabase.from('pending_submissions').insert({
+            submitted_by: user?.id,
+            submission_type: 'program',
+            status: 'approved',
+            reviewer_id: user?.id,
+            reviewed_at: new Date().toISOString(),
+            reviewer_notes: 'Created directly by Admin/Super Admin',
+            payload: {
+              ...form,
+              campuses_details: !form.is_all_campuses && campuses.length > 0
+                ? campuses.filter(c => form.campus_ids.includes(c.id)).map(c => ({
+                  id: c.id, campus_name: c.campus_name, city: c.city, country: c.country, is_main: c.is_main
+                }))
+                : []
+            }
+          })
         }
         toast.success('Program created successfully!')
         navigate(isAdmissionManager ? '/admin/programs' : '/admin')

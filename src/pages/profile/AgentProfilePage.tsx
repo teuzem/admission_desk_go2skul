@@ -1434,7 +1434,7 @@ export default function AgentProfilePage() {
                         <div
                           key={university.id}
                           className="fb-partner-card"
-                          onClick={() => navigate(`/dashboard/university/${university.id}`)}
+                          onClick={() => navigate(`/dashboard/university/${university.slug || university.id}`)}
                         >
                           <div className="fb-partner-card-logo">
                             {university.logo_url ? (

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   Clock, CheckCircle2, XCircle, FileText, Search, AlertTriangle,
   ChevronDown, Building2, BookOpen, MapPin, Globe, Calendar,
-  DollarSign, Users, Star, Trash2, Edit3, RefreshCw, Eye, X
+  DollarSign, Users, Star, Trash2, Edit3, RefreshCw, Eye, X, Plus
 } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
 import toast from 'react-hot-toast'
@@ -115,16 +115,42 @@ export default function MySubmissions({ submissions, refreshData }: MySubmission
       {/* ── Submissions List ── */}
       {filtered.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '4rem 2rem', background: 'white', borderRadius: '16px', border: '1px solid #f1f5f9' }}>
-          <FileText size={48} style={{ margin: '0 auto 1rem', color: '#cbd5e1', display: 'block' }} />
-          <h3 style={{ color: '#64748b', fontWeight: 600 }}>No submissions found</h3>
+          {typeFilter === 'program' ? <BookOpen size={48} style={{ margin: '0 auto 1rem', color: '#cbd5e1', display: 'block' }} /> : 
+           typeFilter === 'university' ? <Building2 size={48} style={{ margin: '0 auto 1rem', color: '#cbd5e1', display: 'block' }} /> :
+           <FileText size={48} style={{ margin: '0 auto 1rem', color: '#cbd5e1', display: 'block' }} />}
+          
+          <h3 style={{ color: '#64748b', fontWeight: 600 }}>
+            {typeFilter === 'program' ? 'No program submissions found' : 
+             typeFilter === 'university' ? 'No university submissions found' : 
+             'No submissions found'}
+          </h3>
+          
           <p style={{ color: '#94a3b8', fontSize: '0.875rem' }}>
-            {search || statusFilter !== 'all' || typeFilter !== 'all'
-              ? 'Try adjusting your filters.'
-              : 'Submit a university or program for approval to get started.'}
+            {search || statusFilter !== 'all'
+              ? 'Try adjusting your search or status filters.'
+              : typeFilter === 'program' ? 'Start by submitting your first academic program for approval.' :
+                typeFilter === 'university' ? 'Start by submitting your first university for approval.' :
+                'Submit a university or program for approval to get started.'}
           </p>
-          <button onClick={() => navigate('/admin/universities/new')} style={{ marginTop: '1rem', padding: '10px 24px', borderRadius: '10px', border: 'none', background: '#10b981', color: 'white', fontWeight: 700, cursor: 'pointer', fontSize: '0.875rem' }}>
-            + Add University
-          </button>
+
+          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginTop: '1.5rem' }}>
+            {(typeFilter === 'all' || typeFilter === 'university') && (
+              <button 
+                onClick={() => navigate('/admin/universities/new')} 
+                style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', background: '#3A4391', color: 'white', fontWeight: 700, cursor: 'pointer', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '8px' }}
+              >
+                <Plus size={16} /> Add University
+              </button>
+            )}
+            {(typeFilter === 'all' || typeFilter === 'program') && (
+              <button 
+                onClick={() => navigate('/admin/programs/new')} 
+                style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', background: '#10b981', color: 'white', fontWeight: 700, cursor: 'pointer', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '8px' }}
+              >
+                <Plus size={16} /> Add Program
+              </button>
+            )}
+          </div>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
