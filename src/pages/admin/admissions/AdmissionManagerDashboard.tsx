@@ -20,6 +20,9 @@ import ChatComposer from '../../../components/chat/ChatComposer'
 import DocumentPreview from '../../../components/chat/DocumentPreview'
 import LocationMessage from '../../../components/chat/LocationMessage'
 import '../../../components/chat/ChatStyles.css'
+import AdminHeader from '../../../components/layout/AdminHeader'
+import AdminFooter from '../../../components/layout/AdminFooter'
+import AdminProfileDropdown from '../../../components/layout/AdminProfileDropdown'
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as ReTooltip,
   ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, Legend,
@@ -656,30 +659,16 @@ export default function AdmissionManagerDashboard() {
   }, [applications, docRequests, stats])
 
   return (
-    <div className="adm-dashboard">
-      {/* ─── Header ─── */}
-      <header className="adm-header">
-        <div className="adm-header-left">
-          <div className="adm-logo-mark"><ShieldCheck size={20} /></div>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#f8fafc' }}>
+      <AdminHeader />
+
+      <div className="adm-dashboard" style={{ flex: 1 }}>
+        <div style={{ padding: '2rem 2.5rem 0' }}>
           <div className="adm-title-block">
-            <h1>Admission Management</h1>
-            <p>Manage applications, documents & communications</p>
+            <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700, color: '#1e293b' }}>Admission Management</h1>
+            <p style={{ margin: '4px 0 0', color: '#64748b' }}>Manage applications, documents & communications</p>
           </div>
         </div>
-        <div className="adm-header-actions">
-          {(isSuperAdmin || isAdmin) && (
-            <button className="adm-btn adm-btn-outline adm-btn-sm" onClick={() => navigate('/admin')} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Shield size={13} /> Admin Dashboard
-            </button>
-          )}
-          <span style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 500 }}>
-            {profile?.first_name} {profile?.last_name}
-          </span>
-          <button className="adm-signout-btn" onClick={async () => { await signOut(); navigate('/admin/login') }}>
-            <LogOut size={14} /> Sign Out
-          </button>
-        </div>
-      </header>
 
       {/* ─── Body ─── */}
       <div className="adm-body">
@@ -1078,6 +1067,8 @@ export default function AdmissionManagerDashboard() {
           />
         )}
       </div>
+      </div>
+      <AdminFooter />
     </div>
   )
 }

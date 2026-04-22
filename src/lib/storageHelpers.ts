@@ -4,7 +4,14 @@
  */
 import { supabase } from './supabase'
 
-/** Upload a file to a specific bucket and path, returns the public URL */
+/** Gets the public URL for a file in a public bucket */
+export function getPublicUrl(bucket: string, path: string): string {
+  const { publicUrl } = supabase.storage.from(bucket).getPublicUrl(path).data
+  // Append timestamp for cache busting to ensure updates are visible immediately across the app
+  return `${publicUrl}?t=${Date.now()}`
+}
+
+/** Upload a file to a specific bucket and path, returns the public URL or path */
 async function uploadFile(
   bucket: string,
   path: string,
@@ -18,7 +25,7 @@ async function uploadFile(
   if (error) throw error
 
   if (isPublic) {
-    return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl
+    return getPublicUrl(bucket, path)
   } else {
     // For private buckets, we store the raw path in the database.
     // The UI will generate a signed URL on-the-fly when the user wants to view it.
@@ -249,7 +256,21 @@ export async function getMessageAttachmentUrl(pathOrUrl: string): Promise<string
   return getSecureUrl('message-attachments', pathOrUrl)
 }
 
-// ─── Profile Avatars & Covers ───────────────────────────────────────────────
+// ─── Admin Profile Avatars & Covers ──────────────────────────────────────────
+
+/** Upload admin avatar → admin-profiles/{userId}/avatar.ext */
+export async function uploadAdminAvatar(userId: string, file: File): Promise<string> {
+  const path = `${userId}/avatar.${getExt(file)}`
+  return uploadFile('admin-profiles', path, file, true)
+}
+
+/** Upload admin cover image → admin-profiles/{userId}/cover.ext */
+export async function uploadAdminCoverImage(userId: string, file: File): Promise<string> {
+  const path = `${userId}/cover.${getExt(file)}`
+  return uploadFile('admin-profiles', path, file, true)
+}
+
+// ─── Profile Avatars & Covers (Legacy/General) ───────────────────────────────
 
 /** Upload profile avatar (uses existing 'avatars' bucket) */
 export async function uploadAvatar(userId: string, file: File): Promise<string> {

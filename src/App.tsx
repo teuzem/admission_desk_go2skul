@@ -40,6 +40,7 @@ import AdminEditUniversity from './pages/admin/AdminEditUniversity'
 import AdminStudents from './pages/admin/AdminStudents'
 import AdminAgents from './pages/admin/AdminAgents'
 import AdminApplicationDetail from './pages/admin/AdminApplicationDetail'
+import AdminProfilePage from './pages/admin/AdminProfilePage'
 
 // Admission Manager Dashboard (lazy loaded for code splitting)
 const AdmissionManagerDashboard = lazy(() => import('./pages/admin/admissions/AdmissionManagerDashboard'))
@@ -120,6 +121,18 @@ function ProgramRoute({ children }: { children: React.ReactNode }) {
   return <Suspense fallback={<LoadingScreen />}>{children}</Suspense>
 }
 
+// Route guard for any staff member (admin, admission_manager, program_manager)
+function StaffRoute({ children }: { children: React.ReactNode }) {
+  const { user, session, profile, loading } = useAuth()
+
+  if (loading) return <LoadingScreen />
+  if (!user || !session) return <Navigate to="/admin/login" replace />
+  if (profile?.role !== 'admin' && profile?.role !== 'admission_manager' && profile?.role !== 'program_manager') {
+    return <ForbiddenPage />
+  }
+  return <Suspense fallback={<LoadingScreen />}>{children}</Suspense>
+}
+
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const { user, profile, loading } = useAuth()
 
@@ -188,6 +201,7 @@ export default function App() {
       <Route path="/admin/students" element={<AdminRoute><AdminStudents /></AdminRoute>} />
       <Route path="/admin/agents" element={<AdminRoute><AdminAgents /></AdminRoute>} />
       <Route path="/admin/applications/:id" element={<AdminRoute><AdminApplicationDetail /></AdminRoute>} />
+      <Route path="/admin/profile" element={<StaffRoute><AdminProfilePage /></StaffRoute>} />
 
       {/* Manual Error Routes & Aliases */}
       <Route path="/403" element={<ForbiddenPage />} />

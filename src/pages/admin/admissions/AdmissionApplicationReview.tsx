@@ -11,6 +11,8 @@ import {
   MapPin, Phone, Mail, Calendar, FileWarning, RefreshCw, X
 } from 'lucide-react'
 import ApplicationChat from '../../../components/common/ApplicationChat'
+import AdminHeader from '../../../components/layout/AdminHeader'
+import AdminFooter from '../../../components/layout/AdminFooter'
 import './AdmissionManagerDashboard.css'
 
 const STATUS_CONFIG: Record<string, { color: string; bg: string; label: string }> = {
@@ -199,15 +201,23 @@ export default function AdmissionApplicationReview() {
   const missingDocs = REQUIRED_DOC_TYPES.filter(t => !uploadedDocTypes.includes(t) && !requestedDocTypes.includes(t))
 
   if (loading) return (
-    <div className="adm-dashboard">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#f8fafc' }}>
+      <AdminHeader />
+      <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <RefreshCw size={24} className="spinning" style={{ color: '#3A4391' }} />
-      </div>
+      </main>
+      <AdminFooter />
     </div>
   )
 
   if (!application) return (
-    <div className="adm-dashboard"><div className="adm-body"><div className="adm-empty"><h3>Application not found</h3></div></div></div>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#f8fafc' }}>
+      <AdminHeader />
+      <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div className="adm-empty"><h3>Application not found</h3></div>
+      </main>
+      <AdminFooter />
+    </div>
   )
 
   const SectionCard = ({ icon, title, children, color = '#3A4391' }: { icon: React.ReactNode; title: string; children: React.ReactNode; color?: string }) => (
@@ -225,7 +235,10 @@ export default function AdmissionApplicationReview() {
   )
 
   return (
-    <div className="adm-dashboard">
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#f8fafc' }}>
+      <AdminHeader />
+      
+      <main style={{ flex: 1, paddingBottom: '3rem' }}>
       {/* Preview Modal */}
       {previewUrl && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}
@@ -584,6 +597,8 @@ export default function AdmissionApplicationReview() {
           )}
         </div>
       </div>
+      </main>
+      <AdminFooter />
     </div>
   )
 }

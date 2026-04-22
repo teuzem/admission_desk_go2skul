@@ -5,6 +5,8 @@ import {
   FileText, ChevronDown, ChevronUp, X
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import AdminHeader from '../../components/layout/AdminHeader'
+import AdminFooter from '../../components/layout/AdminFooter'
 import '../dashboard/DashboardPages.css'
 import './AdminPages.css'
 
@@ -73,8 +75,11 @@ export default function AdminStudents() {
   }
 
   return (
-    <div className="dashboard-page" style={{ padding: '2rem 2.5rem' }}>
-      <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#f8fafc' }}>
+      <AdminHeader />
+      
+      <main style={{ flex: 1, padding: '2rem 2.5rem' }}>
+        <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
           <button onClick={() => navigate('/admin')} className="admin-back-btn"><ArrowLeft size={16} /> Admin</button>
@@ -227,6 +232,8 @@ export default function AdminStudents() {
           })()}
         </div>
       </div>
+      </main>
+      <AdminFooter />
     </div>
   )
 }

@@ -9,6 +9,8 @@ import { supabase } from '../../lib/supabase'
 import { getSecureUrl } from '../../lib/storageHelpers'
 import toast from 'react-hot-toast'
 import { VerifiedBadgeInline } from '../../components/ui/VerifiedBadge'
+import AdminHeader from '../../components/layout/AdminHeader'
+import AdminFooter from '../../components/layout/AdminFooter'
 import '../dashboard/DashboardPages.css'
 import './AdminPages.css'
 
@@ -91,8 +93,11 @@ export default function AdminAgents() {
   }
 
   return (
-    <div className="dashboard-page" style={{ padding: '2rem 2.5rem' }}>
-      <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#f8fafc' }}>
+      <AdminHeader />
+      
+      <main style={{ flex: 1, padding: '2rem 2.5rem' }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
           <button onClick={() => navigate('/admin')} className="admin-back-btn"><ArrowLeft size={16} /> Admin</button>
@@ -317,6 +322,8 @@ export default function AdminAgents() {
           })()}
         </div>
       </div>
+      </main>
+      <AdminFooter />
     </div>
   )
 }

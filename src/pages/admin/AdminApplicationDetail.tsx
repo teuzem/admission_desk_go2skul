@@ -8,6 +8,8 @@ import { supabase } from '../../lib/supabase'
 import { getSecureUrl } from '../../lib/storageHelpers'
 import { useAuth } from '../../contexts/AuthContext'
 import toast from 'react-hot-toast'
+import AdminHeader from '../../components/layout/AdminHeader'
+import AdminFooter from '../../components/layout/AdminFooter'
 import '../dashboard/DashboardPages.css'
 import './AdminPages.css'
 
@@ -111,18 +113,26 @@ export default function AdminApplicationDetail() {
 
   if (loading) {
     return (
-      <div className="dashboard-page" style={{ padding: '3rem', textAlign: 'center' }}>
-        <div className="spinner" style={{ margin: '0 auto 1rem' }} />
-        <p style={{ color: '#94a3b8' }}>Loading application...</p>
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#f8fafc' }}>
+        <AdminHeader />
+        <main style={{ flex: 1, padding: '3rem', textAlign: 'center' }}>
+          <div className="spinner" style={{ margin: '0 auto 1rem' }} />
+          <p style={{ color: '#94a3b8' }}>Loading application...</p>
+        </main>
+        <AdminFooter />
       </div>
     )
   }
 
   if (!app) {
     return (
-      <div className="dashboard-page" style={{ padding: '3rem', textAlign: 'center' }}>
-        <p style={{ color: '#ef4444', fontWeight: 600 }}>Application not found</p>
-        <button onClick={() => navigate('/admin')} className="btn btn-outline" style={{ marginTop: '1rem' }}>← Back to Admin</button>
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#f8fafc' }}>
+        <AdminHeader />
+        <main style={{ flex: 1, padding: '3rem', textAlign: 'center' }}>
+          <p style={{ color: '#ef4444', fontWeight: 600 }}>Application not found</p>
+          <button onClick={() => navigate('/admin')} className="btn btn-outline" style={{ marginTop: '1rem' }}>← Back to Admin</button>
+        </main>
+        <AdminFooter />
       </div>
     )
   }
@@ -134,8 +144,11 @@ export default function AdminApplicationDetail() {
   const currentStatus = STATUSES.find(s => s.value === app.status) || STATUSES[0]
 
   return (
-    <div className="dashboard-page" style={{ padding: '2rem 2.5rem' }}>
-      <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#f8fafc' }}>
+      <AdminHeader />
+      
+      <main style={{ flex: 1, padding: '2rem 2.5rem' }}>
+        <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem' }}>
           <button onClick={() => navigate('/admin')} className="admin-back-btn">
@@ -351,6 +364,8 @@ export default function AdminApplicationDetail() {
           </div>
         </div>
       </div>
+      </main>
+      <AdminFooter />
     </div>
   )
 }

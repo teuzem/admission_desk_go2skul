@@ -29,7 +29,13 @@ export type ProfileRow = {
   postal_code: string | null
   website: string | null
   account_type: string | null
+  gender: string | null
+  date_of_birth: string | null
+  department: string | null
   designation: string | null
+  state_province: string | null
+  timezone: string | null
+  preferred_language: string | null
   is_super_agent: boolean
   is_super_admin: boolean
   is_two_factor_enabled: boolean

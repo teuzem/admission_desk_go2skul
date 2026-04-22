@@ -167,13 +167,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // This runs OUTSIDE the onAuthStateChange callback to avoid lock contention
   useEffect(() => {
     if (!user) return
-    // Don't re-fetch if we already have the profile for this user
-    if (profileFetchedForRef.current === user.id && profile) return
     
-    profileFetchedForRef.current = user.id
-    fetchProfile(user).then(p => {
-      if (p) setProfile(p)
-    })
+    // Initial fetch if needed
+    if (profileFetchedForRef.current !== user.id || !profile) {
+      profileFetchedForRef.current = user.id
+      fetchProfile(user).then(p => {
+        if (p) setProfile(p)
+      })
+    }
+
+    // Subscribe to profile changes for real-time updates
+    const profileSubscription = supabase
+      .channel(`profile-realtime-${user.id}`)
+      .on('postgres_changes', 
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'profiles', 
+          filter: `id=eq.${user.id}` 
+        }, 
+        async (payload) => {
+          console.log('[Auth] Profile change detected:', payload.eventType)
+          // We need to re-fetch because the payload might not have 
+          // the computed fields if we had any, and to ensure consistency
+          const p = await fetchProfile(user)
+          if (p) setProfile(p)
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(profileSubscription)
+    }
   }, [user, fetchProfile])
 
   const signIn = async (email: string, password: string) => {

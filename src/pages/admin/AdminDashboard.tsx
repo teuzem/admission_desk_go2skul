@@ -6,6 +6,9 @@ import { usePageRefetch } from '../../lib/useRealtimeRecovery'
 import { uploadNewsImage, uploadBlogFeaturedImage, uploadAnnImage } from '../../lib/storageHelpers'
 import { useAuth } from '../../contexts/AuthContext'
 import toast from 'react-hot-toast'
+import AdminHeader from '../../components/layout/AdminHeader'
+import AdminFooter from '../../components/layout/AdminFooter'
+import AdminProfileDropdown from '../../components/layout/AdminProfileDropdown'
 import '../dashboard/DashboardPages.css'
 
 const generateUniSlug = (name: string, country: string) => {
@@ -34,7 +37,7 @@ const KYC_COLORS: Record<string, string> = {
 
 export default function AdminDashboard() {
   const navigate = useNavigate()
-  const { isSuperAdmin, user } = useAuth()
+  const { isSuperAdmin, user, profile } = useAuth()
   const [tab, setTab] = useState<Tab>('overview')
   const [agents, setAgents] = useState<any[]>([])
   const [applications, setApplications] = useState<any[]>([])
@@ -462,11 +465,14 @@ export default function AdminDashboard() {
   ]
 
   return (
-    <div className="dashboard-page" style={{ padding: '2rem 2.5rem' }}>
-      <div style={{ marginBottom: '2rem' }}>
-        <h1 className="page-title">Admin Dashboard</h1>
-        <p className="page-subtitle">Manage agents, programs, universities, students, applications, and announcements.</p>
-      </div>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#f8fafc' }}>
+      <AdminHeader />
+
+      <main className="dashboard-page" style={{ flex: 1, padding: '2rem 2.5rem' }}>
+        <div style={{ marginBottom: '2rem' }}>
+          <h1 className="page-title">Admin Dashboard</h1>
+          <p className="page-subtitle">Manage agents, programs, universities, students, applications, and announcements.</p>
+        </div>
 
       {/* Tab Navigation */}
       <div style={{ display: 'flex', gap: '4px', background: 'white', borderRadius: '12px', padding: '4px', marginBottom: '2rem', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9', overflowX: 'auto' }}>
@@ -1806,6 +1812,8 @@ export default function AdminDashboard() {
           </div>
         </div>
       )}
+      </main>
+      <AdminFooter />
     </div>
   )
 }

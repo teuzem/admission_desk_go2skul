@@ -5,9 +5,12 @@ import { supabase } from '../../../lib/supabase'
 import { usePageRefetch } from '../../../lib/useRealtimeRecovery'
 import toast from 'react-hot-toast'
 import {
-  BookOpen, Building2, BarChart3, Clock, Plus, Filter, Loader2, ArrowLeft, LogOut
+  BookOpen, Building2, BarChart3, Clock, Plus, Filter, Loader2, ArrowLeft, LogOut, Bell
 } from 'lucide-react'
 import '../AdminPages.css'
+import AdminHeader from '../../../components/layout/AdminHeader'
+import AdminFooter from '../../../components/layout/AdminFooter'
+import AdminProfileDropdown from '../../../components/layout/AdminProfileDropdown'
 import ProgramListTable from './ProgramListTable'
 import ProgramAnalytics from './ProgramAnalytics'
 import MySubmissions from './MySubmissions'
@@ -17,7 +20,7 @@ type Tab = 'overview' | 'universities' | 'programs' | 'submissions'
 
 export default function ProgramManagerDashboard() {
   const navigate = useNavigate()
-  const { user, signOut, isProgramManager, isAdmin } = useAuth()
+  const { user, profile, signOut, isProgramManager, isAdmin } = useAuth()
   const [tab, setTab] = useState<Tab>('overview')
   const [loading, setLoading] = useState(true)
 
@@ -93,26 +96,17 @@ export default function ProgramManagerDashboard() {
   }
 
   return (
-    <div className="admin-layout" style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: '#f8fafc' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#f8fafc' }}>
+      <AdminHeader />
       
-      {/* ══════════ TOP NAVBAR ══════════ */}
-      <header style={{ height: '70px', background: 'white', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 2rem', flexShrink: 0, position: 'sticky', top: 0, zIndex: 50 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <button onClick={() => navigate((isAdmin || isProgramManager) ? '/dashboard' : '/dashboard')} className="btn btn-outline btn-sm" style={{ padding: '8px', border: 'none', background: '#f1f5f9' }}>
-            <ArrowLeft size={18} />
-          </button>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#ecfdf5', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981' }}>
-              <BookOpen size={20} />
-            </div>
-            <div>
-              <h1 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#1e293b', margin: 0, lineHeight: 1.2 }}>Program Management</h1>
-              <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 500 }}>Universities & Courses Directory</div>
-            </div>
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        {/* ─── Page Title Area ─── */}
+        <div style={{ padding: '2rem 2.5rem 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#1e293b', margin: 0 }}>Program Management</h1>
+            <p style={{ color: '#64748b', margin: '4px 0 0' }}>Universities & Courses Directory</p>
           </div>
-        </div>
-        
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+          
           <div className="admin-tabs" style={{ background: '#f1f5f9', padding: '4px', borderRadius: '12px', display: 'flex', gap: '4px' }}>
             <button className={`admin-tab ${tab === 'overview' ? 'active' : ''}`} onClick={() => setTab('overview')} style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', background: tab === 'overview' ? 'white' : 'transparent', boxShadow: tab === 'overview' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', color: tab === 'overview' ? '#10b981' : '#64748b', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', transition: 'all 0.2s' }}>
               <BarChart3 size={16} /> Overview
@@ -131,48 +125,45 @@ export default function ProgramManagerDashboard() {
               )}
             </button>
           </div>
-          
-          <button onClick={signOut} className="btn btn-outline btn-sm" style={{ color: '#ef4444', borderColor: '#fee2e2', background: '#fef2f2', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <LogOut size={14} /> Exit
-          </button>
         </div>
-      </header>
 
-      {/* ══════════ MAIN CONTENT ══════════ */}
-      <main style={{ flex: 1, overflowY: 'auto', padding: '2rem' }}>
-        <div style={{ maxWidth: '1600px', margin: '0 auto' }}>
-          
-          {tab === 'overview' && (
-            <ProgramAnalytics 
-              universities={universities} 
-              programs={programs} 
-            />
-          )}
+        {/* ══════════ MAIN CONTENT ══════════ */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '2rem' }}>
+          <div style={{ maxWidth: '1600px', margin: '0 auto' }}>
+            
+            {tab === 'overview' && (
+              <ProgramAnalytics 
+                universities={universities} 
+                programs={programs} 
+              />
+            )}
 
-          {tab === 'universities' && (
-            <UniversityListTable 
-              universities={universities} 
-              refreshData={fetchAll}
-            />
-          )}
+            {tab === 'universities' && (
+              <UniversityListTable 
+                universities={universities} 
+                refreshData={fetchAll}
+              />
+            )}
 
-          {tab === 'programs' && (
-            <ProgramListTable 
-              programs={programs} 
-              universities={universities}
-              refreshData={fetchAll}
-            />
-          )}
+            {tab === 'programs' && (
+              <ProgramListTable 
+                programs={programs} 
+                universities={universities}
+                refreshData={fetchAll}
+              />
+            )}
 
-          {tab === 'submissions' && (
-            <MySubmissions 
-              submissions={mySubmissions} 
-              refreshData={fetchAll}
-            />
-          )}
+            {tab === 'submissions' && (
+              <MySubmissions 
+                submissions={mySubmissions} 
+                refreshData={fetchAll}
+              />
+            )}
 
+          </div>
         </div>
       </main>
+      <AdminFooter />
     </div>
   )
 }
