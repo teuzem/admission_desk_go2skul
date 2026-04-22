@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import type { UserRole } from '../../types/database'
@@ -8,31 +8,51 @@ import {
   getPublicUrl 
 } from '../../lib/storageHelpers'
 import { 
-  User, 
-  Mail, 
-  Phone as PhoneIcon, 
-  MapPin, 
-  Globe, 
-  Shield, 
-  Lock, 
-  Camera, 
-  Image as ImageIcon,
-  Save,
-  CheckCircle2,
-  AlertCircle,
-  Loader2,
-  RefreshCw,
-  Layout,
-  Facebook,
-  Twitter,
-  Linkedin,
-  Instagram,
-  Youtube,
   Calendar,
   Building2,
   Languages,
   Clock,
-  Briefcase
+  Briefcase,
+  Monitor,
+  Tablet,
+  ShieldCheck,
+  ShieldAlert,
+  Key,
+  Download,
+  Info,
+  Check,
+  ChevronDown,
+  Activity,
+  UserX,
+  FileText,
+  Clipboard,
+  Smartphone,
+  LogOut,
+  Trash2,
+  AlertTriangle,
+  X,
+  Eye,
+  EyeOff,
+  Plus,
+  Network,
+  Globe,
+  MapPin,
+  Lock,
+  RefreshCw,
+  Shield,
+  CheckCircle2,
+  Mail,
+  User,
+  Save,
+  Loader2,
+  Phone as PhoneIcon,
+  AlertCircle,
+  Facebook,
+  Twitter,
+  Linkedin,
+  Camera,
+  Layout,
+  Image as ImageIcon
 } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import PhoneInput, { isValidPhoneNumber } from 'react-phone-number-input'
@@ -147,6 +167,32 @@ const AdminProfilePage: React.FC = () => {
   const [errors, setErrors] = useState<ValidationErrors>({})
   const [profileStrength, setProfileStrength] = useState(0)
 
+  // Security Tab State
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '', newPassword: '', confirmPassword: ''
+  })
+  const [showPasswords, setShowPasswords] = useState({ current: false, new: false, confirm: false })
+  const [passwordLoading, setPasswordLoading] = useState(false)
+  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false)
+  const [show2FASetup, setShow2FASetup] = useState(false)
+  const [mfaStep, setMfaStep] = useState<1 | 2 | 3>(1)
+  const [mfaQrCode, setMfaQrCode] = useState('')
+  const [mfaSecret, setMfaSecret] = useState('')
+  const [mfaFactorId, setMfaFactorId] = useState('')
+  const [mfaVerifyCode, setMfaVerifyCode] = useState(['', '', '', '', '', ''])
+  const [mfaLoading, setMfaLoading] = useState(false)
+  const [devices, setDevices] = useState<any[]>([])
+  const [devicesLoading, setDevicesLoading] = useState(false)
+  const [securitySettings, setSecuritySettings] = useState({
+    login_notifications: true,
+    new_device_alerts: true,
+    session_timeout_minutes: 1440,
+    require_2fa_for_sensitive: false
+  })
+  const [auditLog, setAuditLog] = useState<any[]>([])
+  const [auditLogLoading, setAuditLogLoading] = useState(false)
+  const otpRefs = useRef<(HTMLInputElement | null)[]>([])
+
   // Calculate profile completion percentage
   const calculateStrength = useCallback((data: AdminProfile | null) => {
     if (!data) return 0
@@ -218,6 +264,145 @@ const AdminProfilePage: React.FC = () => {
     fetchProfile()
   }, [fetchProfile])
 
+  // Security Helper Functions
+  const fetchDevices = useCallback(async () => {
+    if (!user) return
+    setDevicesLoading(true)
+    try {
+      const { data } = await supabase.from('user_devices').select('*').eq('user_id', user.id).order('last_active_at', { ascending: false })
+      setDevices(data || [])
+    } finally {
+      setDevicesLoading(false)
+    }
+  }, [user])
+
+  const fetchAuditLog = useCallback(async () => {
+    if (!user) return
+    setAuditLogLoading(true)
+    try {
+      const { data } = await supabase.from('security_audit_log').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10)
+      setAuditLog(data || [])
+    } finally {
+      setAuditLogLoading(false)
+    }
+  }, [user])
+
+  const fetchSecuritySettings = useCallback(async () => {
+    if (!user) return
+    const { data } = await supabase.from('user_security_settings').select('*').eq('user_id', user.id).maybeSingle()
+    if (data) {
+      setSecuritySettings({
+        login_notifications: data.login_notifications,
+        new_device_alerts: data.new_device_alerts,
+        session_timeout_minutes: data.session_timeout_minutes,
+        require_2fa_for_sensitive: data.require_2fa_for_sensitive
+      })
+    }
+  }, [user])
+
+  const logSecurityEvent = async (action: string, metadata: any = {}) => {
+    if (!user) return
+    try {
+      let ip = 'Unknown';
+      try {
+        const geoRes = await fetch('https://ipapi.co/json/');
+        if (geoRes.ok) {
+          const geo = await geoRes.json();
+          ip = geo.ip;
+        }
+      } catch (e) {}
+
+      const ua = navigator.userAgent
+      await supabase.from('security_audit_log').insert({
+        user_id: user.id,
+        action,
+        device_info: ua,
+        ip_address: ip,
+        metadata: {
+          ...metadata,
+          timestamp: new Date().toISOString(),
+          userAgent: ua
+        }
+      })
+      fetchAuditLog()
+    } catch (err) {
+      console.error('Audit log error:', err)
+    }
+  }
+
+  const registerCurrentDevice = useCallback(async () => {
+    if (!user) return
+    try {
+      // Free Geolocation API (ipapi.co)
+      let geo: any = {};
+      try {
+        const geoRes = await fetch('https://ipapi.co/json/');
+        if (geoRes.ok) {
+          geo = await geoRes.json();
+        }
+      } catch (err) {
+        console.error('Geolocation fetch failed:', err);
+      }
+      
+      const ua = navigator.userAgent
+      let browser = 'Unknown', os = 'Unknown', deviceType: 'desktop' | 'mobile' | 'tablet' = 'desktop'
+      
+      // Basic Browser Detection
+      if (/Firefox/i.test(ua)) browser = 'Firefox'
+      else if (/Edg/i.test(ua)) browser = 'Edge'
+      else if (/Chrome/i.test(ua)) browser = 'Chrome'
+      else if (/Safari/i.test(ua)) browser = 'Safari'
+      
+      // Basic OS Detection
+      if (/Windows/i.test(ua)) os = 'Windows'
+      else if (/Mac/i.test(ua)) os = 'macOS'
+      else if (/Linux/i.test(ua)) os = 'Linux'
+      else if (/Android/i.test(ua)) { os = 'Android'; deviceType = 'mobile' }
+      else if (/iOS|iPhone|iPad/i.test(ua)) { os = 'iOS'; deviceType = /iPad/i.test(ua) ? 'tablet' : 'mobile' }
+
+      const deviceData = {
+        user_id: user.id,
+        ip_address: geo.ip || 'Unknown',
+        location_city: geo.city || 'Unknown',
+        location_country: geo.country_name || 'Unknown',
+        region: geo.region || 'Unknown',
+        isp: geo.org || 'Unknown',
+        timezone: geo.timezone || 'Unknown',
+        latitude: geo.latitude || null,
+        longitude: geo.longitude || null,
+        postal_code: geo.postal || null,
+        device_name: `${browser} on ${os}`,
+        device_type: deviceType,
+        browser, 
+        os,
+        last_active_at: new Date().toISOString(),
+        is_current: true,
+        user_agent: ua,
+        metadata: {
+          ...geo,
+          screen_resolution: `${window.screen.width}x${window.screen.height}`,
+          language: navigator.language,
+          platform: navigator.platform,
+          color_depth: window.screen.colorDepth,
+          pixel_ratio: window.devicePixelRatio
+        }
+      }
+
+      // Deactivate other current devices
+      await supabase.from('user_devices').update({ is_current: false }).eq('user_id', user.id).neq('user_agent', ua)
+      
+      // Upsert current device
+      const { data: existing } = await supabase.from('user_devices').select('id').eq('user_id', user.id).eq('user_agent', ua).maybeSingle()
+      if (existing) {
+        await supabase.from('user_devices').update(deviceData).eq('id', existing.id)
+      } else {
+        await supabase.from('user_devices').insert(deviceData)
+      }
+    } catch (err) {
+      console.error('Failed to register device:', err)
+    }
+  }, [user])
+
   // Real-time subscription
   useEffect(() => {
     if (!user) return
@@ -241,17 +426,210 @@ const AdminProfilePage: React.FC = () => {
           setTimeout(() => setIsSyncing(false), 2000)
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'user_security_settings',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload) => {
+          if (payload.new) setSecuritySettings(payload.new as any)
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'user_devices',
+          filter: `user_id=eq.${user.id}`
+        },
+        () => {
+          fetchDevices()
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'security_audit_log',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload) => {
+          setAuditLog(prev => [payload.new, ...prev].slice(0, 10))
+        }
+      )
       .subscribe()
 
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [user])
-  useEffect(() => {
-    if (profile) {
-      setProfileStrength(calculateStrength(profile))
+  }, [user, calculateStrength, fetchDevices])
+  // Password Strength Calculator
+  const passwordStrength = useMemo(() => {
+    const pw = passwordForm.newPassword
+    const rules = {
+      minLength: pw.length >= 8,
+      uppercase: /[A-Z]/.test(pw),
+      lowercase: /[a-z]/.test(pw),
+      number: /[0-9]/.test(pw),
+      special: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(pw)
     }
-  }, [profile, calculateStrength])
+    const met = Object.values(rules).filter(Boolean).length
+    const level = met === 0 ? 'none' : met <= 2 ? 'weak' : met <= 3 ? 'fair' : met <= 4 ? 'strong' : 'excellent'
+    const percent = (met / 5) * 100
+    const color = { none: '#e4e6eb', weak: '#ef4444', fair: '#f59e0b', strong: '#3b82f6', excellent: '#10b981' }[level]
+    return { rules, met, level, percent, color }
+  }, [passwordForm.newPassword])
+
+  useEffect(() => {
+    if (activeTab === 'security') {
+      registerCurrentDevice()
+      fetchDevices()
+      fetchAuditLog()
+      fetchSecuritySettings()
+    }
+  }, [activeTab, registerCurrentDevice, fetchDevices, fetchAuditLog, fetchSecuritySettings])
+
+  const handlePasswordUpdate = async () => {
+    if (!passwordForm.currentPassword || !passwordForm.newPassword) return
+    setPasswordLoading(true)
+    try {
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: user?.email || '',
+        password: passwordForm.currentPassword
+      })
+      if (signInError) throw new Error('Current password incorrect')
+
+      const { error } = await supabase.auth.updateUser({ password: passwordForm.newPassword })
+      if (error) throw error
+
+      await logSecurityEvent('password_change')
+      toast.success('Password updated successfully')
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
+    } catch (err: any) {
+      toast.error(err.message)
+    } finally {
+      setPasswordLoading(false)
+    }
+  }
+
+  const handleStartMfaEnroll = async () => {
+    setMfaLoading(true)
+    try {
+      const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp', friendlyName: 'Admin Authenticator' })
+      if (error) throw error
+      setMfaQrCode(data.totp.qr_code)
+      setMfaSecret(data.totp.secret)
+      setMfaFactorId(data.id)
+      setMfaStep(1)
+      setShow2FASetup(true)
+    } catch (err: any) {
+      toast.error(err.message)
+    } finally {
+      setMfaLoading(false)
+    }
+  }
+
+  const handleMfaVerifyAndEnable = async () => {
+    const code = mfaVerifyCode.join('')
+    setMfaLoading(true)
+    try {
+      const { data: challengeData, error: challengeError } = await supabase.auth.mfa.challenge({ factorId: mfaFactorId })
+      if (challengeError) throw challengeError
+      const { error: verifyError } = await supabase.auth.mfa.verify({ factorId: mfaFactorId, challengeId: challengeData.id, code })
+      if (verifyError) throw verifyError
+      setTwoFactorEnabled(true)
+      setMfaStep(3)
+      await logSecurityEvent('2fa_enabled')
+      toast.success('2FA enabled successfully')
+    } catch (err: any) {
+      toast.error(err.message)
+    } finally {
+      setMfaLoading(false)
+    }
+  }
+
+  const handleRevokeDevice = async (id: string) => {
+    try {
+      await supabase.from('user_devices').delete().eq('id', id)
+      await logSecurityEvent('device_revoked')
+      toast.success('Device access revoked')
+      fetchDevices()
+    } catch (err: any) {
+      toast.error(err.message)
+    }
+  }
+
+  const handleSecuritySettingChange = async (key: string, value: any) => {
+    if (!user) return
+    const updated = { ...securitySettings, [key]: value }
+    setSecuritySettings(updated)
+    try {
+      const { data: existing } = await supabase.from('user_security_settings').select('id').eq('user_id', user.id).maybeSingle()
+      if (existing) {
+        await supabase.from('user_security_settings').update({ [key]: value }).eq('user_id', user.id)
+      } else {
+        await supabase.from('user_security_settings').insert({ user_id: user.id, ...updated })
+      }
+      await logSecurityEvent('settings_changed', { setting: key, value })
+      toast.success('Security settings updated')
+    } catch (err: any) {
+      toast.error(err.message)
+    }
+  }
+
+  const handleOtpChange = (index: number, value: string) => {
+    if (!/^\d*$/.test(value)) return
+    const newCode = [...mfaVerifyCode]
+    newCode[index] = value.slice(-1)
+    setMfaVerifyCode(newCode)
+    if (value && index < 5) otpRefs.current[index + 1]?.focus()
+  }
+
+  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent) => {
+    if (e.key === 'Backspace' && !mfaVerifyCode[index] && index > 0) otpRefs.current[index - 1]?.focus()
+  }
+
+  const handleOtpPaste = (e: React.ClipboardEvent) => {
+    e.preventDefault()
+    const paste = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6)
+    const newCode = [...mfaVerifyCode]
+    paste.split('').forEach((ch, i) => { newCode[i] = ch })
+    setMfaVerifyCode(newCode)
+    otpRefs.current[Math.min(paste.length, 5)]?.focus()
+  }
+
+  const formatTimeAgo = (dateStr: string) => {
+    const diff = Date.now() - new Date(dateStr).getTime()
+    const mins = Math.floor(diff / 60000)
+    if (mins < 1) return 'Just now'
+    if (mins < 60) return `${mins}m ago`
+    const hours = Math.floor(mins / 60)
+    if (hours < 24) return `${hours}h ago`
+    return new Date(dateStr).toLocaleDateString()
+  }
+
+  const getDeviceIcon = (type: string) => {
+    switch (type) {
+      case 'mobile': return <Smartphone size={22} />
+      case 'tablet': return <Tablet size={22} />
+      default: return <Monitor size={22} />
+    }
+  }
+
+  const getSecurityScore = () => {
+    let score = 30
+    if (twoFactorEnabled) score += 40
+    if (securitySettings.login_notifications) score += 15
+    if (securitySettings.new_device_alerts) score += 15
+    return Math.min(score, 100)
+  }
+
+  const securityScore = getSecurityScore()
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -947,51 +1325,299 @@ const AdminProfilePage: React.FC = () => {
               )}
 
               {activeTab === 'security' && (
-                <div className="profile-card">
-                  <div className="card-header">
-                    <h3 className="card-title">
-                      <Shield size={20} className="text-primary" />
-                      Account Security
-                    </h3>
-                  </div>
-                  
-                  <div className="security-item">
-                    <div className="security-info">
-                      <div className="security-icon-box bg-blue-50 text-blue-600">
-                        <Mail size={20} />
+                <div className="security-tab-content">
+                  {/* Security Overview Card */}
+                  <div className="profile-card security-overview-card">
+                    <div className="security-score-display">
+                      <div className="score-circle-wrapper">
+                        <svg className="score-svg" viewBox="0 0 100 100">
+                          <defs>
+                            <linearGradient id="scoreGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                              <stop offset="0%" stopColor={securityScore > 80 ? '#10b981' : securityScore > 50 ? '#3b82f6' : '#ef4444'} />
+                              <stop offset="100%" stopColor={securityScore > 80 ? '#34d399' : securityScore > 50 ? '#60a5fa' : '#f87171'} />
+                            </linearGradient>
+                          </defs>
+                          <circle className="score-bg" cx="50" cy="50" r="45" />
+                          <circle className="score-fill" cx="50" cy="50" r="45" 
+                            style={{ 
+                              strokeDasharray: '283', 
+                              strokeDashoffset: 283 - (283 * securityScore) / 100,
+                              stroke: 'url(#scoreGradient)'
+                            }} 
+                          />
+                        </svg>
+                        <div className="score-number">{securityScore}%</div>
                       </div>
-                      <div className="security-text">
-                        <h4>Two-Factor Authentication</h4>
-                        <p>Add an extra layer of security to your account.</p>
+                      <div className="score-info">
+                        <h3>Security Health: <span className="health-label" style={{ 
+                          color: securityScore > 80 ? '#10b981' : securityScore > 50 ? '#3b82f6' : '#ef4444',
+                          background: securityScore > 80 ? '#f0fdf4' : securityScore > 50 ? '#eff6ff' : '#fef2f2'
+                        }}>
+                          {securityScore > 80 ? 'EXCELLENT' : securityScore > 50 ? 'GOOD' : 'CRITICAL'}
+                        </span></h3>
+                        <p>Your account is protected by industry-standard encryption and security protocols.</p>
+                        <div className="score-recommendations">
+                          {securityScore < 100 && <span className="rec-title">Suggestions to improve:</span>}
+                          {!twoFactorEnabled && <span className="rec-tag"><Shield size={10} /> Enable 2FA (+40%)</span>}
+                          {!securitySettings.login_notifications && <span className="rec-tag"><Activity size={10} /> Alerts (+15%)</span>}
+                          {!securitySettings.new_device_alerts && <span className="rec-tag"><Smartphone size={10} /> Device Alerts (+15%)</span>}
+                        </div>
                       </div>
                     </div>
-                    <button className="text-primary font-semibold text-sm hover:underline">Enable</button>
                   </div>
 
-                  <div className="security-item">
-                    <div className="security-info">
-                      <div className="security-icon-box bg-amber-50 text-amber-600">
-                        <Lock size={20} />
+                  <div className="security-grid">
+                    {/* Password Management */}
+                    <div className="profile-card">
+                      <div className="card-header">
+                        <div className="header-icon-box blue"><Lock size={20} /></div>
+                        <div>
+                          <h3 className="card-title">Password Settings</h3>
+                          <p className="card-subtitle">Update your password to keep your account secure</p>
+                        </div>
                       </div>
-                      <div className="security-text">
-                        <h4>Change Password</h4>
-                        <p>Last changed 3 months ago.</p>
+                      <div className="form-stack">
+                        <div className="form-group">
+                          <label className="form-label">Current Password</label>
+                          <div className="password-input-wrapper">
+                            <input className="form-input" type={showPasswords.current ? 'text' : 'password'} value={passwordForm.currentPassword}
+                              onChange={e => setPasswordForm(p => ({...p, currentPassword: e.target.value}))} />
+                            <button className="password-toggle" onClick={() => setShowPasswords(p => ({...p, current: !p.current}))}>
+                              {showPasswords.current ? <EyeOff size={16} /> : <Eye size={16} />}
+                            </button>
+                          </div>
+                        </div>
+                        <div className="form-group">
+                          <label className="form-label">New Password</label>
+                          <div className="password-input-wrapper">
+                            <input className="form-input" type={showPasswords.new ? 'text' : 'password'} value={passwordForm.newPassword}
+                              onChange={e => setPasswordForm(p => ({...p, newPassword: e.target.value}))} />
+                            <button className="password-toggle" onClick={() => setShowPasswords(p => ({...p, new: !p.new}))}>
+                              {showPasswords.new ? <EyeOff size={16} /> : <Eye size={16} />}
+                            </button>
+                          </div>
+                          {passwordForm.newPassword && (
+                            <div className="password-strength-meter">
+                              <div className="strength-bar-track">
+                                <div className="strength-bar-fill" style={{ width: `${passwordStrength.percent}%`, background: passwordStrength.color }} />
+                              </div>
+                              <span className="strength-label" style={{ color: passwordStrength.color }}>{passwordStrength.level.toUpperCase()}</span>
+                            </div>
+                          )}
+                        </div>
+                        <button className="btn btn-primary" onClick={handlePasswordUpdate} disabled={passwordLoading || !passwordForm.newPassword}>
+                          {passwordLoading ? <RefreshCw size={16} className="animate-spin" /> : <ShieldCheck size={16} />}
+                          Update Password
+                        </button>
                       </div>
                     </div>
-                    <button className="text-primary font-semibold text-sm hover:underline">Update</button>
-                  </div>
 
-                  <div className="security-item">
-                    <div className="security-info">
-                      <div className="security-icon-box bg-purple-50 text-purple-600">
-                        <Shield size={20} />
+                    {/* Two-Factor Authentication */}
+                    <div className="profile-card">
+                      <div className="card-header">
+                        <div className={`header-icon-box ${twoFactorEnabled ? 'green' : 'orange'}`}><ShieldCheck size={20} /></div>
+                        <div style={{ flex: 1 }}>
+                          <h3 className="card-title">Two-Factor Auth (2FA)</h3>
+                          <p className="card-subtitle">{twoFactorEnabled ? 'Your account is extra secure with 2FA' : 'Add an extra layer of security to your account'}</p>
+                        </div>
+                        <span className={`status-badge ${twoFactorEnabled ? 'active' : 'inactive'}`}>
+                          {twoFactorEnabled ? 'ENABLED' : 'DISABLED'}
+                        </span>
                       </div>
-                      <div className="security-text">
-                        <h4>Active Sessions</h4>
-                        <p>You are currently logged in from 2 devices.</p>
+
+                      {!show2FASetup && !twoFactorEnabled && (
+                        <button className="btn btn-primary" onClick={handleStartMfaEnroll}>
+                          <Key size={16} /> Enable 2FA
+                        </button>
+                      )}
+
+                      {!show2FASetup && twoFactorEnabled && (
+                        <button className="btn btn-outline-danger" onClick={() => setShow2FASetup(true)}>
+                          <ShieldAlert size={16} /> Disable 2FA
+                        </button>
+                      )}
+
+                      {show2FASetup && (
+                        <div className="mfa-setup-box">
+                          {mfaStep === 1 && (
+                            <div className="mfa-step">
+                              <p className="mfa-desc">Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.)</p>
+                              <div className="mfa-qr-container">
+                                {mfaQrCode ? <img src={mfaQrCode} alt="2FA QR" /> : <RefreshCw className="animate-spin" />}
+                              </div>
+                              <div className="mfa-manual-entry">
+                                <code>{mfaSecret}</code>
+                                <button onClick={() => { navigator.clipboard.writeText(mfaSecret); toast.success('Secret copied!') }}><Clipboard size={14} /></button>
+                              </div>
+                              <button className="btn btn-primary" onClick={() => setMfaStep(2)}>Next Step</button>
+                            </div>
+                          )}
+                          {mfaStep === 2 && (
+                            <div className="mfa-step">
+                              <p className="mfa-desc">Enter the 6-digit code from your app</p>
+                              <div className="otp-input-group" onPaste={handleOtpPaste}>
+                                {mfaVerifyCode.map((digit, i) => (
+                                  <input key={i} ref={el => { otpRefs.current[i] = el }}
+                                    className="otp-field" type="text" maxLength={1} value={digit}
+                                    onChange={e => handleOtpChange(i, e.target.value)}
+                                    onKeyDown={e => handleOtpKeyDown(i, e)} />
+                                ))}
+                              </div>
+                              <div className="btn-group">
+                                <button className="btn btn-ghost" onClick={() => setMfaStep(1)}>Back</button>
+                                <button className="btn btn-primary" onClick={handleMfaVerifyAndEnable} disabled={mfaLoading}>
+                                  {mfaLoading ? 'Verifying...' : 'Verify & Enable'}
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                          {mfaStep === 3 && (
+                            <div className="mfa-step success">
+                              <CheckCircle2 size={48} className="text-green" />
+                              <h3>2FA Successfully Enabled!</h3>
+                              <p>Your account is now protected by two-factor authentication.</p>
+                              <button className="btn btn-primary" onClick={() => setShow2FASetup(false)}>Done</button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Device Management */}
+                    <div className="profile-card full-width">
+                      <div className="card-header">
+                        <div className="header-icon-box green"><Monitor size={20} /></div>
+                        <div>
+                          <h3 className="card-title">Connected Devices</h3>
+                          <p className="card-subtitle">Manage and monitor all devices currently logged into your account</p>
+                        </div>
+                      </div>
+                      <div className="device-list">
+                        {devicesLoading ? (
+                          <div className="loading-state"><RefreshCw className="animate-spin" /> Loading devices...</div>
+                        ) : (
+                          devices.map(device => (
+                            <div key={device.id} className={`device-item ${device.is_current ? 'current' : ''}`}>
+                              <div className="device-icon-box">
+                                {getDeviceIcon(device.device_type)}
+                              </div>
+                              <div className="device-details">
+                                <div className="device-name-row">
+                                  <span className="device-name">{device.device_name}</span>
+                                  {device.is_current && <span className="current-badge">CURRENT</span>}
+                                </div>
+                                <div className="device-meta-grid">
+                                  <div className="device-meta-item">
+                                    <MapPin size={12} /> 
+                                    <span>{device.location_city}, {device.region}, {device.location_country}</span>
+                                  </div>
+                                  <div className="device-meta-item">
+                                    <Activity size={12} />
+                                    <span>IP: {device.ip_address}</span>
+                                  </div>
+                                  <div className="device-meta-item">
+                                    <Network size={12} />
+                                    <span>ISP: {device.isp || 'N/A'}</span>
+                                  </div>
+                                  <div className="device-meta-item">
+                                    <Globe size={12} />
+                                    <span>TZ: {device.timezone || 'N/A'}</span>
+                                  </div>
+                                  <div className="device-meta-item">
+                                    <Clock size={12} /> 
+                                    <span>Active {formatTimeAgo(device.last_active_at)}</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="device-actions">
+                                {!device.is_current && (
+                                  <button className="revoke-btn" onClick={() => handleRevokeDevice(device.id)} title="Revoke Access">
+                                    <X size={16} />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          ))
+                        )}
                       </div>
                     </div>
-                    <button className="text-primary font-semibold text-sm hover:underline">Manage</button>
+
+                    {/* Security Settings */}
+                    <div className="profile-card">
+                      <div className="card-header">
+                        <div className="header-icon-box orange"><Shield size={20} /></div>
+                        <div>
+                          <h3 className="card-title">Account Safety Settings</h3>
+                          <p className="card-subtitle">Configure how you receive security alerts</p>
+                        </div>
+                      </div>
+                      <div className="settings-list">
+                        <div className="setting-row">
+                          <div className="setting-info">
+                            <h4>Login Notifications</h4>
+                            <p>Get notified when a new login occurs</p>
+                          </div>
+                          <label className="switch">
+                            <input type="checkbox" checked={securitySettings.login_notifications}
+                              onChange={e => handleSecuritySettingChange('login_notifications', e.target.checked)} />
+                            <span className="slider round"></span>
+                          </label>
+                        </div>
+                        <div className="setting-row">
+                          <div className="setting-info">
+                            <h4>New Device Alerts</h4>
+                            <p>Alert me when a device is used for the first time</p>
+                          </div>
+                          <label className="switch">
+                            <input type="checkbox" checked={securitySettings.new_device_alerts}
+                              onChange={e => handleSecuritySettingChange('new_device_alerts', e.target.checked)} />
+                            <span className="slider round"></span>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Audit Log */}
+                    <div className="profile-card">
+                      <div className="card-header">
+                        <div className="header-icon-box blue"><Activity size={20} /></div>
+                        <div>
+                          <h3 className="card-title">Security Activity Log</h3>
+                          <p className="card-subtitle">Review recent security-related actions</p>
+                        </div>
+                      </div>
+                      <div className="audit-log">
+                        {auditLogLoading ? (
+                          <div className="loading-state"><RefreshCw className="animate-spin" /></div>
+                        ) : auditLog.length === 0 ? (
+                          <div className="empty-audit">No recent security activity found.</div>
+                        ) : (
+                          auditLog.map(log => {
+                            const isSensitive = ['password_change', '2fa_enabled', '2fa_disabled', 'device_revoked'].includes(log.action)
+                            return (
+                              <div key={log.id} className={`audit-item ${isSensitive ? 'sensitive' : ''}`}>
+                                <div className="audit-icon">
+                                  {log.action.includes('password') ? <Key size={14} /> : 
+                                   log.action.includes('2fa') ? <ShieldCheck size={14} /> : 
+                                   log.action.includes('device') ? <Smartphone size={14} /> : 
+                                   <Activity size={14} />}
+                                </div>
+                                <div className="audit-content">
+                                  <div className="audit-action-row">
+                                    <span className="audit-action-label">{log.action.replace(/_/g, ' ').toUpperCase()}</span>
+                                    <span className="audit-timestamp">{new Date(log.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</span>
+                                  </div>
+                                  <div className="audit-details-row">
+                                    <span className="audit-ip"><Globe size={10} /> {log.ip_address || 'Unknown IP'}</span>
+                                    {log.metadata?.browser && <span className="audit-browser">via {log.metadata.browser}</span>}
+                                  </div>
+                                </div>
+                              </div>
+                            )
+                          })
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}

@@ -560,11 +560,18 @@ export type UserDeviceRow = {
   ip_address: string | null
   city: string | null
   country: string | null
+  region: string | null
+  isp: string | null
+  timezone: string | null
+  latitude: number | null
+  longitude: number | null
+  postal_code: string | null
   is_current: boolean
   is_trusted: boolean
   last_active_at: string
   created_at: string
   user_agent: string | null
+  metadata: any | null
 }
 
 export type SecurityAuditLogRow = {
