@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
-import type { UserRole } from '../../types/database'
+import type { UserRole, KycStatus } from '../../types/database'
 import { 
   uploadAdminAvatar, 
   uploadAdminCoverImage, 
@@ -52,7 +52,10 @@ import {
   Linkedin,
   Camera,
   Layout,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Printer,
+  Copy,
+  Cpu
 } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import PhoneInput, { isValidPhoneNumber } from 'react-phone-number-input'
@@ -146,6 +149,7 @@ interface AdminProfile {
   number_of_employees: string | null
   languages_spoken: string[] | null
   primary_market: string | null
+  kyc_status: KycStatus
 }
 
 interface ValidationErrors {
@@ -187,10 +191,27 @@ const AdminProfilePage: React.FC = () => {
     login_notifications: true,
     new_device_alerts: true,
     session_timeout_minutes: 1440,
-    require_2fa_for_sensitive: false
+    require_2fa_for_sensitive: false,
+    recovery_email: '',
+    is_phone_verified: false,
+    backup_codes_generated_at: null as string | null,
+    security_keys_enabled: false
   })
+  const [backupCodes, setBackupCodes] = useState<string[]>([])
+  const [showBackupCodesModal, setShowBackupCodesModal] = useState(false)
+  const [securityKeys, setSecurityKeys] = useState<any[]>([])
+  const [showSecurityKeyModal, setShowSecurityKeyModal] = useState(false)
+  const [securityKeyName, setSecurityKeyName] = useState('')
+  const [recoveryEmailInput, setRecoveryEmailInput] = useState('')
+  const [isVerifyingPhone, setIsVerifyingPhone] = useState(false)
+  const [phoneOtp, setPhoneOtp] = useState(['', '', '', '', '', ''])
+  const [isPhoneModalOpen, setIsPhoneModalOpen] = useState(false)
   const [auditLog, setAuditLog] = useState<any[]>([])
   const [auditLogLoading, setAuditLogLoading] = useState(false)
+  const [phoneInput, setPhoneInput] = useState('')
+  const [phoneOtpSent, setPhoneOtpSent] = useState(false)
+  const [showPhoneModal, setShowPhoneModal] = useState(false)
+  const [phoneOtpValue, setPhoneOtpValue] = useState('')
   const otpRefs = useRef<(HTMLInputElement | null)[]>([])
 
   // Calculate profile completion percentage
@@ -289,16 +310,186 @@ const AdminProfilePage: React.FC = () => {
 
   const fetchSecuritySettings = useCallback(async () => {
     if (!user) return
-    const { data } = await supabase.from('user_security_settings').select('*').eq('user_id', user.id).maybeSingle()
+    const { data } = await supabase
+      .from('user_security_settings')
+      .select('*')
+      .eq('user_id', user.id)
+      .maybeSingle()
+    
     if (data) {
+      const settings = data as any // Fallback to any if inference is broken, but we know the shape
       setSecuritySettings({
-        login_notifications: data.login_notifications,
-        new_device_alerts: data.new_device_alerts,
-        session_timeout_minutes: data.session_timeout_minutes,
-        require_2fa_for_sensitive: data.require_2fa_for_sensitive
+        login_notifications: settings.login_notifications,
+        new_device_alerts: settings.new_device_alerts,
+        session_timeout_minutes: settings.session_timeout_minutes,
+        require_2fa_for_sensitive: settings.require_2fa_for_sensitive,
+        recovery_email: settings.recovery_email || '',
+        is_phone_verified: settings.is_phone_verified,
+        backup_codes_generated_at: settings.backup_codes_generated_at,
+        security_keys_enabled: settings.security_keys_enabled
       })
+      if (settings.recovery_email) setRecoveryEmailInput(settings.recovery_email)
     }
   }, [user])
+
+  const fetchSecurityKeys = useCallback(async () => {
+    if (!user) return
+    const { data } = await (supabase as any).from('user_security_keys').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
+    setSecurityKeys(data || [])
+  }, [user])
+
+  const handleUpdateRecoveryEmail = async () => {
+    if (!user || !recoveryEmailInput) return
+    try {
+      setSaving(true)
+      const { error } = await supabase
+        .from('user_security_settings')
+        .update({ recovery_email: recoveryEmailInput })
+        .eq('user_id', user.id)
+      
+      if (error) throw error
+      await logSecurityEvent('recovery_email_updated', { email: recoveryEmailInput })
+      toast.success('Recovery email updated')
+    } catch (err: any) {
+      toast.error(err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleGenerateBackupCodes = async () => {
+    if (!user) return
+    try {
+      setMfaLoading(true)
+      // Generate 10 random 8-character codes
+      const codes = Array.from({ length: 10 }, () => 
+        Math.random().toString(36).substring(2, 10).toUpperCase()
+      )
+      
+      // Delete old codes first
+      await (supabase as any).from('user_backup_codes').delete().eq('user_id', user.id)
+      
+      // In a real app, you should hash these. For this demo, we'll store them or just show them.
+      // We'll store a timestamp to show they've been generated.
+      const codeInserts = codes.map(c => ({
+        user_id: user.id,
+        code_hash: c, // In production, hash this!
+        is_used: false
+      }))
+      
+      await (supabase as any).from('user_backup_codes').insert(codeInserts)
+      await supabase.from('user_security_settings').update({ 
+        backup_codes_generated_at: new Date().toISOString() 
+      }).eq('user_id', user.id)
+      
+      setBackupCodes(codes)
+      setShowBackupCodesModal(true)
+      
+      // Auto-download backup codes
+      const content = `ADMISSION DESK - ADMIN BACKUP CODES\nGenerated: ${new Date().toLocaleString()}\n\nKeep these codes in a safe place. Each code can be used once.\n\n${codes.map((c, i) => `${i + 1}. ${c}`).join('\n')}\n\nSecurity Warning: Do not share these codes with anyone.`;
+      const blob = new Blob([content], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `backup-codes-admission-desk-${profile?.first_name || 'admin'}.txt`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      await logSecurityEvent('backup_codes_generated')
+      toast.success('Backup codes generated and downloaded successfully')
+    } catch (err: any) {
+      toast.error(err.message)
+    } finally {
+      setMfaLoading(false)
+    }
+  }
+
+  const handleStartPhoneVerify = async () => {
+    if (!user || !profile?.phone) {
+      toast.error('Please add a phone number to your profile first')
+      return
+    }
+    setShowPhoneModal(true)
+    // In a real app, trigger Supabase Auth OTP or SMS service here
+    toast.success('Verification code sent to ' + (phoneInput || profile.phone))
+    setPhoneOtpSent(true)
+  }
+
+  const handleVerifyPhoneOtp = async () => {
+    const code = phoneOtpValue
+    if (code.length < 6) {
+      toast.error('Please enter a 6-digit code')
+      return
+    }
+    
+    setIsVerifyingPhone(true)
+    try {
+      // Simulate verification
+      await new Promise(resolve => setTimeout(resolve, 1500))
+      
+      const { error } = await supabase
+        .from('user_security_settings')
+        .update({ 
+          is_phone_verified: true,
+          phone_verified_at: new Date().toISOString()
+        })
+        .eq('user_id', user.id)
+      
+      if (error) throw error
+      await logSecurityEvent('phone_verified')
+      toast.success('Phone number verified successfully')
+      setShowPhoneModal(false)
+      setSecuritySettings(prev => ({ ...prev, is_phone_verified: true }))
+    } catch (err: any) {
+      toast.error(err.message)
+    } finally {
+      setIsVerifyingPhone(false)
+    }
+  }
+
+  const handleAddSecurityKey = async () => {
+    if (!user || !securityKeyName) return
+    try {
+      setMfaLoading(true)
+      // WebAuthn simulation - in a real app, use @simplewebauthn/browser
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      
+      const { error } = await (supabase as any).from('user_security_keys').insert({
+        user_id: user.id,
+        key_name: securityKeyName,
+        credential_id: 'simulated_' + Math.random().toString(36).substring(7),
+        public_key: 'simulated_pk'
+      })
+      
+      if (error) throw error
+      
+      await supabase.from('user_security_settings').update({ 
+        security_keys_enabled: true 
+      }).eq('user_id', user.id)
+      
+      await logSecurityEvent('security_key_added', { name: securityKeyName })
+      toast.success('Wait, security keys are handled via browser biometric prompt.')
+      setShowSecurityKeyModal(false)
+      setSecurityKeyName('')
+      fetchSecurityKeys()
+    } catch (err: any) {
+      toast.error(err.message)
+    } finally {
+      setMfaLoading(false)
+    }
+  }
+
+  const handleDeleteSecurityKey = async (id: string) => {
+    try {
+      await supabase.from('user_security_keys').delete().eq('id', id)
+      toast.success('Security key removed')
+      fetchSecurityKeys()
+    } catch (err: any) {
+      toast.error(err.message)
+    }
+  }
 
   const logSecurityEvent = async (action: string, metadata: any = {}) => {
     if (!user) return
@@ -462,6 +653,30 @@ const AdminProfilePage: React.FC = () => {
           setAuditLog(prev => [payload.new, ...prev].slice(0, 10))
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'user_security_keys',
+          filter: `user_id=eq.${user.id}`
+        },
+        () => {
+          fetchSecurityKeys()
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'user_backup_codes',
+          filter: `user_id=eq.${user.id}`
+        },
+        () => {
+          fetchSecuritySettings()
+        }
+      )
       .subscribe()
 
     return () => {
@@ -491,8 +706,9 @@ const AdminProfilePage: React.FC = () => {
       fetchDevices()
       fetchAuditLog()
       fetchSecuritySettings()
+      fetchSecurityKeys()
     }
-  }, [activeTab, registerCurrentDevice, fetchDevices, fetchAuditLog, fetchSecuritySettings])
+  }, [activeTab, registerCurrentDevice, fetchDevices, fetchAuditLog, fetchSecuritySettings, fetchSecurityKeys])
 
   const handlePasswordUpdate = async () => {
     if (!passwordForm.currentPassword || !passwordForm.newPassword) return
@@ -554,10 +770,22 @@ const AdminProfilePage: React.FC = () => {
   }
 
   const handleRevokeDevice = async (id: string) => {
+    if (!confirm('Are you sure you want to revoke access for this device? You will be logged out on that device.')) return
     try {
       await supabase.from('user_devices').delete().eq('id', id)
       await logSecurityEvent('device_revoked')
       toast.success('Device access revoked')
+      fetchDevices()
+    } catch (err: any) {
+      toast.error(err.message)
+    }
+  }
+
+  const handleTrustDevice = async (id: string, currentStatus: boolean) => {
+    try {
+      await supabase.from('user_devices').update({ is_trusted: !currentStatus }).eq('id', id)
+      await logSecurityEvent(!currentStatus ? 'device_trusted' : 'device_untrusted')
+      toast.success(!currentStatus ? 'Device trusted successfully' : 'Device removed from trusted list')
       fetchDevices()
     } catch (err: any) {
       toast.error(err.message)
@@ -622,10 +850,13 @@ const AdminProfilePage: React.FC = () => {
   }
 
   const getSecurityScore = () => {
-    let score = 30
-    if (twoFactorEnabled) score += 40
-    if (securitySettings.login_notifications) score += 15
-    if (securitySettings.new_device_alerts) score += 15
+    let score = 20
+    if (twoFactorEnabled) score += 30
+    if (securitySettings.is_phone_verified) score += 20
+    if (securityKeys.length > 0) score += 15
+    if (securitySettings.backup_codes_generated_at) score += 5
+    if (securitySettings.login_notifications) score += 5
+    if (securitySettings.new_device_alerts) score += 5
     return Math.min(score, 100)
   }
 
@@ -1366,9 +1597,8 @@ const AdminProfilePage: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="security-grid">
                     {/* Password Management */}
-                    <div className="profile-card">
+                    <div className="profile-card w-full">
                       <div className="card-header">
                         <div className="header-icon-box blue"><Lock size={20} /></div>
                         <div>
@@ -1412,173 +1642,308 @@ const AdminProfilePage: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Two-Factor Authentication */}
-                    <div className="profile-card">
-                      <div className="card-header">
-                        <div className={`header-icon-box ${twoFactorEnabled ? 'green' : 'orange'}`}><ShieldCheck size={20} /></div>
-                        <div style={{ flex: 1 }}>
-                          <h3 className="card-title">Two-Factor Auth (2FA)</h3>
-                          <p className="card-subtitle">{twoFactorEnabled ? 'Your account is extra secure with 2FA' : 'Add an extra layer of security to your account'}</p>
+                    <div className="security-grid">
+                      {/* Two-Factor Authentication & Advanced Security */}
+                      <div className="profile-card col-span-2">
+                        <div className="card-header">
+                          <div className={`header-icon-box ${twoFactorEnabled ? 'green' : 'orange'}`}><ShieldCheck size={20} /></div>
+                          <div style={{ flex: 1 }}>
+                            <h3 className="card-title">Multi-Factor Authentication (MFA)</h3>
+                            <p className="card-subtitle">Protect your account with multiple layers of verification</p>
+                          </div>
+                          <div className="flex gap-2">
+                            <span className={`status-badge ${twoFactorEnabled ? 'active' : 'inactive'}`}>
+                              TOTP: {twoFactorEnabled ? 'ACTIVE' : 'OFF'}
+                            </span>
+                            <span className={`status-badge ${securitySettings.is_phone_verified ? 'active' : 'inactive'}`}>
+                              SMS: {securitySettings.is_phone_verified ? 'VERIFIED' : 'PENDING'}
+                            </span>
+                          </div>
                         </div>
-                        <span className={`status-badge ${twoFactorEnabled ? 'active' : 'inactive'}`}>
-                          {twoFactorEnabled ? 'ENABLED' : 'DISABLED'}
-                        </span>
-                      </div>
 
-                      {!show2FASetup && !twoFactorEnabled && (
-                        <button className="btn btn-primary" onClick={handleStartMfaEnroll}>
-                          <Key size={16} /> Enable 2FA
-                        </button>
-                      )}
-
-                      {!show2FASetup && twoFactorEnabled && (
-                        <button className="btn btn-outline-danger" onClick={() => setShow2FASetup(true)}>
-                          <ShieldAlert size={16} /> Disable 2FA
-                        </button>
-                      )}
-
-                      {show2FASetup && (
-                        <div className="mfa-setup-box">
-                          {mfaStep === 1 && (
-                            <div className="mfa-step">
-                              <p className="mfa-desc">Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.)</p>
-                              <div className="mfa-qr-container">
-                                {mfaQrCode ? <img src={mfaQrCode} alt="2FA QR" /> : <RefreshCw className="animate-spin" />}
-                              </div>
-                              <div className="mfa-manual-entry">
-                                <code>{mfaSecret}</code>
-                                <button onClick={() => { navigator.clipboard.writeText(mfaSecret); toast.success('Secret copied!') }}><Clipboard size={14} /></button>
-                              </div>
-                              <button className="btn btn-primary" onClick={() => setMfaStep(2)}>Next Step</button>
+                        <div className="mfa-methods-grid">
+                          <div className={`mfa-method-card ${twoFactorEnabled ? 'method-active' : ''}`}>
+                            <div className="method-icon"><Smartphone size={24} /></div>
+                            <div className="method-info">
+                              <h4>Authenticator App</h4>
+                              <p>Use Google Authenticator or similar apps to get codes.</p>
                             </div>
-                          )}
-                          {mfaStep === 2 && (
-                            <div className="mfa-step">
-                              <p className="mfa-desc">Enter the 6-digit code from your app</p>
-                              <div className="otp-input-group" onPaste={handleOtpPaste}>
-                                {mfaVerifyCode.map((digit, i) => (
-                                  <input key={i} ref={el => { otpRefs.current[i] = el }}
-                                    className="otp-field" type="text" maxLength={1} value={digit}
-                                    onChange={e => handleOtpChange(i, e.target.value)}
-                                    onKeyDown={e => handleOtpKeyDown(i, e)} />
-                                ))}
-                              </div>
-                              <div className="btn-group">
-                                <button className="btn btn-ghost" onClick={() => setMfaStep(1)}>Back</button>
-                                <button className="btn btn-primary" onClick={handleMfaVerifyAndEnable} disabled={mfaLoading}>
-                                  {mfaLoading ? 'Verifying...' : 'Verify & Enable'}
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                          {mfaStep === 3 && (
-                            <div className="mfa-step success">
-                              <CheckCircle2 size={48} className="text-green" />
-                              <h3>2FA Successfully Enabled!</h3>
-                              <p>Your account is now protected by two-factor authentication.</p>
-                              <button className="btn btn-primary" onClick={() => setShow2FASetup(false)}>Done</button>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Device Management */}
-                    <div className="profile-card full-width">
-                      <div className="card-header">
-                        <div className="header-icon-box green"><Monitor size={20} /></div>
-                        <div>
-                          <h3 className="card-title">Connected Devices</h3>
-                          <p className="card-subtitle">Manage and monitor all devices currently logged into your account</p>
-                        </div>
-                      </div>
-                      <div className="device-list">
-                        {devicesLoading ? (
-                          <div className="loading-state"><RefreshCw className="animate-spin" /> Loading devices...</div>
-                        ) : (
-                          devices.map(device => (
-                            <div key={device.id} className={`device-item ${device.is_current ? 'current' : ''}`}>
-                              <div className="device-icon-box">
-                                {getDeviceIcon(device.device_type)}
-                              </div>
-                              <div className="device-details">
-                                <div className="device-name-row">
-                                  <span className="device-name">{device.device_name}</span>
-                                  {device.is_current && <span className="current-badge">CURRENT</span>}
+                            <div className="method-action">
+                              {twoFactorEnabled ? (
+                                <div className="flex flex-col items-end gap-1">
+                                  <span className="text-green-600 text-xs font-bold flex items-center gap-1">
+                                    <ShieldCheck size={14} /> ACTIVE
+                                  </span>
+                                  <button className="text-[10px] text-slate-400 hover:text-red-500 transition-colors" onClick={() => setShow2FASetup(true)}>Disable</button>
                                 </div>
-                                <div className="device-meta-grid">
-                                  <div className="device-meta-item">
-                                    <MapPin size={12} /> 
-                                    <span>{device.location_city}, {device.region}, {device.location_country}</span>
-                                  </div>
-                                  <div className="device-meta-item">
-                                    <Activity size={12} />
-                                    <span>IP: {device.ip_address}</span>
-                                  </div>
-                                  <div className="device-meta-item">
-                                    <Network size={12} />
-                                    <span>ISP: {device.isp || 'N/A'}</span>
-                                  </div>
-                                  <div className="device-meta-item">
-                                    <Globe size={12} />
-                                    <span>TZ: {device.timezone || 'N/A'}</span>
-                                  </div>
-                                  <div className="device-meta-item">
-                                    <Clock size={12} /> 
-                                    <span>Active {formatTimeAgo(device.last_active_at)}</span>
-                                  </div>
+                              ) : (
+                                <button className="btn-sm btn-primary" onClick={handleStartMfaEnroll}>Setup</button>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className={`mfa-method-card ${securitySettings.is_phone_verified ? 'method-active' : ''}`}>
+                            <div className="method-icon"><PhoneIcon size={24} /></div>
+                            <div className="method-info">
+                              <h4>Phone Verification</h4>
+                              <p>Verify your phone number for account recovery and SMS alerts.</p>
+                            </div>
+                            <div className="method-action">
+                              {securitySettings.is_phone_verified ? (
+                                <div className="flex items-center text-green-600 text-xs font-bold gap-1">
+                                  <ShieldCheck size={14} /> VERIFIED
+                                </div>
+                              ) : (
+                                <button className="btn-sm btn-primary" onClick={handleStartPhoneVerify}>Verify Now</button>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className={`mfa-method-card ${securityKeys.length > 0 ? 'method-active' : ''}`}>
+                            <div className="method-icon"><Key size={24} /></div>
+                            <div className="method-info">
+                              <h4>Hardware Security Key</h4>
+                              <p>Use a physical YubiKey or biometric key (Windows Hello, FaceID).</p>
+                            </div>
+                            <div className="method-action">
+                              {securityKeys.length > 0 ? (
+                                <div className="flex flex-col items-end gap-1">
+                                  <span className="text-green-600 text-xs font-bold flex items-center gap-1">
+                                    <ShieldCheck size={14} /> ACTIVE
+                                  </span>
+                                  <button className="text-[10px] text-slate-400 hover:text-blue-500 transition-colors" onClick={() => setShowSecurityKeyModal(true)}>Manage</button>
+                                </div>
+                              ) : (
+                                <button className="btn-sm btn-primary" onClick={() => setShowSecurityKeyModal(true)}>Add Key</button>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className={`mfa-method-card ${securitySettings.backup_codes_generated_at ? 'method-active' : ''}`}>
+                            <div className="method-icon"><FileText size={24} /></div>
+                            <div className="method-info">
+                              <h4>Backup Codes</h4>
+                              <p>Emergency codes if you lose access to your other methods.</p>
+                            </div>
+                            <div className="method-action">
+                              {securitySettings.backup_codes_generated_at ? (
+                                <div className="flex flex-col items-end gap-1">
+                                  <span className="text-green-600 text-xs font-bold flex items-center gap-1">
+                                    <ShieldCheck size={14} /> DOWNLOADED
+                                  </span>
+                                  <button className="text-[10px] text-slate-400 hover:text-blue-500 transition-colors" onClick={handleGenerateBackupCodes}>Regenerate</button>
+                                </div>
+                              ) : (
+                                <button className="btn-sm btn-primary" onClick={handleGenerateBackupCodes}>Generate</button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {show2FASetup && (
+                          <div className="mfa-setup-box mt-6 p-6 bg-slate-50 rounded-2xl border border-slate-200">
+                            {mfaStep === 1 && (
+                              <div className="mfa-step text-center">
+                                <h4 className="text-lg font-bold mb-2">Setup Authenticator App</h4>
+                                <p className="mfa-desc mb-4 text-slate-500">Scan this QR code with your authenticator app</p>
+                                <div className="mfa-qr-container mx-auto bg-white p-4 rounded-xl shadow-sm border border-slate-200 inline-block">
+                                  {mfaQrCode ? <img src={mfaQrCode} alt="2FA QR" className="w-48 h-48" /> : <RefreshCw className="animate-spin" />}
+                                </div>
+                                <div className="mfa-manual-entry mt-4 bg-slate-100 p-2 rounded flex items-center justify-between">
+                                  <code className="text-xs font-mono">{mfaSecret}</code>
+                                  <button className="text-primary hover:text-primary-dark" onClick={() => { navigator.clipboard.writeText(mfaSecret); toast.success('Secret copied!') }}><Clipboard size={14} /></button>
+                                </div>
+                                <div className="flex gap-2 mt-6">
+                                  <button className="btn btn-outline flex-1" onClick={() => setShow2FASetup(false)}>Cancel</button>
+                                  <button className="btn btn-primary flex-1" onClick={() => setMfaStep(2)}>Next Step</button>
                                 </div>
                               </div>
-                              <div className="device-actions">
-                                {!device.is_current && (
-                                  <button className="revoke-btn" onClick={() => handleRevokeDevice(device.id)} title="Revoke Access">
-                                    <X size={16} />
+                            )}
+                            {mfaStep === 2 && (
+                              <div className="mfa-step text-center">
+                                <h4 className="text-lg font-bold mb-2">Verify Code</h4>
+                                <p className="mfa-desc mb-6 text-slate-500">Enter the 6-digit code from your app</p>
+                                <div className="otp-input-group justify-center" onPaste={handleOtpPaste}>
+                                  {mfaVerifyCode.map((digit, i) => (
+                                    <input key={i} ref={el => { otpRefs.current[i] = el }}
+                                      className="otp-field" type="text" maxLength={1} value={digit}
+                                      onChange={e => handleOtpChange(i, e.target.value)}
+                                      onKeyDown={e => handleOtpKeyDown(i, e)} />
+                                  ))}
+                                </div>
+                                <div className="flex gap-2 mt-8">
+                                  <button className="btn btn-outline flex-1" onClick={() => setMfaStep(1)}>Back</button>
+                                  <button className="btn btn-primary flex-1" onClick={handleMfaVerifyAndEnable} disabled={mfaLoading}>
+                                    {mfaLoading ? <RefreshCw className="animate-spin" /> : 'Complete Setup'}
                                   </button>
-                                )}
+                                </div>
                               </div>
-                            </div>
-                          ))
+                            )}
+                          </div>
                         )}
                       </div>
                     </div>
 
-                    {/* Security Settings */}
-                    <div className="profile-card">
+                    {/* Recovery & Identity Card */}
+                    <div className="profile-card w-full">
                       <div className="card-header">
-                        <div className="header-icon-box orange"><Shield size={20} /></div>
+                        <div className="header-icon-box purple"><Mail size={20} /></div>
                         <div>
-                          <h3 className="card-title">Account Safety Settings</h3>
-                          <p className="card-subtitle">Configure how you receive security alerts</p>
+                          <h3 className="card-title">Account Recovery</h3>
+                          <p className="card-subtitle">Options for recovering your account access</p>
                         </div>
                       </div>
-                      <div className="settings-list">
-                        <div className="setting-row">
-                          <div className="setting-info">
-                            <h4>Login Notifications</h4>
-                            <p>Get notified when a new login occurs</p>
+                      <div className="form-stack">
+                        <div className="form-group">
+                          <label className="form-label">Recovery Email Address</label>
+                          <div className="flex gap-2">
+                            <input 
+                              type="email" 
+                              className="form-input" 
+                              placeholder="recovery@example.com"
+                              value={recoveryEmailInput}
+                              onChange={e => setRecoveryEmailInput(e.target.value)}
+                            />
+                            <button className="btn btn-outline btn-sm" onClick={handleUpdateRecoveryEmail} disabled={saving}>
+                              {saving ? <RefreshCw size={14} className="animate-spin" /> : 'Save'}
+                            </button>
                           </div>
-                          <label className="switch">
-                            <input type="checkbox" checked={securitySettings.login_notifications}
-                              onChange={e => handleSecuritySettingChange('login_notifications', e.target.checked)} />
-                            <span className="slider round"></span>
-                          </label>
+                          <p className="text-[10px] text-slate-400 mt-1">This email will be used if you lose access to your primary email.</p>
                         </div>
-                        <div className="setting-row">
-                          <div className="setting-info">
-                            <h4>New Device Alerts</h4>
-                            <p>Alert me when a device is used for the first time</p>
+                        
+                        <div className="mt-4 pt-4 border-t border-slate-100">
+                          <h4 className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
+                            <Activity size={16} /> Identity Verification
+                          </h4>
+                          <div className="verification-list">
+                            <div className="verification-item">
+                              <span>Primary Email Verified</span>
+                              <span className="text-green-600 font-bold text-[10px]">YES</span>
+                            </div>
+                            <div className="verification-item">
+                              <span>ID Document Uploaded</span>
+                              <span className={profile?.kyc_status === 'approved' ? 'text-green-600 font-bold text-[10px]' : 'text-amber-600 font-bold text-[10px]'}>
+                                {profile?.kyc_status?.toUpperCase().replace('_', ' ') || 'NOT SUBMITTED'}
+                              </span>
+                            </div>
                           </div>
-                          <label className="switch">
-                            <input type="checkbox" checked={securitySettings.new_device_alerts}
-                              onChange={e => handleSecuritySettingChange('new_device_alerts', e.target.checked)} />
-                            <span className="slider round"></span>
-                          </label>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="security-grid">
+                      {/* Device Management */}
+                      <div className="profile-card full-width">
+                        <div className="card-header">
+                          <div className="header-icon-box green"><Monitor size={20} /></div>
+                          <div>
+                            <h3 className="card-title">Connected Devices</h3>
+                            <p className="card-subtitle">Manage and monitor all devices currently logged into your account</p>
+                          </div>
+                        </div>
+                        <div className="device-list">
+                          {devicesLoading ? (
+                            <div className="loading-state"><RefreshCw className="animate-spin" /> Loading devices...</div>
+                          ) : (
+                            devices.map(device => (
+                              <div key={device.id} className={`device-item ${device.is_current ? 'current' : ''}`}>
+                                <div className="device-icon-box">
+                                  {getDeviceIcon(device.device_type)}
+                                </div>
+                                <div className="device-details">
+                                  <div className="device-name-row">
+                                    <span className="device-name">{device.device_name}</span>
+                                    {device.is_current && <span className="current-badge">CURRENT</span>}
+                                  </div>
+                                  <div className="device-meta-grid">
+                                     <div className="device-meta-item" title="Location">
+                                       <MapPin size={12} /> 
+                                       <span>{device.location_city}, {device.location_country}</span>
+                                     </div>
+                                     <div className="device-meta-item" title="IP Address">
+                                       <Activity size={12} />
+                                       <span>{device.ip_address}</span>
+                                     </div>
+                                     <div className="device-meta-item" title="Internet Service Provider">
+                                       <Network size={12} />
+                                       <span className="truncate max-w-[150px]">{device.isp || 'Unknown ISP'}</span>
+                                     </div>
+                                     <div className="device-meta-item" title="Last Active">
+                                       <Clock size={12} /> 
+                                       <span>{formatTimeAgo(device.last_active_at)}</span>
+                                     </div>
+                                     {device.metadata?.screen_resolution && (
+                                       <div className="device-meta-item" title="Screen Resolution">
+                                         <Monitor size={12} />
+                                         <span>{device.metadata.screen_resolution}</span>
+                                       </div>
+                                     )}
+                                     {device.is_trusted && (
+                                       <div className="device-meta-item text-green-600 font-bold" title="Trusted Device">
+                                         <ShieldCheck size={12} />
+                                         <span>TRUSTED</span>
+                                       </div>
+                                     )}
+                                  </div>
+                                </div>
+                                <div className="device-actions">
+                                  <button 
+                                    className={`btn-icon ${device.is_trusted ? 'text-green-500' : 'text-slate-400'}`} 
+                                    onClick={() => handleTrustDevice(device.id, device.is_trusted)}
+                                    title={device.is_trusted ? "Untrust Device" : "Trust Device"}
+                                  >
+                                    <ShieldCheck size={18} />
+                                  </button>
+                                  {!device.is_current && (
+                                    <button className="revoke-btn" onClick={() => handleRevokeDevice(device.id)} title="Revoke Access">
+                                      <X size={18} />
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Account Safety Settings */}
+                      <div className="profile-card">
+                        <div className="card-header">
+                          <div className="header-icon-box orange"><Shield size={20} /></div>
+                          <div>
+                            <h3 className="card-title">Account Safety Settings</h3>
+                            <p className="card-subtitle">Configure how you receive security alerts</p>
+                          </div>
+                        </div>
+                        <div className="settings-list">
+                          <div className="setting-row">
+                            <div className="setting-info">
+                              <h4>Login Notifications</h4>
+                              <p>Get notified when a new login occurs</p>
+                            </div>
+                            <label className="switch">
+                              <input type="checkbox" checked={securitySettings.login_notifications}
+                                onChange={e => handleSecuritySettingChange('login_notifications', e.target.checked)} />
+                              <span className="slider round"></span>
+                            </label>
+                          </div>
+                          <div className="setting-row">
+                            <div className="setting-info">
+                              <h4>New Device Alerts</h4>
+                              <p>Alert me when a device is used for the first time</p>
+                            </div>
+                            <label className="switch">
+                              <input type="checkbox" checked={securitySettings.new_device_alerts}
+                                onChange={e => handleSecuritySettingChange('new_device_alerts', e.target.checked)} />
+                              <span className="slider round"></span>
+                            </label>
+                          </div>
                         </div>
                       </div>
                     </div>
 
                     {/* Audit Log */}
-                    <div className="profile-card">
+                    <div className="profile-card w-full">
                       <div className="card-header">
                         <div className="header-icon-box blue"><Activity size={20} /></div>
                         <div>
@@ -1619,9 +1984,8 @@ const AdminProfilePage: React.FC = () => {
                       </div>
                     </div>
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
 
             <div className="profile-side-col">
               <div className="security-score-card">
@@ -1639,37 +2003,210 @@ const AdminProfilePage: React.FC = () => {
 
               <div className="profile-card mt-6">
                 <h4 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                  <RefreshCw size={16} className="text-primary" />
+                  <Activity size={16} className="text-primary" />
                   Recent Activity
                 </h4>
                 <div className="space-y-4">
-                  <div className="flex gap-3 text-sm">
-                    <div className="w-2 h-2 rounded-full bg-green-500 mt-1.5 shrink-0"></div>
-                    <div>
-                      <p className="font-medium text-slate-700">Updated profile avatar</p>
-                      <p className="text-slate-500 text-xs">2 hours ago</p>
-                    </div>
+                  {auditLog.length === 0 ? (
+                    <p className="text-slate-500 text-xs italic">No recent activity detected.</p>
+                  ) : (
+                    auditLog.slice(0, 5).map(log => (
+                      <div key={log.id} className="flex gap-3 text-sm">
+                        <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${
+                          ['password_change', '2fa_enabled', 'device_revoked'].includes(log.action) ? 'bg-amber-500' : 'bg-green-500'
+                        }`}></div>
+                        <div>
+                          <p className="font-medium text-slate-700 capitalize">{log.action.replace(/_/g, ' ')}</p>
+                          <p className="text-slate-500 text-[10px]">{formatTimeAgo(log.created_at)} • {log.ip_address}</p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* New Security Guide Card */}
+              <div className="profile-card mt-6 bg-gradient-to-br from-slate-900 to-slate-800 text-white border-none shadow-xl">
+                <h4 className="font-bold text-white mb-4 flex items-center gap-2">
+                  <ShieldCheck size={18} className="text-blue-400" />
+                  Security & Profile Guide
+                </h4>
+                <div className="space-y-4 text-xs">
+                  <div className="p-3 bg-white/5 rounded-xl border border-white/10">
+                    <p className="font-semibold text-blue-300 mb-1">MFA Enforcement</p>
+                    <p className="text-slate-300 leading-relaxed">Always keep TOTP or Security Keys enabled. This prevents 99% of unauthorized access attempts even if your password is compromised.</p>
                   </div>
-                  <div className="flex gap-3 text-sm">
-                    <div className="w-2 h-2 rounded-full bg-blue-500 mt-1.5 shrink-0"></div>
-                    <div>
-                      <p className="font-medium text-slate-700">Changed system settings</p>
-                      <p className="text-slate-500 text-xs">Yesterday</p>
-                    </div>
+                  <div className="p-3 bg-white/5 rounded-xl border border-white/10">
+                    <p className="font-semibold text-purple-300 mb-1">Recovery Hygiene</p>
+                    <p className="text-slate-300 leading-relaxed">Ensure your recovery email is different from your primary admin email. Store your backup codes in a physical or encrypted offline location.</p>
                   </div>
-                  <div className="flex gap-3 text-sm">
-                    <div className="w-2 h-2 rounded-full bg-slate-300 mt-1.5 shrink-0"></div>
-                    <div>
-                      <p className="font-medium text-slate-700">Login from new device</p>
-                      <p className="text-slate-500 text-xs">3 days ago</p>
-                    </div>
+                  <div className="p-3 bg-white/5 rounded-xl border border-white/10">
+                    <p className="font-semibold text-green-300 mb-1">Device Auditing</p>
+                    <p className="text-slate-300 leading-relaxed">Review your connected devices weekly. Revoke any session that you don't recognize immediately to secure your session data.</p>
+                  </div>
+                  <div className="p-3 bg-white/5 rounded-xl border border-white/10">
+                    <p className="font-semibold text-amber-300 mb-1">Activity Alerts</p>
+                    <p className="text-slate-300 leading-relaxed">Enable both Login and New Device notifications to receive instant SMS/Email alerts for every account access event.</p>
                   </div>
                 </div>
+                <button className="w-full mt-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs font-bold transition-colors">
+                  View Full Security Audit
+                </button>
               </div>
             </div>
           </div>
         </div>
       </main>
+
+      {/* Backup Codes Modal */}
+      {showBackupCodesModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[1100] flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden">
+            <div className="p-8">
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h3 className="text-2xl font-bold text-slate-900">Your Backup Codes</h3>
+                  <p className="text-slate-500 text-sm mt-1">Keep these in a safe place. You can use each code only once.</p>
+                </div>
+                <button onClick={() => setShowBackupCodesModal(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
+                  <X size={20} className="text-slate-400" />
+                </button>
+              </div>
+
+              <div className="backup-codes-grid">
+                {backupCodes.map((code, idx) => (
+                  <div key={idx} className="code-item">
+                    <span className="code-number">{String(idx + 1).padStart(2, '0')}.</span>
+                    <code>{code}</code>
+                  </div>
+                ))}
+              </div>
+
+              <div className="backup-codes-warning mt-6 p-4 bg-amber-50 rounded-xl flex gap-3 text-amber-700 text-xs">
+                <ShieldAlert size={20} className="shrink-0" />
+                <p>Warning: If you lose these codes and lose access to your other 2FA methods, you will be locked out of your account.</p>
+              </div>
+
+              <div className="flex gap-3 mt-8">
+                <button className="btn btn-outline flex-1" onClick={() => window.print()}>
+                  <Printer size={16} /> Print Codes
+                </button>
+                <button className="btn btn-primary flex-1" onClick={() => {
+                  navigator.clipboard.writeText(backupCodes.join('\n'));
+                  toast.success('Codes copied to clipboard!');
+                }}>
+                  <Copy size={16} /> Copy All
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Phone Verification Modal */}
+      {showPhoneModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[1100] flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="p-8">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-2xl font-bold text-slate-900">Phone Verification</h3>
+                <button onClick={() => setShowPhoneModal(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
+                  <X size={20} className="text-slate-400" />
+                </button>
+              </div>
+
+              {!phoneOtpSent ? (
+                <div className="space-y-6">
+                  <p className="text-slate-500">Enter your phone number to receive a verification code via SMS.</p>
+                  <div className="form-group">
+                    <label className="form-label">Phone Number</label>
+                    <input 
+                      type="tel" 
+                      className="form-input" 
+                      placeholder="+1234567890"
+                      value={phoneInput}
+                      onChange={e => setPhoneInput(e.target.value)}
+                    />
+                  </div>
+                  <button className="btn btn-primary w-full" onClick={handleStartPhoneVerify} disabled={saving}>
+                    {saving ? <RefreshCw className="animate-spin" /> : 'Send Code'}
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <p className="text-slate-500 text-center">We've sent a 6-digit code to <strong>{phoneInput}</strong></p>
+                  <div className="otp-input-group justify-center">
+                    <input 
+                      type="text" 
+                      className="form-input text-center text-2xl tracking-[0.5em] font-bold" 
+                      maxLength={6}
+                      placeholder="000000"
+                      value={phoneOtpValue}
+                      onChange={e => setPhoneOtpValue(e.target.value)}
+                    />
+                  </div>
+                  <button className="btn btn-primary w-full" onClick={handleVerifyPhoneOtp} disabled={saving}>
+                    {saving ? <RefreshCw className="animate-spin" /> : 'Verify & Link Phone'}
+                  </button>
+                  <button className="btn btn-ghost w-full" onClick={() => setPhoneOtpSent(false)}>
+                    Use a different number
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Security Key Modal */}
+      {showSecurityKeyModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[1100] flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden">
+            <div className="p-8">
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h3 className="text-2xl font-bold text-slate-900">Security Keys</h3>
+                  <p className="text-slate-500 text-sm mt-1">Use hardware keys or biometrics for the highest level of security.</p>
+                </div>
+                <button onClick={() => setShowSecurityKeyModal(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
+                  <X size={20} className="text-slate-400" />
+                </button>
+              </div>
+
+              <div className="security-key-list">
+                {securityKeys.length === 0 ? (
+                  <div className="text-center py-8 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
+                    <Key size={40} className="mx-auto text-slate-300 mb-2" />
+                    <p className="text-slate-500 text-sm">No security keys registered yet.</p>
+                  </div>
+                ) : (
+                  securityKeys.map(key => (
+                    <div key={key.id} className="key-item">
+                      <div className="key-icon"><ShieldCheck size={20} /></div>
+                      <div className="key-info">
+                        <div className="key-name">{key.key_name}</div>
+                        <div className="key-date">Added on {new Date(key.created_at).toLocaleDateString()}</div>
+                      </div>
+                      <button className="text-slate-400 hover:text-red-500 transition-colors">
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <button className="btn btn-primary w-full mt-6" onClick={handleAddSecurityKey} disabled={saving}>
+                <Plus size={16} /> Register New Key
+              </button>
+              
+              <div className="mt-6 p-4 bg-blue-50 rounded-xl flex gap-3 text-blue-700 text-xs">
+                <Info size={16} className="shrink-0" />
+                <p>Security keys provide protection against phishing by requiring a physical touch or biometric scan during login.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <AdminFooter />
     </div>

@@ -591,8 +591,34 @@ export type UserSecuritySettingsRow = {
   new_device_alerts: boolean
   session_timeout_minutes: number
   require_2fa_for_sensitive: boolean
+  recovery_email: string | null
+  phone_number: string | null
+  is_phone_verified: boolean
+  phone_verified_at: string | null
+  backup_codes_generated_at: string | null
+  security_keys_enabled: boolean
   created_at: string
   updated_at: string
+}
+
+export type UserSecurityKeyRow = {
+  id: string
+  user_id: string
+  key_name: string
+  credential_id: string
+  public_key: string
+  counter: number
+  created_at: string
+  last_used_at: string | null
+}
+
+export type UserBackupCodeRow = {
+  id: string
+  user_id: string
+  code_hash: string
+  is_used: boolean
+  created_at: string
+  used_at: string | null
 }
 
 export interface Database {
@@ -800,6 +826,18 @@ export interface Database {
         Row: UserSecuritySettingsRow
         Insert: Partial<UserSecuritySettingsRow> & { user_id: string }
         Update: Partial<UserSecuritySettingsRow>
+        Relationships: []
+      }
+      user_security_keys: {
+        Row: UserSecurityKeyRow
+        Insert: Partial<UserSecurityKeyRow> & { user_id: string; key_name: string; credential_id: string; public_key: string }
+        Update: Partial<UserSecurityKeyRow>
+        Relationships: []
+      }
+      user_backup_codes: {
+        Row: UserBackupCodeRow
+        Insert: Partial<UserBackupCodeRow> & { user_id: string; code_hash: string }
+        Update: Partial<UserBackupCodeRow>
         Relationships: []
       }
     }
