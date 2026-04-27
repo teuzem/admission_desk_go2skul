@@ -119,6 +119,23 @@ export const uploadKbMedia = async (file: File): Promise<string> => {
   return publicUrl;
 };
 
+export const uploadTechnicalMedia = async (file: File): Promise<string> => {
+  const fileExt = file.name.split('.').pop();
+  const fileName = `events/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from('support-attachments')
+    .upload(fileName, file, { cacheControl: '3600', upsert: false });
+
+  if (uploadError) throw uploadError;
+
+  const { data: { publicUrl } } = supabase.storage
+    .from('support-attachments')
+    .getPublicUrl(fileName);
+
+  return publicUrl;
+};
+
 // ─── Ticket CRUD ─────────────────────────────────────────────────────────────
 
 export const createSupportTicket = async (
