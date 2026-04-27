@@ -67,12 +67,17 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   if (loading) return <LoadingScreen />
   if (!user || !session) return <Navigate to="/login" replace />
+  if (profile?.is_active === false) return <ForbiddenPage />
 
-  // KYC Enforcement
-  if (profile && profile.role !== 'admin' && profile.role !== 'admission_manager' && profile.role !== 'program_manager') {
-    if (!profile.kyc_status) {
-      return <Navigate to="/register/step1" replace />
-    }
+  // Admin-role users should NEVER be on the agent /dashboard — redirect to their specific admin dashboard
+  if (profile?.role === 'admin') return <Navigate to="/admin" replace />
+  if (profile?.role === 'admission_manager') return <Navigate to="/admin/admissions" replace />
+  if (profile?.role === 'program_manager') return <Navigate to="/admin/programs" replace />
+  if (profile?.role === 'technical_team' || profile?.is_technical_team) return <Navigate to="/admin/support" replace />
+
+  // KYC Enforcement — only non-admin users reach here (admin roles are redirected above)
+  if (profile && !profile.kyc_status) {
+    return <Navigate to="/register/step1" replace />
   }
 
   return <>{children}</>
@@ -91,10 +96,12 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
 
   if (loading) return <LoadingScreen />
   if (!user || !session) return <Navigate to="/admin/login" replace />
+  if (profile?.is_active === false) return <ForbiddenPage />
   // Only full admins can access regular admin routes
   if (profile?.role !== 'admin') {
     if (profile?.role === 'admission_manager') return <Navigate to="/admin/admissions" replace />
     if (profile?.role === 'program_manager') return <Navigate to="/admin/programs" replace />
+    if (profile?.role === 'technical_team' || profile?.is_technical_team) return <Navigate to="/admin/support" replace />
     return <ForbiddenPage />
   }
   return <>{children}</>
@@ -106,6 +113,7 @@ function AdmissionRoute({ children }: { children: React.ReactNode }) {
 
   if (loading) return <LoadingScreen />
   if (!user || !session) return <Navigate to="/admin/login" replace />
+  if (profile?.is_active === false) return <ForbiddenPage />
   if (profile?.role !== 'admin' && profile?.role !== 'admission_manager') {
     return <ForbiddenPage />
   }
@@ -118,6 +126,7 @@ function ProgramRoute({ children }: { children: React.ReactNode }) {
 
   if (loading) return <LoadingScreen />
   if (!user || !session) return <Navigate to="/admin/login" replace />
+  if (profile?.is_active === false) return <ForbiddenPage />
   if (profile?.role !== 'admin' && profile?.role !== 'program_manager') {
     return <ForbiddenPage />
   }
@@ -130,7 +139,8 @@ function StaffRoute({ children }: { children: React.ReactNode }) {
 
   if (loading) return <LoadingScreen />
   if (!user || !session) return <Navigate to="/admin/login" replace />
-  if (profile?.role !== 'admin' && profile?.role !== 'admission_manager' && profile?.role !== 'program_manager') {
+  if (profile?.is_active === false) return <ForbiddenPage />
+  if (profile?.role !== 'admin' && profile?.role !== 'admission_manager' && profile?.role !== 'program_manager' && profile?.role !== 'technical_team' && !profile?.is_technical_team) {
     return <ForbiddenPage />
   }
   return <Suspense fallback={<LoadingScreen />}>{children}</Suspense>
@@ -142,6 +152,7 @@ function TechnicalRoute({ children }: { children: React.ReactNode }) {
 
   if (loading) return <LoadingScreen />
   if (!user || !session) return <Navigate to="/admin/login" replace />
+  if (profile?.is_active === false) return <ForbiddenPage />
   if (profile?.role !== 'admin' && profile?.role !== 'technical_team' && !profile?.is_technical_team) {
     return <ForbiddenPage />
   }
@@ -153,8 +164,10 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 
   if (loading) return <LoadingScreen />
   if (user) {
+    if (profile?.is_active === false) return <ForbiddenPage />
     if (profile?.role === 'admission_manager') return <Navigate to="/admin/admissions" replace />
     if (profile?.role === 'program_manager') return <Navigate to="/admin/programs" replace />
+    if (profile?.role === 'technical_team' || profile?.is_technical_team) return <Navigate to="/admin/support" replace />
     if (profile?.role === 'admin') return <Navigate to="/admin" replace />
     return <Navigate to="/dashboard" replace />
   }

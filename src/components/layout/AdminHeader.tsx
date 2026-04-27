@@ -1,6 +1,6 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
-import { Bell, Search, Globe, ChevronDown } from 'lucide-react'
+import { Bell, Search } from 'lucide-react'
 import AdminProfileDropdown from './AdminProfileDropdown'
 import './DashboardLayout.css'
 
@@ -22,14 +22,6 @@ export default function AdminHeader() {
       </div>
 
       <div className="header-right" style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', background: '#f1f5f9', borderRadius: '99px', cursor: 'pointer' }}>
-           <Globe size={16} className="text-slate-500" />
-           <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#475569' }}>EN</span>
-           <ChevronDown size={14} className="text-slate-400" />
-        </div>
-
-        <div style={{ width: '1px', height: '24px', background: '#e2e8f0', margin: '0 4px' }}></div>
-
         <AdminProfileDropdown />
       </div>
     </header>

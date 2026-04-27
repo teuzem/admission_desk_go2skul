@@ -238,7 +238,7 @@ const SupportCenter: React.FC = () => {
                     <span style={{ width: 6, height: 24, background: '#4f46e5', borderRadius: 4 }} /> Browse Categories
                   </h2>
                   <div className="support-categories">
-                    {categories.map(cat => (
+                    {categories.filter(cat => cat.slug !== 'payments-billing' && cat.slug !== 'api-integrations').map(cat => (
                       <div key={cat.id} className="support-cat-card" onClick={() => setSelectedCategory(cat.id)}>
                         <div className="support-cat-icon">
                           <Folder className="w-6 h-6" />
@@ -314,25 +314,7 @@ const SupportCenter: React.FC = () => {
                 </button>
               </div>
 
-              {/* System Status */}
-              <div className="support-status-card">
-                <div className="status-header">
-                  <div className="status-icon-wrap">
-                    <Shield className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3>System Status</h3>
-                    <div className="status-indicator">
-                      <span className="pulse-dot" /> Operational
-                    </div>
-                  </div>
-                </div>
-                <p>All core services are performing at peak efficiency. No issues reported.</p>
-                <div className="status-details">
-                  <div className="stat-row"><span>Backend API</span> <span className="stat-val">99.9%</span></div>
-                  <div className="stat-row"><span>Document Store</span> <span className="stat-val">Online</span></div>
-                </div>
-              </div>
+
             </div>
           </div>
         )}

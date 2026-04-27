@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../contexts/AuthContext'
+import { supabase } from '../../lib/supabase'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -19,7 +20,7 @@ type Form = z.infer<typeof schema>
 
 export default function AdminLoginPage() {
   const { t } = useTranslation()
-  const { signIn } = useAuth()
+  const { signIn, refreshProfile } = useAuth()
   const navigate = useNavigate()
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -29,49 +30,95 @@ export default function AdminLoginPage() {
   const onSubmit = async (values: Form) => {
     setLoading(true)
     const { error } = await signIn(values.email, values.password)
-    setLoading(false)
 
     if (error) {
+      setLoading(false)
       toast.error(t('auth.login.invalidCredentials'))
-    } else {
-      const { supabase } = await import('../../lib/supabase')
-      
+      return
+    }
+
+    try {
+      // Get the authenticated user
+      const { data: { user: authUser } } = await supabase.auth.getUser()
+      if (!authUser) {
+        setLoading(false)
+        toast.error('Authentication failed. Please try again.')
+        return
+      }
+
       // Check for an approved invite and auto-assign role if needed
       const { data: invite } = await supabase
         .from('admin_user_invites').select('id, role, status')
-        .eq('email', values.email).eq('status', 'approved').maybeSingle()
-      
+        .eq('email', values.email.toLowerCase()).eq('status', 'approved').maybeSingle()
+
       if (invite) {
+        const isTech = invite.role === 'technical_team'
         // Update the user's profile with the invited role
-        const { data: { user: authUser } } = await supabase.auth.getUser()
-        if (authUser) {
-          await supabase.from('profiles').update({
-            role: invite.role as any, is_active: true
-          }).eq('id', authUser.id)
+        const { error: updateErr } = await supabase.from('profiles').update({
+          role: invite.role as any,
+          is_active: true,
+          is_technical_team: isTech,
+        }).eq('id', authUser.id)
+
+        if (!updateErr) {
           // Mark invite as registered
           await supabase.from('admin_user_invites').update({
             status: 'registered'
           }).eq('id', invite.id)
-          const roleLabel = invite.role === 'admin' ? 'Admin' : (invite.role === 'program_manager' ? 'Program Manager' : 'Admission Manager')
-          toast.success(`Welcome! You've been assigned as ${roleLabel}.`)
+          const roleLabels: Record<string, string> = {
+            admin: 'Admin',
+            admission_manager: 'Admission Manager',
+            program_manager: 'Program Manager',
+            technical_team: 'Technical Team',
+          }
+          toast.success(`Welcome! You've been assigned as ${roleLabels[invite.role] || invite.role}.`)
         }
       }
-      
-      // Check user role and redirect accordingly
+
+      // Refresh the AuthContext profile so route guards get updated role
+      await refreshProfile()
+
+      // Re-fetch the profile by user ID (most reliable) for redirect logic
       const { data: profileData } = await supabase
-        .from('profiles').select('role').eq('email', values.email).single()
-      
-      if (profileData?.role === 'admission_manager') {
-        navigate('/admin/admissions')
-      } else if (profileData?.role === 'program_manager') {
-        navigate('/admin/programs')
-      } else if (profileData?.role === 'admin') {
-        navigate('/admin')
-      } else {
-        // Not an admin user - show error
-        toast.error('Access denied. This login is for admin staff users only.')
+        .from('profiles').select('role, is_active, is_technical_team').eq('id', authUser.id).single()
+
+      setLoading(false)
+
+      if (!profileData) {
+        toast.error('Profile not found. Contact administrator.')
         await supabase.auth.signOut()
+        return
       }
+
+      if (profileData.is_active === false) {
+        toast.error('Your account has been suspended or blocked. Please contact the administrator.')
+        await supabase.auth.signOut()
+        return
+      }
+
+      // Redirect based on role to their specific dashboard
+      switch (profileData.role) {
+        case 'admission_manager':
+          navigate('/admin/admissions', { replace: true })
+          break
+        case 'program_manager':
+          navigate('/admin/programs', { replace: true })
+          break
+        case 'technical_team':
+          navigate('/admin/support', { replace: true })
+          break
+        case 'admin':
+          navigate('/admin', { replace: true })
+          break
+        default:
+          // Not an admin user - deny access
+          toast.error('Access denied. This login is for admin staff users only.')
+          await supabase.auth.signOut()
+      }
+    } catch (err) {
+      setLoading(false)
+      console.error('[AdminLogin] Error during login flow:', err)
+      toast.error('An error occurred during login. Please try again.')
     }
   }
 

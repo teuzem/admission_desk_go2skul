@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Users, FileText, Bell, GraduationCap, CheckCircle2, XCircle, Clock, BarChart3, Plus, Pencil, Trash2, Eye, AlertCircle, X, Shield, BookOpen, UserCheck, Calendar, Newspaper, BookMarked, Image, Package, ArrowUpRight, UserPlus, ShieldCheck, ToggleLeft, ToggleRight, Mail, UserCog, ChevronDown, Search, Filter, LifeBuoy } from 'lucide-react'
+import { Users, FileText, Bell, GraduationCap, CheckCircle2, XCircle, Clock, BarChart3, Plus, Pencil, Trash2, Eye, AlertCircle, X, Shield, BookOpen, UserCheck, Calendar, Newspaper, BookMarked, Image, Package, ArrowUpRight, UserPlus, ShieldCheck, ToggleLeft, ToggleRight, Mail, UserCog, ChevronDown, Search, Filter, LifeBuoy, Settings } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { usePageRefetch } from '../../lib/useRealtimeRecovery'
 import { uploadNewsImage, uploadBlogFeaturedImage, uploadAnnImage } from '../../lib/storageHelpers'
@@ -91,6 +91,12 @@ export default function AdminDashboard() {
   const [inviteForm, setInviteForm] = useState({ email: '', first_name: '', last_name: '', role: 'admission_manager' })
   const [inviteSubmitting, setInviteSubmitting] = useState(false)
 
+  // User Role Attribution State
+  const [searchEmail, setSearchEmail] = useState('')
+  const [searchedUser, setSearchedUser] = useState<any>(null)
+  const [searching, setSearching] = useState(false)
+  const [selectedRole, setSelectedRole] = useState('admission_manager')
+
   const fetchAll = useCallback(async () => {
     setLoading(true)
     const [agentRes, appRes, annRes, uniRes, progRes, studentRes] = await Promise.all([
@@ -140,7 +146,7 @@ export default function AdminDashboard() {
 
   const fetchAdminUsers = useCallback(async () => {
     const [usersRes, invitesRes] = await Promise.all([
-      supabase.from('profiles').select('id, first_name, last_name, email, role, is_super_admin, is_active, approved_by, approved_at, created_at').in('role', ['admin', 'admission_manager', 'program_manager']).order('created_at', { ascending: false }),
+      supabase.from('profiles').select('id, first_name, last_name, email, role, is_super_admin, is_active, is_technical_team, approved_by, approved_at, created_at').in('role', ['admin', 'admission_manager', 'program_manager', 'technical_team']).order('created_at', { ascending: false }),
       supabase.from('admin_user_invites').select('*, profiles:invited_by(first_name, last_name, email)').order('created_at', { ascending: false }),
     ])
     setAdminUsers(usersRes.data || [])
@@ -154,7 +160,7 @@ export default function AdminDashboard() {
 
     const channel = supabase
       .channel('admin-dashboard-sync')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, fetchAll)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => { fetchAll(); if (isSuperAdmin) fetchAdminUsers(); })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'applications' }, fetchAll)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'announcements' }, fetchAll)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'universities' }, fetchAll)
@@ -187,7 +193,7 @@ export default function AdminDashboard() {
       supabase.removeChannel(channel)
       document.removeEventListener('visibilitychange', handleVisibility)
     }
-  }, [fetchAll, fetchNewData])
+  }, [fetchAll, fetchNewData, fetchAdminUsers, isSuperAdmin])
 
 
   const updateKyc = async (agentId: string, status: string, notes?: string) => {
@@ -346,27 +352,63 @@ export default function AdminDashboard() {
   const pendingActivations = activationRequests.filter(a => a.status === 'pending').length
   const pendingInvites = adminInvites.filter(i => i.status === 'pending').length
 
+  const ROLE_LABELS: Record<string, string> = {
+    admin: 'Full Admin',
+    admission_manager: 'Admission Manager',
+    program_manager: 'Program Manager',
+    technical_team: 'Technical Team',
+    agent: 'Agent',
+  }
+
   // ─── Admin User Invite ───
   const sendAdminInvite = async () => {
     if (!inviteForm.email) { toast.error('Email is required'); return }
+    const normalizedEmail = inviteForm.email.trim().toLowerCase()
     setInviteSubmitting(true)
     const userId = (await supabase.auth.getUser()).data.user?.id
-    // Check if user already exists
-    const { data: existing } = await supabase.from('profiles').select('id, role').eq('email', inviteForm.email).maybeSingle()
-    if (existing) {
-      toast.error(`A user with this email already exists as ${existing.role}`)
+    // Check if user already exists with an admin role
+    const { data: existing } = await supabase.from('profiles').select('id, role').eq('email', normalizedEmail).maybeSingle()
+    if (existing && ['admin', 'admission_manager', 'program_manager', 'technical_team'].includes(existing.role)) {
+      toast.error(`A user with this email already exists as ${ROLE_LABELS[existing.role] || existing.role}`)
       setInviteSubmitting(false)
       return
     }
+    // If user exists as agent, auto-assign the role immediately
+    if (existing && existing.role === 'agent') {
+      const isTech = inviteForm.role === 'technical_team'
+      const { error: roleErr } = await supabase.from('profiles').update({
+        role: inviteForm.role as any,
+        is_active: true,
+        is_technical_team: isTech,
+        approved_by: userId,
+        approved_at: new Date().toISOString(),
+      }).eq('id', existing.id)
+      setInviteSubmitting(false)
+      if (roleErr) { toast.error('Failed to assign role: ' + roleErr.message); return }
+      // Also create an invite record for history
+      await supabase.from('admin_user_invites').insert({
+        email: normalizedEmail,
+        first_name: inviteForm.first_name || null,
+        last_name: inviteForm.last_name || null,
+        role: inviteForm.role,
+        invited_by: userId!,
+        status: 'registered',
+      })
+      toast.success(`${normalizedEmail} has been assigned as ${ROLE_LABELS[inviteForm.role]}! They can now access their dashboard.`)
+      setInviteForm({ email: '', first_name: '', last_name: '', role: 'admission_manager' })
+      setShowInviteForm(false)
+      fetchAdminUsers()
+      return
+    }
     // Check for existing invite
-    const { data: existingInvite } = await supabase.from('admin_user_invites').select('id, status').eq('email', inviteForm.email).maybeSingle()
+    const { data: existingInvite } = await supabase.from('admin_user_invites').select('id, status').eq('email', normalizedEmail).maybeSingle()
     if (existingInvite) {
       toast.error(`An invite for this email already exists (${existingInvite.status})`)
       setInviteSubmitting(false)
       return
     }
     const { error } = await supabase.from('admin_user_invites').insert({
-      email: inviteForm.email,
+      email: normalizedEmail,
       first_name: inviteForm.first_name || null,
       last_name: inviteForm.last_name || null,
       role: inviteForm.role,
@@ -375,7 +417,7 @@ export default function AdminDashboard() {
     })
     setInviteSubmitting(false)
     if (error) { toast.error('Failed to create invite: ' + error.message); return }
-    toast.success(`Invite for ${inviteForm.email} created! They can now register and will be auto-assigned as ${inviteForm.role}.`)
+    toast.success(`Invite for ${normalizedEmail} created! They can now register via /admin/login and will be auto-assigned as ${ROLE_LABELS[inviteForm.role]}.`)
     setInviteForm({ email: '', first_name: '', last_name: '', role: 'admission_manager' })
     setShowInviteForm(false)
     fetchAdminUsers()
@@ -398,11 +440,68 @@ export default function AdminDashboard() {
     fetchAdminUsers()
   }
 
-  const changeAdminUserRole = async (userId: string, newRole: 'admin' | 'admission_manager') => {
-    const { error } = await supabase.from('profiles').update({ role: newRole }).eq('id', userId)
-    if (error) { toast.error('Failed to update role'); return }
-    toast.success(`Role changed to ${newRole}`)
+  const changeAdminUserRole = async (userId: string, newRole: 'admin' | 'admission_manager' | 'program_manager' | 'technical_team' | 'agent') => {
+    const isTech = newRole === 'technical_team';
+    const updatePayload: any = { role: newRole, is_technical_team: isTech }
+    // When revoking to agent, also clear technical team flag
+    if (newRole === 'agent') {
+      updatePayload.is_technical_team = false
+    }
+    const { error } = await supabase.from('profiles').update(updatePayload).eq('id', userId)
+    if (error) {
+      console.error('[AdminDashboard] Failed to change role:', error)
+      toast.error('Failed to update role: ' + (error.message || 'Unknown error'))
+      return
+    }
+    toast.success(`Role changed to ${ROLE_LABELS[newRole] || newRole}`)
     fetchAdminUsers()
+  }
+
+  const handleSearchUser = async () => {
+    if (!searchEmail) { toast.error('Enter an email address to search'); return; }
+    setSearching(true);
+    setSearchedUser(null);
+    const { data, error } = await supabase.from('profiles').select('id, email, first_name, last_name, role, is_active, is_technical_team, avatar_url').eq('email', searchEmail.trim().toLowerCase()).maybeSingle();
+    setSearching(false);
+    if (error) { toast.error('Error finding user: ' + error.message); return; }
+    if (data) {
+      setSearchedUser(data);
+      setSelectedRole(data.role && ['admin', 'admission_manager', 'program_manager', 'technical_team'].includes(data.role) ? data.role : 'admission_manager');
+    } else {
+      toast.error('No user found with this email. You can invite them instead.');
+    }
+  }
+
+  const handleAssignRole = async () => {
+    if (!searchedUser) return;
+    const isTech = selectedRole === 'technical_team';
+    const adminId = (await supabase.auth.getUser()).data.user?.id
+    const updatePayload: any = {
+      role: selectedRole as any,
+      is_technical_team: isTech,
+      is_active: true,
+    }
+    // When revoking to agent, clear admin-specific flags
+    if (selectedRole === 'agent') {
+      updatePayload.is_technical_team = false
+    } else {
+      // For admin roles, set approval info
+      updatePayload.approved_by = adminId
+      updatePayload.approved_at = new Date().toISOString()
+    }
+    const { error, data } = await supabase.from('profiles').update(updatePayload).eq('id', searchedUser.id).select();
+    if (error) {
+      console.error('[AdminDashboard] Failed to assign role:', error)
+      toast.error('Failed to assign role: ' + (error.message || 'Check RLS policies in Supabase'))
+      return;
+    }
+    if (!data || data.length === 0) {
+      toast.error('Role assignment returned no data. Check Supabase RLS policies — the profiles table may restrict UPDATE for admin users.')
+      return;
+    }
+    toast.success(`User role successfully attributed to ${ROLE_LABELS[selectedRole] || selectedRole}!`);
+    setSearchedUser({...searchedUser, role: selectedRole, is_technical_team: isTech});
+    fetchAdminUsers();
   }
 
   const approveAdmissionManager = async (userId: string) => {
@@ -479,18 +578,12 @@ export default function AdminDashboard() {
         </div>
 
       {/* Tab Navigation */}
-      <div style={{ display: 'flex', gap: '4px', background: 'white', borderRadius: '12px', padding: '4px', marginBottom: '2rem', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9', overflowX: 'auto' }}>
+      <div className="admin-tabs-container">
         {TABS.map(([key, label, icon]) => (
           <button
             key={key}
             onClick={() => setTab(key)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 18px',
-              borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem',
-              background: tab === key ? 'var(--color-primary)' : 'transparent',
-              color: tab === key ? 'white' : '#64748b',
-              transition: 'all 0.2s', whiteSpace: 'nowrap', flexShrink: 0
-            }}
+            className={`admin-tab-btn ${tab === key ? 'active' : ''}`}
           >
             {icon} {label}
           </button>
@@ -500,7 +593,7 @@ export default function AdminDashboard() {
       {/* Overview Tab */}
       {tab === 'overview' && (
         <div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.25rem', marginBottom: '2rem', alignItems: 'start' }}>
+          <div className="admin-stats-grid">
             {[
               { icon: <Users size={18} />, value: stats.agents, label: 'Agents', color: '#3A4391', bg: '#eff6ff' },
               { icon: <Clock size={18} />, value: stats.pending_kyc, label: 'KYC Pending', color: '#f59e0b', bg: '#fffbeb' },
@@ -537,7 +630,7 @@ export default function AdminDashboard() {
           </div>
 
           {/* Quick Actions */}
-          <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '2rem', flexWrap: 'wrap' }}>
+          <div className="admin-quick-actions">
             <button onClick={() => navigate('/admin/programs')} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><BookOpen size={16} /> Program Management</button>
             <button onClick={() => navigate('/admin/admissions')} className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><ShieldCheck size={16} /> Admission Management</button>
             <button onClick={() => navigate('/admin/students')} className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><UserCheck size={16} /> Manage Students</button>
@@ -1355,7 +1448,7 @@ export default function AdminDashboard() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'linear-gradient(135deg, #3A4391, #00CCA0)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}><UserPlus size={18} /></div>
                   <div>
-                    <h3 style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, color: '#1e293b', margin: 0, fontSize: '1rem' }}>Invite Admin / Admission Manager</h3>
+                    <h3 style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, color: '#1e293b', margin: 0, fontSize: '1rem' }}>Invite New Staff User</h3>
                     <p style={{ fontSize: '0.78rem', color: '#94a3b8', margin: 0 }}>The invited user will register via the admin login page and be auto-assigned their role</p>
                   </div>
                 </div>
@@ -1374,6 +1467,7 @@ export default function AdminDashboard() {
                   <select className="form-input" value={inviteForm.role} onChange={e => setInviteForm(p => ({ ...p, role: e.target.value }))}>
                     <option value="admission_manager">Admission Manager</option>
                     <option value="program_manager">Program Manager</option>
+                    <option value="technical_team">Technical Team</option>
                     <option value="admin">Full Admin</option>
                   </select>
                 </div>
@@ -1393,6 +1487,7 @@ export default function AdminDashboard() {
                   <ul style={{ margin: '4px 0 0', paddingLeft: '16px' }}>
                     <li><strong>Admission Manager</strong> — Can access the Admission Management desk, review applications, request documents, and communicate with agents.</li>
                     <li><strong>Program Manager</strong> — Can access the Program Management dashboard, submit university and program proposals, and manage academic content.</li>
+                    <li><strong>Technical Team</strong> — Can access the Technical Support dashboard, manage support tickets, knowledge base articles, and system events.</li>
                     <li><strong>Full Admin</strong> — Has complete access to the Admin Dashboard including all management capabilities plus approval rights.</li>
                   </ul>
                   The invited user will sign up via <strong>/admin/login</strong> with this email and be automatically assigned the selected role.
@@ -1406,6 +1501,80 @@ export default function AdminDashboard() {
               </div>
             </div>
           )}
+
+          {/* User Role Attribution (Search & Assign) */}
+          <div className="card-panel" style={{ marginBottom: '1.5rem', background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1rem' }}>
+              <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3A4391', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}><Search size={18} /></div>
+              <div>
+                <h3 style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, color: '#1e293b', margin: 0, fontSize: '0.95rem' }}>Role Attribution & Management</h3>
+                <p style={{ fontSize: '0.78rem', color: '#64748b', margin: 0 }}>Search any user by email to assign or revoke admin roles</p>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: '250px' }}>
+                <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '6px' }}>User Email Address</label>
+                <div style={{ position: 'relative' }}>
+                  <Mail size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                  <input
+                    className="form-input"
+                    value={searchEmail}
+                    onChange={e => setSearchEmail(e.target.value)}
+                    placeholder="Search user by email..."
+                    style={{ paddingLeft: '36px' }}
+                    onKeyDown={e => e.key === 'Enter' && handleSearchUser()}
+                  />
+                </div>
+              </div>
+              <button
+                onClick={handleSearchUser}
+                className="btn btn-primary"
+                disabled={searching}
+                style={{ height: '40px' }}
+              >
+                {searching ? 'Searching...' : 'Find User'}
+              </button>
+            </div>
+
+            {searchedUser && (
+              <div style={{ marginTop: '1.5rem', padding: '1.25rem', background: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', gap: '1.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, minWidth: '250px' }}>
+                  {searchedUser.avatar_url ? (
+                    <img src={searchedUser.avatar_url} alt="avatar" style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover' }} />
+                  ) : (
+                    <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontWeight: 700 }}>
+                      {searchedUser.first_name?.charAt(0) || searchedUser.email.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <div>
+                    <div style={{ fontWeight: 700, color: '#1e293b' }}>{searchedUser.first_name || '—'} {searchedUser.last_name || ''}</div>
+                    <div style={{ fontSize: '0.8rem', color: '#64748b' }}>{searchedUser.email}</div>
+                    <div style={{ marginTop: '4px' }}>
+                      <span style={{ fontSize: '0.72rem', fontWeight: 700, padding: '2px 8px', borderRadius: '99px', background: searchedUser.role === 'admin' ? '#eff6ff' : searchedUser.role ? '#ecfdf5' : '#f1f5f9', color: searchedUser.role === 'admin' ? '#3A4391' : searchedUser.role ? '#10b981' : '#64748b' }}>
+                        Current Role: {searchedUser.role ? searchedUser.role.replace('_', ' ').toUpperCase() : 'USER / AGENT'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'flex-end', gap: '1rem', flexWrap: 'wrap' }}>
+                  <div>
+                    <label className="form-label" style={{ fontSize: '0.75rem', marginBottom: '4px' }}>Assign New Role</label>
+                    <select className="form-input" style={{ width: '200px', height: '38px', fontSize: '0.85rem' }} value={selectedRole} onChange={e => setSelectedRole(e.target.value)}>
+                      <option value="admission_manager">Admission Management</option>
+                      <option value="program_manager">Program Management</option>
+                      <option value="technical_team">Technical Team</option>
+                      <option value="admin">Super Admin</option>
+                      <option value="agent">Revoke Admin (Agent)</option>
+                    </select>
+                  </div>
+                  <button onClick={handleAssignRole} className="btn btn-primary" style={{ height: '38px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <ShieldCheck size={14} /> Attribute Role
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Active Admin Users */}
           <div className="card-panel" style={{ padding: 0, marginBottom: '1.5rem' }}>
@@ -1442,12 +1611,12 @@ export default function AdminDashboard() {
                           <span style={{
                             display: 'inline-flex', alignItems: 'center', gap: '4px',
                             padding: '3px 10px', borderRadius: '99px', fontSize: '0.72rem', fontWeight: 700,
-                            background: u.role === 'admin' ? '#eff6ff' : u.role === 'program_manager' ? '#ecfdf5' : '#f5f3ff',
-                            color: u.role === 'admin' ? '#3A4391' : u.role === 'program_manager' ? '#10b981' : '#8b5cf6',
-                            border: `1px solid ${u.role === 'admin' ? '#3A439125' : u.role === 'program_manager' ? '#10b98125' : '#8b5cf625'}`
+                            background: u.role === 'admin' ? '#eff6ff' : u.role === 'program_manager' ? '#ecfdf5' : u.role === 'technical_team' ? '#fdf2f8' : '#f5f3ff',
+                            color: u.role === 'admin' ? '#3A4391' : u.role === 'program_manager' ? '#10b981' : u.role === 'technical_team' ? '#db2777' : '#8b5cf6',
+                            border: `1px solid ${u.role === 'admin' ? '#3A439125' : u.role === 'program_manager' ? '#10b98125' : u.role === 'technical_team' ? '#db277725' : '#8b5cf625'}`
                           }}>
-                            {u.role === 'admin' ? <Shield size={10} /> : u.role === 'program_manager' ? <BookOpen size={10} /> : <ShieldCheck size={10} />}
-                            {u.role === 'admin' ? 'Admin' : u.role === 'program_manager' ? 'Program Manager' : 'Admission Manager'}
+                            {u.role === 'admin' ? <Shield size={10} /> : u.role === 'program_manager' ? <BookOpen size={10} /> : u.role === 'technical_team' ? <Settings size={10} /> : <ShieldCheck size={10} />}
+                            {u.role === 'admin' ? 'Admin' : u.role === 'program_manager' ? 'Program Manager' : u.role === 'technical_team' ? 'Technical Team' : 'Admission Manager'}
                           </span>
                         </td>
                         <td>
@@ -1471,12 +1640,6 @@ export default function AdminDashboard() {
                         <td>
                           {!u.is_super_admin && (
                             <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                              {/* Approve if not yet approved */}
-                              {u.is_active === false && (
-                                <button onClick={() => approveAdmissionManager(u.id)} style={{ padding: '4px 10px', borderRadius: '6px', border: 'none', background: '#10b981', color: 'white', fontSize: '11px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                                  <CheckCircle2 size={11} /> Approve
-                                </button>
-                              )}
                               {/* Toggle active/inactive */}
                               <button
                                 onClick={() => toggleAdminUserActive(u.id, u.is_active !== false)}
@@ -1488,19 +1651,11 @@ export default function AdminDashboard() {
                                   fontSize: '11px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px'
                                 }}
                               >
-                                {u.is_active !== false ? <><ToggleRight size={11} /> Deactivate</> : <><ToggleLeft size={11} /> Activate</>}
+                                {u.is_active !== false ? <><ToggleRight size={11} /> Block Access</> : <><ToggleLeft size={11} /> Unblock</>}
                               </button>
-                              {/* Role change */}
-                              {u.role === 'admission_manager' && (
-                                <button onClick={() => changeAdminUserRole(u.id, 'admin')} style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid #3A439130', background: '#eff6ff', color: '#3A4391', fontSize: '11px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                                  <Shield size={11} /> Promote to Admin
-                                </button>
-                              )}
-                              {u.role === 'admin' && (
-                                <button onClick={() => changeAdminUserRole(u.id, 'admission_manager')} style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid #8b5cf625', background: '#f5f3ff', color: '#8b5cf6', fontSize: '11px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                                  <ShieldCheck size={11} /> Set as Adm. Manager
-                                </button>
-                              )}
+                              <button onClick={() => changeAdminUserRole(u.id, 'agent')} style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid #fecaca', background: 'white', color: '#ef4444', fontSize: '11px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                <XCircle size={11} /> Revoke Role
+                              </button>
                             </div>
                           )}
                           {u.is_super_admin && <span style={{ fontSize: '0.72rem', color: '#94a3b8', fontStyle: 'italic' }}>Protected account</span>}
@@ -1544,9 +1699,20 @@ export default function AdminDashboard() {
                           <td style={{ fontWeight: 600, color: '#1e293b', fontSize: '0.875rem' }}>{inv.email}</td>
                           <td style={{ fontSize: '0.85rem', color: '#475569' }}>{inv.first_name || '—'} {inv.last_name || ''}</td>
                           <td>
-                            <span style={{ fontSize: '0.72rem', fontWeight: 700, padding: '2px 8px', borderRadius: 4, background: inv.role === 'admin' ? '#eff6ff' : '#f5f3ff', color: inv.role === 'admin' ? '#3A4391' : '#8b5cf6', textTransform: 'uppercase' }}>
-                              {inv.role === 'admin' ? 'Admin' : 'Adm. Manager'}
-                            </span>
+                            {(() => {
+                              const roleStyles: Record<string, { bg: string; c: string; label: string }> = {
+                                admin: { bg: '#eff6ff', c: '#3A4391', label: 'Full Admin' },
+                                admission_manager: { bg: '#f5f3ff', c: '#8b5cf6', label: 'Adm. Manager' },
+                                program_manager: { bg: '#ecfdf5', c: '#10b981', label: 'Prog. Manager' },
+                                technical_team: { bg: '#fff7ed', c: '#ea580c', label: 'Technical Team' },
+                              }
+                              const rs = roleStyles[inv.role] || { bg: '#f1f5f9', c: '#64748b', label: inv.role }
+                              return (
+                                <span style={{ fontSize: '0.72rem', fontWeight: 700, padding: '2px 8px', borderRadius: 4, background: rs.bg, color: rs.c, textTransform: 'uppercase' }}>
+                                  {rs.label}
+                                </span>
+                              )
+                            })()}
                           </td>
                           <td>
                             <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 10px', borderRadius: 99, fontSize: '0.72rem', fontWeight: 700, background: sc.bg, color: sc.c }}>
