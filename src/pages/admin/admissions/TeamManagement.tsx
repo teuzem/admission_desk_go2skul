@@ -6,7 +6,8 @@ import {
   TeamMemberWithPermissions,
   AgentCategory,
   TeamPermissionType,
-  AGENT_CATEGORY_CONFIG
+  AGENT_CATEGORY_CONFIG,
+  AgentCategoryDetail
 } from '../../../types/database-extended';
 import {
   Users, UserPlus, Settings, Shield, MapPin, Flag, CheckCircle,
@@ -875,25 +876,28 @@ export default function TeamManagement({ userId, userRole }: TeamManagementProps
               <div className="tm-form-section">
                 <h4><Building2 size={16} /> Category Scope</h4>
                 <div className="tm-category-selector">
-                  {Object.entries(AGENT_CATEGORY_CONFIG).map(([key, config]) => (
-                    <div
-                      key={key}
-                      className={`tm-category-chip ${selectedCategories.includes(key as AgentCategory) ? 'selected' : ''}`}
-                      style={{
-                        borderColor: selectedCategories.includes(key as AgentCategory) ? config.color : undefined,
-                        background: selectedCategories.includes(key as AgentCategory) ? `${config.color}15` : undefined
-                      }}
-                      onClick={() => {
-                        setSelectedCategories(prev =>
-                          prev.includes(key as AgentCategory)
-                            ? prev.filter(c => c !== key)
-                            : [...prev, key as AgentCategory]
-                        );
-                      }}
-                    >
-                      <span className="tm-cat-label">{config.shortLabel}</span>
-                    </div>
-                  ))}
+                  {Object.entries(AGENT_CATEGORY_CONFIG).map(([key, config]) => {
+                    const c = config as AgentCategoryDetail;
+                    return (
+                      <div
+                        key={key}
+                        className={`tm-category-chip ${selectedCategories.includes(key as AgentCategory) ? 'selected' : ''}`}
+                        style={{
+                          borderColor: selectedCategories.includes(key as AgentCategory) ? c.color : undefined,
+                          background: selectedCategories.includes(key as AgentCategory) ? `${c.color}15` : undefined
+                        }}
+                        onClick={() => {
+                          setSelectedCategories(prev =>
+                            prev.includes(key as AgentCategory)
+                              ? prev.filter(c => c !== key)
+                              : [...prev, key as AgentCategory]
+                          );
+                        }}
+                      >
+                        <span className="tm-cat-label">{c.shortLabel}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -1045,25 +1049,28 @@ export default function TeamManagement({ userId, userRole }: TeamManagementProps
               <div className="tm-form-section">
                 <h4><Building2 size={16} /> Category Scope</h4>
                 <div className="tm-category-selector">
-                  {Object.entries(AGENT_CATEGORY_CONFIG).map(([key, config]) => (
-                    <div
-                      key={key}
-                      className={`tm-category-chip ${selectedCategories.includes(key as AgentCategory) ? 'selected' : ''}`}
-                      style={{
-                        borderColor: selectedCategories.includes(key as AgentCategory) ? config.color : undefined,
-                        background: selectedCategories.includes(key as AgentCategory) ? `${config.color}15` : undefined
-                      }}
-                      onClick={() => {
-                        setSelectedCategories(prev =>
-                          prev.includes(key as AgentCategory)
-                            ? prev.filter(c => c !== key)
-                            : [...prev, key as AgentCategory]
-                        );
-                      }}
-                    >
-                      <span className="tm-cat-label">{config.shortLabel}</span>
-                    </div>
-                  ))}
+                  {Object.entries(AGENT_CATEGORY_CONFIG).map(([key, config]) => {
+                    const c = config as AgentCategoryDetail;
+                    return (
+                      <div
+                        key={key}
+                        className={`tm-category-chip ${selectedCategories.includes(key as AgentCategory) ? 'selected' : ''}`}
+                        style={{
+                          borderColor: selectedCategories.includes(key as AgentCategory) ? c.color : undefined,
+                          background: selectedCategories.includes(key as AgentCategory) ? `${c.color}15` : undefined
+                        }}
+                        onClick={() => {
+                          setSelectedCategories(prev =>
+                            prev.includes(key as AgentCategory)
+                              ? prev.filter(c => c !== key)
+                              : [...prev, key as AgentCategory]
+                          );
+                        }}
+                      >
+                        <span className="tm-cat-label">{c.shortLabel}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>

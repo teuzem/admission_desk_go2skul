@@ -1,8 +1,7 @@
 /* Common layout styles for secondary dashboard pages */
 .dashboard-page {
-  padding: 2rem;
-  max-width: 1200px;
-  margin: 0 auto;
+  padding: 2.5rem 4rem;
+  width: 100%;
 }
 
 .page-header {

@@ -5,7 +5,8 @@ import { listAgentKycDocs, getAgentKycDocUrl } from '../../../lib/storageHelpers
 import './AdvancedAnalytics.css';
 import {
   AgentCategory,
-  AGENT_CATEGORY_CONFIG
+  AGENT_CATEGORY_CONFIG,
+  AgentCategoryDetail
 } from '../../../types/database-extended';
 import {
   Briefcase, Building2, GraduationCap, Plane, Globe,
@@ -459,7 +460,10 @@ export default function AgentCategoryManagement({ userId, userRole, isSuperAdmin
         <div className="acm-search"><Search size={18} /><input type="text" placeholder="Search agents..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} /></div>
         <select className="acm-filter-select" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
           <option value="all">All Categories</option>
-          {Object.entries(AGENT_CATEGORY_CONFIG).map(([key, config]) => <option key={key} value={key}>{config.label}</option>)}
+          {Object.entries(AGENT_CATEGORY_CONFIG).map(([key, config]) => {
+            const c = config as AgentCategoryDetail;
+            return <option key={key} value={key}>{c.label}</option>;
+          })}
         </select>
         <select className="acm-filter-select" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
           <option value="all">All Status</option>
@@ -595,19 +599,20 @@ export default function AgentCategoryManagement({ userId, userRole, isSuperAdmin
                 <p className="acm-form-hint">Based on your review of the submitted documents, select the appropriate category.</p>
                 <div className="acm-category-grid">
                   {Object.entries(AGENT_CATEGORY_CONFIG).filter(([k]) => k !== 'pending_classification').map(([key, config]) => {
+                    const c = config as AgentCategoryDetail;
                     const Icon = CATEGORY_ICONS[key] || Briefcase;
                     return (
                       <div key={key}
                         className={`acm-category-option ${reviewForm.category === key ? 'selected' : ''}`}
-                        style={{ borderColor: reviewForm.category === key ? config.color : undefined, background: reviewForm.category === key ? `${config.color}10` : undefined }}
+                        style={{ borderColor: reviewForm.category === key ? c.color : undefined, background: reviewForm.category === key ? `${c.color}10` : undefined }}
                         onClick={() => setReviewForm({ ...reviewForm, category: key as AgentCategory })}
                       >
-                        <div className="acm-category-icon" style={{ background: `${config.color}20`, color: config.color }}><Icon size={24} /></div>
+                        <div className="acm-category-icon" style={{ background: `${c.color}20`, color: c.color }}><Icon size={24} /></div>
                         <div className="acm-category-info">
-                          <div className="acm-category-label">{config.label}</div>
-                          <div className="acm-category-desc">{config.description}</div>
+                          <div className="acm-category-label">{c.label}</div>
+                          <div className="acm-category-desc">{c.description}</div>
                         </div>
-                        {reviewForm.category === key && <div className="acm-category-check"><CheckCircle size={20} style={{ color: config.color }} /></div>}
+                        {reviewForm.category === key && <div className="acm-category-check"><CheckCircle size={20} style={{ color: c.color }} /></div>}
                       </div>
                     );
                   })}

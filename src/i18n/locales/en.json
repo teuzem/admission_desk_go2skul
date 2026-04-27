@@ -765,7 +765,7 @@
         "reason": "Reason for deactivation (optional)",
         "reasonPlaceholder": "Tell us why you're leaving...",
         "success": "Account deactivated. You will be logged out.",
-        "reactivateInfo": "To reactivate your account, contact support at support@admissiondesk.com"
+        "reactivateInfo": "To reactivate your account, contact support at support@admissiondesk.online"
       },
       "deleteAccount": {
         "title": "Delete Account",

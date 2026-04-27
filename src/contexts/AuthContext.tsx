@@ -22,6 +22,7 @@ interface AuthContextValue {
   isSuperAgent: boolean
   isEditor: boolean
   isProgramManager: boolean
+  isTechnicalTeam: boolean
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
@@ -242,6 +243,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isSuperAgent = profile?.role === 'agent' && (profile?.is_super_agent ?? false)
   const isEditor = profile?.role === 'editor'
   const isProgramManager = profile?.role === 'program_manager'
+  const isTechnicalTeam = profile?.role === 'admin' || profile?.role === 'technical_team' || (profile as any)?.is_technical_team === true
 
   return (
     <AuthContext.Provider value={{
@@ -258,7 +260,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAdmissionManager,
       isSuperAgent,
       isEditor,
-      isProgramManager
+      isProgramManager,
+      isTechnicalTeam
     }}>
       {children}
     </AuthContext.Provider>

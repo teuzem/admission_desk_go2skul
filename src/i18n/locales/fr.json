@@ -765,7 +765,7 @@
         "reason": "Raison de la désactivation (optionnel)",
         "reasonPlaceholder": "Dites-nous pourquoi vous partez...",
         "success": "Compte désactivé. Vous allez être déconnecté.",
-        "reactivateInfo": "Pour réactiver votre compte, contactez support@admissiondesk.com"
+        "reactivateInfo": "Pour réactiver votre compte, contactez support@admissiondesk.online"
       },
       "deleteAccount": {
         "title": "Supprimer le compte",

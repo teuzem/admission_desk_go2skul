@@ -2,11 +2,14 @@
 
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[]
 
-export type UserRole = 'agent' | 'admin' | 'editor' | 'admission_manager' | 'program_manager'
+export type UserRole = 'agent' | 'admin' | 'editor' | 'admission_manager' | 'program_manager' | 'technical_team'
 export type KycStatus = 'pending' | 'under_review' | 'approved' | 'rejected'
 export type TeamMemberStatus = 'pending' | 'active' | 'disabled'
 export type ApplicationStatus = 'draft' | 'submitted' | 'under_review' | 'offer' | 'accepted' | 'rejected' | 'enrolled'
 export type EventBookingStatus = 'confirmed' | 'cancelled' | 'waitlisted'
+export type SupportTicketStatus = 'open' | 'in_progress' | 'awaiting_response' | 'resolved' | 'closed'
+export type SupportTicketPriority = 'low' | 'medium' | 'high' | 'urgent' | 'critical'
+export type KbArticleStatus = 'draft' | 'published' | 'archived'
 
 export type ProfileRow = {
   id: string
@@ -57,6 +60,7 @@ export type ProfileRow = {
   number_of_employees: string | null
   languages_spoken: string[] | null
   primary_market: string | null
+  is_technical_team: boolean
   created_at: string
   updated_at: string
 }
@@ -621,6 +625,110 @@ export type UserBackupCodeRow = {
   used_at: string | null
 }
 
+export type KbCategoryRow = {
+  id: string
+  name: string
+  slug: string
+  icon: string | null
+  description: string | null
+  display_order: number
+  created_at: string
+  updated_at: string
+}
+
+export type KbMediaRow = {
+  id: string
+  name: string
+  url: string
+  type: string
+  size: number
+  uploaded_by: string | null
+  created_at: string
+}
+
+export type KbArticleRow = {
+  id: string
+  category_id: string | null
+  title: string
+  slug: string
+  content: string
+  excerpt: string | null
+  author_id: string | null
+  status: KbArticleStatus
+  tags: string[] | null
+  attachments: Json | null
+  view_count: number
+  featured_image_url: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type SupportTicketRow = {
+  id: string
+  ticket_number: string | null
+  user_id: string
+  subject: string
+  category: string
+  priority: SupportTicketPriority
+  status: SupportTicketStatus
+  description: string
+  attachments: Json | null
+  session_info: Json | null
+  agent_info: Json | null
+  assigned_to: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type SupportTicketMessageRow = {
+  id: string;
+  ticket_id: string;
+  sender_id: string | null;
+  message: string;
+  attachments: Json | null;
+  is_internal: boolean;
+  created_at: string;
+};
+
+export type PortalFeedbackRow = {
+  id: string;
+  user_id: string;
+  type: 'suggestion' | 'complaint' | 'compliment' | 'bug_report' | 'other';
+  subject: string;
+  message: string;
+  rating: number;
+  is_read: boolean;
+  is_implemented: boolean;
+  page_url: string | null;
+  created_at: string;
+};
+
+export type TechnicalEventRow = {
+  id: string;
+  created_at: string;
+  created_by: string;
+  type: 'incident' | 'maintenance' | 'update' | 'alert';
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  status: 'active' | 'resolved' | 'scheduled' | 'archived';
+  title: string;
+  content: string;
+  affected_services: string[];
+  start_at: string;
+  end_at: string | null;
+  media_urls: string[];
+  is_global: boolean;
+};
+
+export type TechnicalEventResponseRow = {
+  id: string;
+  event_id: string;
+  user_id: string;
+  message: string | null;
+  media_urls: string[];
+  is_confirmed: boolean;
+  created_at: string;
+};
+
 export interface Database {
   public: {
     Tables: {
@@ -838,6 +946,54 @@ export interface Database {
         Row: UserBackupCodeRow
         Insert: Partial<UserBackupCodeRow> & { user_id: string; code_hash: string }
         Update: Partial<UserBackupCodeRow>
+        Relationships: []
+      }
+      kb_categories: {
+        Row: KbCategoryRow
+        Insert: Partial<KbCategoryRow> & { name: string; slug: string }
+        Update: Partial<KbCategoryRow>
+        Relationships: []
+      }
+      kb_articles: {
+        Row: KbArticleRow
+        Insert: Partial<KbArticleRow> & { title: string; slug: string; content: string }
+        Update: Partial<KbArticleRow>
+        Relationships: []
+      }
+      support_tickets: {
+        Row: SupportTicketRow
+        Insert: Partial<SupportTicketRow> & { user_id: string; subject: string; category: string }
+        Update: Partial<SupportTicketRow>
+        Relationships: []
+      }
+      support_ticket_messages: {
+        Row: SupportTicketMessageRow
+        Insert: Partial<SupportTicketMessageRow> & { ticket_id: string; message: string }
+        Update: Partial<SupportTicketMessageRow>
+        Relationships: []
+      }
+      kb_media: {
+        Row: KbMediaRow
+        Insert: Partial<KbMediaRow> & { name: string; url: string; type: string; size: number }
+        Update: Partial<KbMediaRow>
+        Relationships: []
+      }
+      portal_feedback: {
+        Row: PortalFeedbackRow
+        Insert: Partial<PortalFeedbackRow> & { user_id: string; type: string; subject: string; message: string; rating: number }
+        Update: Partial<PortalFeedbackRow>
+        Relationships: []
+      }
+      technical_events: {
+        Row: TechnicalEventRow
+        Insert: Partial<TechnicalEventRow> & { title: string; content: string }
+        Update: Partial<TechnicalEventRow>
+        Relationships: []
+      }
+      technical_event_responses: {
+        Row: TechnicalEventResponseRow
+        Insert: Partial<TechnicalEventResponseRow> & { event_id: string; user_id: string }
+        Update: Partial<TechnicalEventResponseRow>
         Relationships: []
       }
     }

@@ -37,7 +37,7 @@ export default function AdminFooter() {
           <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
             <Link to="/admin" style={{ fontSize: '0.85rem', color: '#64748b', textDecoration: 'none', fontWeight: 500 }}>Dashboard</Link>
             <Link to="/admin/profile" style={{ fontSize: '0.85rem', color: '#64748b', textDecoration: 'none', fontWeight: 500 }}>Profile</Link>
-            <a href="mailto:support@admissiondesk.com" style={{ fontSize: '0.85rem', color: '#64748b', textDecoration: 'none', fontWeight: 500 }}>Support</a>
+            <a href="mailto:support@admissiondesk.online" style={{ fontSize: '0.85rem', color: '#64748b', textDecoration: 'none', fontWeight: 500 }}>Support</a>
             <Link to="/dashboard" style={{ fontSize: '0.85rem', color: '#64748b', textDecoration: 'none', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '4px' }}>
               Main Site <ExternalLink size={12} />
             </Link>

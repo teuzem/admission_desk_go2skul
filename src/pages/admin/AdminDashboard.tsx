@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Users, FileText, Bell, GraduationCap, CheckCircle2, XCircle, Clock, BarChart3, Plus, Pencil, Trash2, Eye, AlertCircle, X, Shield, BookOpen, UserCheck, Calendar, Newspaper, BookMarked, Image, Package, ArrowUpRight, UserPlus, ShieldCheck, ToggleLeft, ToggleRight, Mail, UserCog, ChevronDown, Search, Filter } from 'lucide-react'
+import { Users, FileText, Bell, GraduationCap, CheckCircle2, XCircle, Clock, BarChart3, Plus, Pencil, Trash2, Eye, AlertCircle, X, Shield, BookOpen, UserCheck, Calendar, Newspaper, BookMarked, Image, Package, ArrowUpRight, UserPlus, ShieldCheck, ToggleLeft, ToggleRight, Mail, UserCog, ChevronDown, Search, Filter, LifeBuoy } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { usePageRefetch } from '../../lib/useRealtimeRecovery'
 import { uploadNewsImage, uploadBlogFeaturedImage, uploadAnnImage } from '../../lib/storageHelpers'
@@ -9,6 +9,7 @@ import toast from 'react-hot-toast'
 import AdminHeader from '../../components/layout/AdminHeader'
 import AdminFooter from '../../components/layout/AdminFooter'
 import AdminProfileDropdown from '../../components/layout/AdminProfileDropdown'
+import SupportAdminDashboard from './support/SupportAdminDashboard'
 import '../dashboard/DashboardPages.css'
 
 const generateUniSlug = (name: string, country: string) => {
@@ -29,7 +30,7 @@ const generateProgSlug = (name: string, level: string) => {
   return `${base}-${Math.floor(Math.random() * 10000)}`
 }
 
-type Tab = 'overview' | 'agents' | 'programs' | 'applications' | 'announcements' | 'universities' | 'students' | 'events' | 'news' | 'blog' | 'activations' | 'pending_approvals' | 'admin_users'
+type Tab = 'overview' | 'agents' | 'programs' | 'applications' | 'announcements' | 'universities' | 'students' | 'events' | 'news' | 'blog' | 'activations' | 'pending_approvals' | 'admin_users' | 'support'
 
 const KYC_COLORS: Record<string, string> = {
   pending: '#f59e0b', under_review: '#3b82f6', approved: '#10b981', rejected: '#ef4444'
@@ -462,6 +463,9 @@ export default function AdminDashboard() {
       ['admin_users', `Admin Users${pendingInvites > 0 ? ` (${pendingInvites})` : ''}`, <UserCog size={15} />] as [Tab, string, any],
       ['pending_approvals', `Approvals (${pendingSubmissions.filter(s => s.status === 'pending').length})`, <Package size={15} />] as [Tab, string, any],
     ] : []),
+    ...(profile?.role === 'admin' || profile?.is_technical_team || profile?.role === 'technical_team' ? [
+      ['support', 'Support Desk', <LifeBuoy size={15} />] as [Tab, string, any],
+    ] : []),
   ]
 
   return (
@@ -755,6 +759,13 @@ export default function AdminDashboard() {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      {/* Support Tab */}
+      {tab === 'support' && (
+        <div style={{ width: '100%' }}>
+          <SupportAdminDashboard />
         </div>
       )}
 

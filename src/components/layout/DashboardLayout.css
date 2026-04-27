@@ -300,8 +300,7 @@
 
 .dashboard-content {
   padding: 2rem;
-  max-width: 1400px;
-  margin: 0 auto;
+  width: 100%;
 }
 
 /* Add some animation for layout transitions */

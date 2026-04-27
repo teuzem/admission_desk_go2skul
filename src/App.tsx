@@ -41,6 +41,9 @@ import AdminStudents from './pages/admin/AdminStudents'
 import AdminAgents from './pages/admin/AdminAgents'
 import AdminApplicationDetail from './pages/admin/AdminApplicationDetail'
 import AdminProfilePage from './pages/admin/AdminProfilePage'
+import SupportAdminDashboard from './pages/admin/support/SupportAdminDashboard'
+import SupportCenter from './pages/dashboard/support/SupportCenter'
+import KnowledgeBaseArticle from './pages/dashboard/support/KnowledgeBaseArticle'
 
 // Admission Manager Dashboard (lazy loaded for code splitting)
 const AdmissionManagerDashboard = lazy(() => import('./pages/admin/admissions/AdmissionManagerDashboard'))
@@ -133,6 +136,18 @@ function StaffRoute({ children }: { children: React.ReactNode }) {
   return <Suspense fallback={<LoadingScreen />}>{children}</Suspense>
 }
 
+// Route guard for technical team
+function TechnicalRoute({ children }: { children: React.ReactNode }) {
+  const { user, session, profile, loading } = useAuth()
+
+  if (loading) return <LoadingScreen />
+  if (!user || !session) return <Navigate to="/admin/login" replace />
+  if (profile?.role !== 'admin' && profile?.role !== 'technical_team' && !profile?.is_technical_team) {
+    return <ForbiddenPage />
+  }
+  return <Suspense fallback={<LoadingScreen />}>{children}</Suspense>
+}
+
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const { user, profile, loading } = useAuth()
 
@@ -180,6 +195,8 @@ export default function App() {
         <Route path="blog" element={<BlogPage />} />
         <Route path="blog/:slug" element={<BlogArticlePage />} />
         <Route path="news/:slug" element={<NewsArticlePage />} />
+        <Route path="support" element={<SupportCenter />} />
+        <Route path="support/kb/:slug" element={<KnowledgeBaseArticle />} />
       </Route>
 
       {/* Admission Manager Dashboard (secured, scoped access) */}
@@ -202,6 +219,7 @@ export default function App() {
       <Route path="/admin/agents" element={<AdminRoute><AdminAgents /></AdminRoute>} />
       <Route path="/admin/applications/:id" element={<AdminRoute><AdminApplicationDetail /></AdminRoute>} />
       <Route path="/admin/profile" element={<StaffRoute><AdminProfilePage /></StaffRoute>} />
+      <Route path="/admin/support" element={<TechnicalRoute><SupportAdminDashboard /></TechnicalRoute>} />
 
       {/* Manual Error Routes & Aliases */}
       <Route path="/403" element={<ForbiddenPage />} />

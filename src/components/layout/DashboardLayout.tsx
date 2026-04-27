@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import Header from './Header'
+import SystemAlertBanner from './SystemAlertBanner'
 import './DashboardLayout.css'
 
 export default function DashboardLayout() {
@@ -12,6 +13,7 @@ export default function DashboardLayout() {
 
   return (
     <div className="dashboard-layout">
+      <SystemAlertBanner />
       {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
         <div className="sidebar-overlay" onClick={closeSidebar} />

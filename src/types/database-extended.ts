@@ -1,16 +1,135 @@
-// Extended database type definitions for Admission Manager Analytics
-// These extend the base database.ts types
+// Extended database types for Enterprise Support System
 
-export type AgentCategory =
-  | 'student_travel_agency'
-  | 'university_institution'
-  | 'secondary_high_school'
-  | 'language_center'
+import { Json } from './database';
+
+// ─── Support Ticket Types ────────────────────────────────────────────────────
+export type SupportTicketStatus = 'open' | 'in_progress' | 'awaiting_response' | 'resolved' | 'closed';
+export type SupportTicketPriority = 'low' | 'medium' | 'high' | 'urgent' | 'critical';
+export type KbArticleStatus = 'draft' | 'published' | 'archived';
+
+export const TICKET_CATEGORIES = [
+  { value: 'login_authentication', label: 'Login & Authentication', icon: 'Lock' },
+  { value: 'account_access', label: 'Account Access', icon: 'UserX' },
+  { value: 'application_submission', label: 'Application Submission', icon: 'FileText' },
+  { value: 'document_upload', label: 'Document Upload', icon: 'Upload' },
+  { value: 'payment_billing', label: 'Payment & Billing', icon: 'CreditCard' },
+  { value: 'university_programs', label: 'University & Programs', icon: 'GraduationCap' },
+  { value: 'profile_settings', label: 'Profile & Settings', icon: 'Settings' },
+  { value: 'notification_email', label: 'Notifications & Email', icon: 'Bell' },
+  { value: 'performance_speed', label: 'Performance & Speed', icon: 'Zap' },
+  { value: 'mobile_responsive', label: 'Mobile & Responsive', icon: 'Smartphone' },
+  { value: 'data_export', label: 'Data & Export', icon: 'Download' },
+  { value: 'api_integration', label: 'API & Integration', icon: 'Puzzle' },
+  { value: 'security_privacy', label: 'Security & Privacy', icon: 'Shield' },
+  { value: 'browser_compatibility', label: 'Browser Compatibility', icon: 'Globe' },
+  { value: 'feature_request', label: 'Feature Request', icon: 'Lightbulb' },
+  { value: 'bug_report', label: 'Bug Report', icon: 'Bug' },
+  { value: 'other', label: 'Other', icon: 'HelpCircle' },
+] as const;
+
+export const TICKET_PRIORITIES = [
+  { value: 'low', label: 'Low', color: '#6b7280', bg: '#f3f4f6' },
+  { value: 'medium', label: 'Medium', color: '#3b82f6', bg: '#eff6ff' },
+  { value: 'high', label: 'High', color: '#f59e0b', bg: '#fffbeb' },
+  { value: 'urgent', label: 'Urgent', color: '#ea580c', bg: '#fff7ed' },
+  { value: 'critical', label: 'Critical', color: '#dc2626', bg: '#fef2f2' },
+] as const;
+
+export const TICKET_STATUSES = [
+  { value: 'open', label: 'Open', color: '#f59e0b', bg: '#fffbeb' },
+  { value: 'in_progress', label: 'In Progress', color: '#3b82f6', bg: '#eff6ff' },
+  { value: 'awaiting_response', label: 'Awaiting Response', color: '#8b5cf6', bg: '#f5f3ff' },
+  { value: 'resolved', label: 'Resolved', color: '#10b981', bg: '#ecfdf5' },
+  { value: 'closed', label: 'Closed', color: '#6b7280', bg: '#f9fafb' },
+] as const;
+
+export interface SupportAttachment {
+  name: string;
+  url: string;
+  type: string;
+  size: number;
+}
+
+export interface SessionInfo {
+  ua: string;
+  lang: string;
+  href: string;
+  ts: string;
+  timezone?: string;
+}
+
+export interface AgentInfo {
+  name: string;
+  email: string;
+  agency: string;
+  role: string;
+  phone: string;
+  country: string;
+  city: string;
+}
+
+export interface DeviceInfo {
+  browser: string;
+  browserVersion: string;
+  os: string;
+  osVersion: string;
+  screen: string;
+  deviceType: string;
+  platform: string;
+}
+
+// ─── Agent Category Types ───────────────────────────────────────────────────
+
+export type AgentCategory = 
+  | 'student_travel_agency' 
+  | 'university_institution' 
+  | 'secondary_high_school' 
+  | 'language_center' 
   | 'pending_classification';
 
-export type PermissionScope = 'read' | 'write' | 'manage';
+export interface AgentCategoryDetail {
+  label: string;
+  color: string;
+  shortLabel: string;
+  description: string;
+}
 
-export type TeamPermissionType =
+export const AGENT_CATEGORY_CONFIG: Record<AgentCategory, AgentCategoryDetail> = {
+  student_travel_agency: {
+    label: 'Student Travel Agency',
+    color: '#3b82f6',
+    shortLabel: 'STA',
+    description: 'Agencies focusing on student travel and study abroad'
+  },
+  university_institution: {
+    label: 'University / Institution',
+    color: '#10b981',
+    shortLabel: 'UNI',
+    description: 'Higher education institutions or their direct representatives'
+  },
+  secondary_high_school: {
+    label: 'Secondary / High School',
+    color: '#8b5cf6',
+    shortLabel: 'SCH',
+    description: 'High schools and secondary education providers'
+  },
+  language_center: {
+    label: 'Language Center',
+    color: '#f59e0b',
+    shortLabel: 'LAN',
+    description: 'Specialized language training and preparation centers'
+  },
+  pending_classification: {
+    label: 'Pending Classification',
+    color: '#94a3b8',
+    shortLabel: 'PEN',
+    description: 'Agents waiting for category classification'
+  }
+};
+
+// ─── Team Management Types ───────────────────────────────────────────────────
+
+export type TeamPermissionType = 
   | 'applications_view'
   | 'applications_review'
   | 'applications_manage'
@@ -21,285 +140,21 @@ export type TeamPermissionType =
   | 'analytics_view'
   | 'team_manage';
 
-export type AssignmentType = 'review' | 'processing' | 'escalation' | 'consultation';
-export type AssignmentStatus = 'assigned' | 'in_progress' | 'completed' | 'reassigned' | 'cancelled';
-export type Priority = 'low' | 'normal' | 'high' | 'urgent';
-export type TeamMemberStatus = 'active' | 'inactive' | 'pending' | 'suspended';
+export type TeamMemberStatus = 'active' | 'pending' | 'inactive' | 'suspended';
 
-// Agent Categories Table
-export type AgentCategoryRow = {
-  id: string;
-  agent_id: string;
-  category: AgentCategory;
-  sub_category: string | null;
-  classification_notes: string | null;
-  classified_by: string | null;
-  classified_at: string | null;
-  verification_status: 'pending' | 'verified' | 'rejected';
-  verified_by: string | null;
-  verified_at: string | null;
-  created_at: string;
-  updated_at: string;
-};
-
-// Regions Table
-export type RegionRow = {
-  id: string;
-  name: string;
-  code: string;
-  country: string;
-  continent: string | null;
-  timezone: string | null;
-  is_active: boolean;
-  created_at: string;
-};
-
-// Countries Table
-export type CountryRow = {
-  id: string;
-  name: string;
-  code: string;
-  region_id: string | null;
-  continent: string | null;
-  timezone: string | null;
-  population: number | null;
-  is_active: boolean;
-  created_at: string;
-};
-
-// Admission Team Members Table
-export type AdmissionTeamMemberRow = {
-  id: string;
-  admission_manager_id: string;
-  user_id: string;
-  email: string;
-  first_name: string | null;
-  last_name: string | null;
-  role: string;
-  status: TeamMemberStatus;
-  invited_at: string;
-  accepted_at: string | null;
-  last_active_at: string | null;
-  created_at: string;
-  updated_at: string;
-};
-
-// Admission Team Permissions Table
-export type AdmissionTeamPermissionRow = {
-  id: string;
-  team_member_id: string;
-  permission_type: TeamPermissionType;
-  scope: PermissionScope;
-  is_granted: boolean;
-  granted_by: string | null;
-  granted_at: string | null;
-  expires_at: string | null;
-  created_at: string;
-};
-
-// Admission Team Geographic Scope Table
-export type AdmissionTeamGeographicScopeRow = {
-  id: string;
-  team_member_id: string;
+export interface TeamGeographicScope {
   scope_type: 'country' | 'region';
   scope_id: string;
   can_view: boolean;
   can_review: boolean;
   can_manage: boolean;
-  created_at: string;
-};
+}
 
-// Admission Team Category Scope Table
-export type AdmissionTeamCategoryScopeRow = {
-  id: string;
-  team_member_id: string;
+export interface TeamCategoryScope {
   category: AgentCategory;
   can_view: boolean;
   can_review: boolean;
   can_manage: boolean;
-  created_at: string;
-};
-
-// Application Assignments Table
-export type ApplicationAssignmentRow = {
-  id: string;
-  application_id: string;
-  assigned_to: string;
-  assigned_by: string | null;
-  assignment_type: AssignmentType;
-  status: AssignmentStatus;
-  priority: Priority;
-  notes: string | null;
-  started_at: string | null;
-  completed_at: string | null;
-  due_date: string | null;
-  created_at: string;
-  updated_at: string;
-};
-
-// Analytics Events Table
-export type AnalyticsEventRow = {
-  id: string;
-  event_type: string;
-  event_category: string | null;
-  application_id: string | null;
-  agent_id: string | null;
-  university_id: string | null;
-  program_id: string | null;
-  country_code: string | null;
-  region_code: string | null;
-  agent_category: AgentCategory | null;
-  user_id: string | null;
-  metadata: Record<string, unknown> | null;
-  created_at: string;
-};
-
-// Application Analytics Snapshot Table
-export type ApplicationAnalyticsSnapshotRow = {
-  id: string;
-  snapshot_date: string;
-  total_applications: number;
-  applications_by_status: Record<string, number>;
-  applications_by_country: Record<string, number>;
-  applications_by_region: Record<string, number>;
-  applications_by_university: Record<string, number>;
-  applications_by_agent_category: Record<string, number>;
-  applications_by_agent: Record<string, number>;
-  average_processing_days: number | null;
-  conversion_rate: number | null;
-  created_at: string;
-};
-
-// Agent Performance Analytics Table
-export type AgentPerformanceAnalyticsRow = {
-  id: string;
-  agent_id: string;
-  period_start: string;
-  period_end: string;
-  total_applications: number;
-  submitted_applications: number;
-  under_review_applications: number;
-  offers_given: number;
-  acceptances: number;
-  rejections: number;
-  enrollments: number;
-  average_processing_days: number | null;
-  success_rate: number | null;
-  metadata: Record<string, unknown> | null;
-  created_at: string;
-};
-
-// University Analytics Table
-export type UniversityAnalyticsRow = {
-  id: string;
-  university_id: string;
-  snapshot_date: string;
-  total_applications: number;
-  pending_applications: number;
-  under_review_applications: number;
-  offers_given: number;
-  acceptances: number;
-  rejections: number;
-  enrollments: number;
-  average_processing_days: number | null;
-  conversion_rate: number | null;
-  top_countries: Array<{ country: string; count: number }> | null;
-  top_agents: Array<{ agent_id: string; name: string; count: number }> | null;
-  created_at: string;
-};
-
-// Agent Category Review Queue Table
-export type AgentCategoryReviewQueueRow = {
-  id: string;
-  agent_id: string;
-  requested_category: AgentCategory | null;
-  submitted_documents: Record<string, unknown>[] | null;
-  review_status: 'pending' | 'under_review' | 'approved' | 'rejected' | 'needs_more_info';
-  reviewed_by: string | null;
-  review_notes: string | null;
-  investigator_notes: string | null;
-  external_verification_status: string | null;
-  external_verification_url: string | null;
-  decision_made_at: string | null;
-  created_at: string;
-  updated_at: string;
-};
-
-// Analytics Data Types for Charts
-export interface CountryAnalytics {
-  country: string;
-  country_code: string;
-  total_count: number;
-  accepted_count: number;
-  rejected_count: number;
-  enrollment_count: number;
-  percentage: number;
-}
-
-export interface RegionAnalytics {
-  region_name: string;
-  region_code: string;
-  total_count: number;
-  percentage: number;
-}
-
-export interface AgentCategoryAnalytics {
-  category: string;
-  category_label: string;
-  total_count: number;
-  accepted_count: number;
-  success_rate: number;
-  percentage: number;
-  color: string;
-}
-
-export interface AgentPerformanceData {
-  agent_id: string;
-  agent_name: string;
-  agency_name: string;
-  category: AgentCategory | null;
-  total_applications: number;
-  submitted: number;
-  under_review: number;
-  offers: number;
-  acceptances: number;
-  rejections: number;
-  enrollments: number;
-  success_rate: number;
-  avg_processing_days: number;
-}
-
-export interface UniversityAnalyticsData {
-  university_id: string;
-  university_name: string;
-  total_applications: number;
-  pending: number;
-  under_review: number;
-  offers: number;
-  acceptances: number;
-  rejections: number;
-  enrollments: number;
-  success_rate: number;
-  avg_processing_days: number;
-}
-
-export interface TimelineData {
-  date: string;
-  applications: number;
-  offers: number;
-  acceptances: number;
-  rejections: number;
-  enrollments: number;
-}
-
-export interface TopDestination {
-  university_id: string;
-  university_name: string;
-  country: string;
-  total_applications: number;
-  offers: number;
-  enrollments: number;
-  acceptance_rate: number;
 }
 
 export interface TeamMemberWithPermissions {
@@ -311,75 +166,19 @@ export interface TeamMemberWithPermissions {
   role: string;
   status: TeamMemberStatus;
   permissions: TeamPermissionType[];
-  geographic_scope: Array<{
-    scope_type: 'country' | 'region';
-    scope_id: string;
-    can_view: boolean;
-    can_review: boolean;
-    can_manage: boolean;
-  }>;
-  category_scope: Array<{
-    category: AgentCategory;
-    can_view: boolean;
-    can_review: boolean;
-    can_manage: boolean;
-  }>;
+  geographic_scope: TeamGeographicScope[];
+  category_scope: TeamCategoryScope[];
 }
 
-// Agent Category Display Configuration
-export const AGENT_CATEGORY_CONFIG: Record<AgentCategory, { label: string; shortLabel: string; color: string; description: string }> = {
-  student_travel_agency: {
-    label: 'Student & Travel Agencies',
-    shortLabel: 'Student/Travel',
-    color: '#3b82f6',
-    description: 'Agencies specializing in student recruitment and travel services'
-  },
-  university_institution: {
-    label: 'Universities & Institutions',
-    shortLabel: 'Universities',
-    color: '#8b5cf6',
-    description: 'Educational institutions recruiting international students'
-  },
-  secondary_high_school: {
-    label: 'Secondary & High Schools',
-    shortLabel: 'High Schools',
-    color: '#f59e0b',
-    description: 'Secondary education institutions with international programs'
-  },
-  language_center: {
-    label: 'Language Centers',
-    shortLabel: 'Language Centers',
-    color: '#10b981',
-    description: 'Language training centers preparing students for study abroad'
-  },
-  pending_classification: {
-    label: 'Pending Classification',
-    shortLabel: 'Pending',
-    color: '#94a3b8',
-    description: 'Agents awaiting category classification after document review'
-  }
-};
+// ─── Analytics Types ─────────────────────────────────────────────────────────
 
-// Region Color Configuration
-export const REGION_COLORS: Record<string, string> = {
-  'Europe': '#3b82f6',
-  'North America': '#ef4444',
-  'Asia Pacific': '#10b981',
-  'Middle East': '#f59e0b',
-  'Africa': '#8b5cf6',
-  'Latin America': '#06b6d4'
-};
-
-// Chart Color Palette
 export const CHART_COLORS = [
-  '#3A4391', // Primary
-  '#00CCA0', // Secondary
-  '#3b82f6', // Blue
+  '#3A4391', // Primary Blue
+  '#00CCA0', // Success Green
+  '#3b82f6', // Light Blue
   '#8b5cf6', // Purple
-  '#f59e0b', // Orange
-  '#10b981', // Green
+  '#f59e0b', // Amber
   '#ef4444', // Red
   '#06b6d4', // Cyan
   '#ec4899', // Pink
-  '#84cc16', // Lime
 ];
