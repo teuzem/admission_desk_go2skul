@@ -79,9 +79,11 @@ export interface DeviceInfo {
 // ─── Agent Category Types ───────────────────────────────────────────────────
 
 export type AgentCategory = 
-  | 'student_travel_agency' 
-  | 'university_institution' 
+  | 'student_recruitment_agency' 
+  | 'travel_agency'
+  | 'university_institute' 
   | 'secondary_high_school' 
+  | 'vocational_training_center'
   | 'language_center' 
   | 'pending_classification';
 
@@ -93,14 +95,20 @@ export interface AgentCategoryDetail {
 }
 
 export const AGENT_CATEGORY_CONFIG: Record<AgentCategory, AgentCategoryDetail> = {
-  student_travel_agency: {
-    label: 'Student Travel Agency',
+  student_recruitment_agency: {
+    label: 'Student Recruitment Agency',
     color: '#3b82f6',
-    shortLabel: 'STA',
-    description: 'Agencies focusing on student travel and study abroad'
+    shortLabel: 'SRA',
+    description: 'Agencies specializing in student recruitment and study abroad placements'
   },
-  university_institution: {
-    label: 'University / Institution',
+  travel_agency: {
+    label: 'Travel Agency',
+    color: '#06b6d4',
+    shortLabel: 'TRA',
+    description: 'Travel agencies offering student travel and mobility services'
+  },
+  university_institute: {
+    label: 'University / Institute',
     color: '#10b981',
     shortLabel: 'UNI',
     description: 'Higher education institutions or their direct representatives'
@@ -110,6 +118,12 @@ export const AGENT_CATEGORY_CONFIG: Record<AgentCategory, AgentCategoryDetail> =
     color: '#8b5cf6',
     shortLabel: 'SCH',
     description: 'High schools and secondary education providers'
+  },
+  vocational_training_center: {
+    label: 'Vocational Training Center',
+    color: '#f97316',
+    shortLabel: 'VTC',
+    description: 'Vocational and technical training institutions'
   },
   language_center: {
     label: 'Language Center',

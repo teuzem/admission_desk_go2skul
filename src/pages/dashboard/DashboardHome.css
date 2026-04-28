@@ -1446,3 +1446,143 @@
   .hero-search-dropdown { max-height: 300px; }
 }
 
+/* ===== Pending Document Requests ===== */
+.pending-docs-box {
+  background: white;
+  border: 2px solid #fee2e2;
+  border-radius: 20px;
+  padding: 1.5rem;
+  margin-top: 1.5rem;
+  box-shadow: 0 4px 20px rgba(239, 68, 68, 0.05);
+  animation: slideUp 0.4s ease-out;
+}
+
+.pending-docs-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #fecaca;
+}
+
+.pending-docs-title {
+  font-family: var(--font-heading);
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #b91c1c;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+}
+
+.pending-docs-count {
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: #ef4444;
+  color: white;
+  padding: 3px 10px;
+  border-radius: 99px;
+  text-transform: uppercase;
+}
+
+.pending-docs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.pending-doc-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  padding: 12px 16px;
+  border-radius: 14px;
+  transition: all 0.2s;
+}
+
+.pending-doc-item:hover {
+  transform: translateX(4px);
+  border-color: #fca5a5;
+  background: #fff5f5;
+}
+
+.pending-doc-info {
+  flex: 1;
+}
+
+.pending-doc-type {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 2px;
+}
+
+.pending-doc-desc {
+  font-size: 0.78rem;
+  color: #64748b;
+  margin-bottom: 6px;
+}
+
+.pending-doc-meta {
+  display: flex;
+  gap: 8px;
+}
+
+.doc-mandatory-tag {
+  font-size: 10px;
+  font-weight: 800;
+  background: #ef4444;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.doc-priority-tag {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.doc-priority-tag.priority-urgent { background: #fee2e2; color: #ef4444; }
+.doc-priority-tag.priority-high { background: #ffedd5; color: #f97316; }
+.doc-priority-tag.priority-normal { background: #e0f2fe; color: #0ea5e9; }
+.doc-priority-tag.priority-low { background: #f1f5f9; color: #94a3b8; }
+
+.upload-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: white;
+  border: 1.5px solid #ef4444;
+  color: #ef4444;
+  padding: 8px 16px;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.upload-btn:hover {
+  background: #ef4444;
+  color: white;
+}
+
+.upload-btn.loading {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.pending-docs-footer {
+  margin-top: 1rem;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  text-align: center;
+  font-style: italic;
+}

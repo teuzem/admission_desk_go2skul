@@ -81,6 +81,27 @@ export async function getAgentKycDocUrl(agentId: string, fileName: string): Prom
   return data.signedUrl
 }
 
+// ─── Agent Contract Documents ───────────────────────────────────────────────
+
+/** 
+ * Upload a document for a contract request 
+ * agent-documents/{agent_id}/{request_id}-{filename}.ext
+ */
+export async function uploadAgentContractDoc(
+  agentId: string, 
+  requestId: string, 
+  file: File
+): Promise<string> {
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+  const path = `${agentId}/${requestId}-${safeName}`
+  return uploadFile('agent-documents', path, file, false)
+}
+
+/** Get a signed URL for a contract document */
+export async function getAgentContractDocUrl(pathOrUrl: string, download: boolean | string = false): Promise<string | null> {
+  return getSecureUrl('agent-documents', pathOrUrl, download)
+}
+
 /** List all files in an agent's KYC folder */
 export async function listAgentKycDocs(agentId: string) {
   const { data, error } = await supabase.storage

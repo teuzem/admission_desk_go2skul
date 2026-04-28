@@ -12,6 +12,8 @@ import { usePageRefetch } from '../../lib/useRealtimeRecovery'
 import { useAuth } from '../../contexts/AuthContext'
 import ActivatePartnerModal from './ActivatePartnerModal'
 import VerifiedBadge from '../../components/ui/VerifiedBadge'
+import { uploadAgentContractDoc } from '../../lib/storageHelpers'
+import toast from 'react-hot-toast'
 import './DashboardHome.css'
 
 type SearchResult = {
@@ -113,6 +115,9 @@ export default function DashboardHome() {
     appsByInstitution: { total: 0, byInstitution: [] },
     appsByStage: { total: 0, byStage: [] }
   })
+  const [pendingDocRequests, setPendingDocRequests] = useState<any[]>([])
+  const [agentContract, setAgentContract] = useState<any>(null)
+  const [docUploadLoading, setDocUploadLoading] = useState<string | null>(null)
 
   // ─── Advanced Search ───
   const performSearch = useCallback(async (q: string) => {
@@ -203,9 +208,11 @@ export default function DashboardHome() {
   useEffect(() => {
     if (!user) return
     const fetchDashboardData = async () => {
-      const [partersRes, appsRes] = await Promise.all([
-        supabase.from('agent_partner_selections').select('university_id, universities(id, name, country, city, logo_url, image_url, ranking, student_count, description)').eq('agent_id', effectiveId),
-        supabase.from('applications').select('id, status, created_at, students(first_name, last_name), universities(name), programs(name)').eq('agent_id', effectiveId).order('created_at', { ascending: false }).limit(6)
+      const [partersRes, appsRes, contractRes, docsRes] = await Promise.all([
+        (supabase as any).from('agent_partner_selections').select('university_id, universities(id, name, country, city, logo_url, image_url, ranking, student_count, description)').eq('agent_id', effectiveId),
+        (supabase as any).from('applications').select('id, status, created_at, students(first_name, last_name), universities(name), programs(name)').eq('agent_id', effectiveId).order('created_at', { ascending: false }).limit(6),
+        (supabase as any).from('agent_contracts').select('*').eq('agent_id', effectiveId).maybeSingle(),
+        (supabase as any).from('contract_document_requests').select('*').eq('agent_id', effectiveId).eq('is_fulfilled', false).order('priority', { ascending: false })
       ])
 
       const unis = (partersRes.data || []).map((p: any) => p.universities).filter(Boolean)
@@ -219,12 +226,17 @@ export default function DashboardHome() {
         offers: apps.filter((a: any) => a.status === 'offer' || a.status === 'accepted').length,
         partners: unis.length
       })
+      
+      setAgentContract(contractRes.data || null)
+      setPendingDocRequests(docsRes.data || [])
       setLoadingApps(false)
     }
     fetchDashboardData()
 
     const ch = supabase.channel('applications-home')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'applications', filter: `agent_id=eq.${effectiveId}` }, fetchDashboardData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'contract_document_requests' as any, filter: `agent_id=eq.${effectiveId}` }, fetchDashboardData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'agent_contracts' as any, filter: `agent_id=eq.${effectiveId}` }, fetchDashboardData)
       .subscribe((status) => {
         if (status === 'TIMED_OUT' || status === 'CHANNEL_ERROR') {
           console.warn('[DashboardHome] applications channel error:', status)
@@ -535,6 +547,31 @@ export default function DashboardHome() {
     }
   }, [eventTab, user])
 
+  const handleDocUpload = async (requestId: string, file: File) => {
+    if (!user) return
+    setDocUploadLoading(requestId)
+    try {
+      const docUrl = await uploadAgentContractDoc(user.id, requestId, file)
+      const { error } = await (supabase as any)
+        .from('contract_document_requests')
+        .update({ 
+          fulfilled_doc_url: docUrl, 
+          is_fulfilled: true, 
+          fulfilled_at: new Date().toISOString() 
+        })
+        .eq('id', requestId)
+      
+      if (error) throw error
+      toast.success('Document uploaded successfully')
+      refetchAllData()
+    } catch (err) {
+      console.error('Upload error:', err)
+      toast.error('Failed to upload document')
+    } finally {
+      setDocUploadLoading(null)
+    }
+  }
+
   const getStatusBadge = (status: string) => {
     const statusMap: Record<string, { color: string; label: string }> = {
       draft: { color: '#94a3b8', label: t('dashboard.stages.draft') },
@@ -751,48 +788,76 @@ export default function DashboardHome() {
 
         {/* News Feed / Announcements */}
         <div className="news-feed-box">
-          <h3 className="news-feed-title">News Feed / Announcements</h3>
-          {newsPosts.length > 0 ? (
-            <div className="news-carousel">
-              <div className="news-slide" style={{ transform: `translateX(-${newsSlide * 100}%)` }}>
-                {newsPosts.map((post, i) => (
-                  <div key={post.id} className="news-slide-item">
-                    <div className="news-slide-image" style={{ backgroundImage: post.image_url ? `url(${post.image_url})` : `linear-gradient(135deg, #3A4391 0%, #1e2560 100%)` }}>
-                      <div className="news-slide-overlay">
-                        {post.category && <span className="news-slide-cat">{post.category}</span>}
-                        <h4 className="news-slide-headline">{post.title}</h4>
-                        {post.content && <p className="news-slide-desc">{post.content.substring(0, 120)}...</p>}
-                      </div>
+          <div className="news-feed-header">
+            <h3 className="news-feed-title">
+              <Newspaper size={20} style={{ color: '#3A4391' }} />
+              Latest Announcements
+            </h3>
+            <Link to="/dashboard/news" className="view-all-link">View All <ArrowRight size={14} /></Link>
+          </div>
+          <div className="news-feed-list">
+            {announcements.length > 0 ? announcements.map(ann => (
+              <Link key={ann.id} to={`/dashboard/news/${ann.id}`} className="news-feed-item">
+                <div className="news-item-content">
+                  <div className="news-item-title">
+                    {ann.is_important && <span className="news-important-tag">Important</span>}
+                    {ann.title}
+                  </div>
+                  <div className="news-item-date">{new Date(ann.published_at).toLocaleDateString()}</div>
+                </div>
+                <ChevronRight size={16} style={{ color: '#94a3b8' }} />
+              </Link>
+            )) : (
+              <div className="news-feed-empty">No announcements yet.</div>
+            )}
+          </div>
+        </div>
+
+        {/* Pending Document Requests */}
+        {pendingDocRequests.length > 0 && (
+          <div className="pending-docs-box">
+            <div className="pending-docs-header">
+              <h3 className="pending-docs-title">
+                <AlertCircle size={20} style={{ color: '#ef4444' }} />
+                Pending Document Requests
+              </h3>
+              <span className="pending-docs-count">{pendingDocRequests.length} Required</span>
+            </div>
+            <div className="pending-docs-list">
+              {pendingDocRequests.map(req => (
+                <div key={req.id} className="pending-doc-item">
+                  <div className="pending-doc-info">
+                    <div className="pending-doc-type">{req.document_type}</div>
+                    {req.description && <div className="pending-doc-desc">{req.description}</div>}
+                    <div className="pending-doc-meta">
+                      {req.is_mandatory && <span className="doc-mandatory-tag">Required</span>}
+                      <span className={`doc-priority-tag priority-${req.priority}`}>{req.priority.toUpperCase()}</span>
                     </div>
                   </div>
-                ))}
-              </div>
-              {newsPosts.length > 1 && (
-                <div className="news-dots">
-                  {newsPosts.slice(0, 5).map((_, i) => (
-                    <button key={i} className={`news-dot ${newsSlide === i ? 'active' : ''}`} onClick={() => setNewsSlide(i)} />
-                  ))}
-                </div>
-              )}
-            </div>
-          ) : announcements.length > 0 ? (
-            <div className="news-announcements-fallback">
-              {announcements.slice(0, 3).map(ann => (
-                <div key={ann.id} className="news-ann-card">
-                  <div className="news-ann-dot" style={{ background: ann.is_important ? '#f59e0b' : '#00CCA0' }} />
-                  <div>
-                    <h5>{ann.title}</h5>
-                    <p>{new Date(ann.published_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</p>
+                  <div className="pending-doc-action">
+                    <label className={`upload-btn ${docUploadLoading === req.id ? 'loading' : ''}`}>
+                      {docUploadLoading === req.id ? (
+                        <Loader2 size={16} className="spinning" />
+                      ) : (
+                        <Plus size={16} />
+                      )}
+                      <span>{docUploadLoading === req.id ? 'Uploading...' : 'Upload File'}</span>
+                      <input 
+                        type="file" 
+                        style={{ display: 'none' }} 
+                        onChange={e => e.target.files?.[0] && handleDocUpload(req.id, e.target.files[0])}
+                        disabled={!!docUploadLoading}
+                      />
+                    </label>
                   </div>
                 </div>
               ))}
             </div>
-          ) : (
-            <div style={{ padding: '2rem', textAlign: 'center', color: '#94a3b8', fontSize: '0.9rem' }}>
-              No news yet. Stay tuned for updates!
-            </div>
-          )}
-        </div>
+            <p className="pending-docs-footer">
+              These documents are required by the contract management team to verify your agency.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* ═══════════ SUMMARY SECTION (3 DONUT CHARTS) ═══════════ */}

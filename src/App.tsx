@@ -52,6 +52,9 @@ const AdmissionApplicationReview = lazy(() => import('./pages/admin/admissions/A
 // Program Manager Dashboard
 const ProgramManagerDashboard = lazy(() => import('./pages/admin/programs/ProgramManagerDashboard'))
 
+// Contract Management Dashboard
+const ContractManagementDashboard = lazy(() => import('./pages/admin/contracts/ContractManagementDashboard'))
+
 // Loading Screen
 import LoadingScreen from './components/ui/LoadingScreen'
 
@@ -74,6 +77,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   if (profile?.role === 'admission_manager') return <Navigate to="/admin/admissions" replace />
   if (profile?.role === 'program_manager') return <Navigate to="/admin/programs" replace />
   if (profile?.role === 'technical_team' || profile?.is_technical_team) return <Navigate to="/admin/support" replace />
+  if (profile?.role === 'contract_manager') return <Navigate to="/admin/contracts" replace />
 
   // KYC Enforcement — only non-admin users reach here (admin roles are redirected above)
   if (profile && !profile.kyc_status) {
@@ -102,6 +106,7 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
     if (profile?.role === 'admission_manager') return <Navigate to="/admin/admissions" replace />
     if (profile?.role === 'program_manager') return <Navigate to="/admin/programs" replace />
     if (profile?.role === 'technical_team' || profile?.is_technical_team) return <Navigate to="/admin/support" replace />
+    if (profile?.role === 'contract_manager') return <Navigate to="/admin/contracts" replace />
     return <ForbiddenPage />
   }
   return <>{children}</>
@@ -159,6 +164,19 @@ function TechnicalRoute({ children }: { children: React.ReactNode }) {
   return <Suspense fallback={<LoadingScreen />}>{children}</Suspense>
 }
 
+// Route guard for contract management – allows contract_manager AND admin roles
+function ContractRoute({ children }: { children: React.ReactNode }) {
+  const { user, session, profile, loading } = useAuth()
+
+  if (loading) return <LoadingScreen />
+  if (!user || !session) return <Navigate to="/admin/login" replace />
+  if (profile?.is_active === false) return <ForbiddenPage />
+  if (profile?.role !== 'admin' && profile?.role !== 'contract_manager') {
+    return <ForbiddenPage />
+  }
+  return <Suspense fallback={<LoadingScreen />}>{children}</Suspense>
+}
+
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const { user, profile, loading } = useAuth()
 
@@ -168,6 +186,7 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
     if (profile?.role === 'admission_manager') return <Navigate to="/admin/admissions" replace />
     if (profile?.role === 'program_manager') return <Navigate to="/admin/programs" replace />
     if (profile?.role === 'technical_team' || profile?.is_technical_team) return <Navigate to="/admin/support" replace />
+    if (profile?.role === 'contract_manager') return <Navigate to="/admin/contracts" replace />
     if (profile?.role === 'admin') return <Navigate to="/admin" replace />
     return <Navigate to="/dashboard" replace />
   }
@@ -233,6 +252,9 @@ export default function App() {
       <Route path="/admin/applications/:id" element={<AdminRoute><AdminApplicationDetail /></AdminRoute>} />
       <Route path="/admin/profile" element={<StaffRoute><AdminProfilePage /></StaffRoute>} />
       <Route path="/admin/support" element={<TechnicalRoute><SupportAdminDashboard /></TechnicalRoute>} />
+
+      {/* Contract Management Dashboard */}
+      <Route path="/admin/contracts" element={<ContractRoute><ContractManagementDashboard /></ContractRoute>} />
 
       {/* Manual Error Routes & Aliases */}
       <Route path="/403" element={<ForbiddenPage />} />

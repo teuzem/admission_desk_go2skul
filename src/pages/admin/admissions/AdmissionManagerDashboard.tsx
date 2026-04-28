@@ -14,7 +14,7 @@ import {
   FileWarning, Package, ChevronDown, ArrowUpRight, RefreshCw,
   Inbox, ClipboardList, Shield, TrendingUp, Activity, PieChart as PieChartIcon,
   Paperclip, X, Upload, File as FileIcon, Image, Loader2, Bell,
-  Settings, Pencil, Trash2, Save, XCircle as XCircleIcon, UserPlus, Briefcase, Clipboard
+  Settings, Pencil, Trash2, Save, XCircle as XCircleIcon, UserPlus, Clipboard
 } from 'lucide-react'
 import ChatComposer from '../../../components/chat/ChatComposer'
 import DocumentPreview from '../../../components/chat/DocumentPreview'
@@ -33,9 +33,8 @@ import './AdmissionManagerDashboard.css'
 // Import new advanced components
 import AdvancedAnalytics from './AdvancedAnalytics'
 import TeamManagement from './TeamManagement'
-import AgentCategoryManagement from './AgentCategoryManagement'
 
-type Tab = 'overview' | 'applications' | 'doc_requests' | 'messages' | 'analytics' | 'team_management' | 'agent_categories'
+type Tab = 'overview' | 'applications' | 'doc_requests' | 'messages' | 'analytics' | 'team_management'
 
 const STATUS_CONFIG: Record<string, { color: string; bg: string; label: string }> = {
   draft: { color: '#94a3b8', bg: '#f1f5f9', label: 'Draft' },
@@ -583,7 +582,6 @@ export default function AdmissionManagerDashboard() {
     ['doc_requests', 'Doc Requests', <FileWarning size={15} />, stats.pending_docs],
     ['messages', 'Messages', <MessageSquare size={15} />, stats.unread_messages],
     ['team_management', 'Team Management', <UserPlus size={15} />],
-    ['agent_categories', 'Agent Categories', <Briefcase size={15} />],
   ]
 
   // ─── Messaging State ───
@@ -815,15 +813,6 @@ export default function AdmissionManagerDashboard() {
           <TeamManagement
             userId={user?.id || ''}
             userRole={profile?.role || ''}
-          />
-        )}
-
-        {/* ═══ AGENT CATEGORIES TAB ═══ */}
-        {tab === 'agent_categories' && (
-          <AgentCategoryManagement
-            userId={user?.id || ''}
-            userRole={profile?.role || ''}
-            isSuperAdmin={isSuperAdmin}
           />
         )}
 

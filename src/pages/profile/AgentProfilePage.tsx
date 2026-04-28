@@ -44,6 +44,8 @@ export default function AgentProfilePage() {
   const [appCount, setAppCount] = useState(0)
   const [partnerCount, setPartnerCount] = useState(0)
   const [teamMembers, setTeamMembers] = useState<any[]>([])
+  const [contractDocs, setContractDocs] = useState<any[]>([])
+  const [docLoading, setDocLoading] = useState<string | null>(null)
 
   // Avatar and cover state
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
@@ -166,7 +168,7 @@ export default function AgentProfilePage() {
 
     const fetchProfileData = async () => {
       try {
-        const [kycRes, appsRes, partnerSelectionsRes, teamRes] = await Promise.all([
+        const [kycRes, appsRes, partnerSelectionsRes, teamRes, contractRes] = await Promise.all([
           supabase.from('agent_kyc').select('*').eq('agent_id', effectiveTargetId).maybeSingle(),
           supabase.from('applications').select('id', { count: 'exact', head: true }).eq('agent_id', effectiveTargetId),
           supabase.from('agent_partner_selections')
@@ -174,7 +176,11 @@ export default function AgentProfilePage() {
             .eq('agent_id', effectiveTargetId),
           supabase.from('team_members')
             .select('*')
-            .eq('agency_id', effectiveTargetId)
+            .eq('agency_id', effectiveTargetId),
+          (supabase as any).from('contract_document_requests')
+            .select('*')
+            .eq('agent_id', effectiveTargetId)
+            .eq('is_fulfilled', true)
         ])
 
         if (kycRes.data) {
@@ -205,6 +211,7 @@ export default function AgentProfilePage() {
 
         setAppCount(appsRes.count || 0)
         setPartnerCount(partners.length)
+        setContractDocs(contractRes?.data || [])
 
       } catch (error) {
         console.error('Error fetching profile data:', error)
@@ -1113,7 +1120,71 @@ export default function AgentProfilePage() {
                   </button>
                 </div>
 
-                {/* KYC Details */}
+                {/* Business & KYC Documents */}
+                <div className="fb-card">
+                  <h3 className="fb-card-title">
+                    <FileText size={16} style={{ color: '#3A4391' }} />
+                    {t('profile.documents.title') || 'Business Documents'}
+                  </h3>
+                  
+                  <div className="fb-docs-list">
+                    {/* Primary KYC License */}
+                    {kycData?.business_licence_url && (
+                      <div className="fb-doc-item">
+                        <div className="fb-doc-icon"><FileText size={18} /></div>
+                        <div className="fb-doc-info">
+                          <span className="fb-doc-name">{t('profile.documents.businessLicense') || 'Business License'}</span>
+                          <span className="fb-doc-meta">Primary KYC</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const url = await getSecureUrl('kyc-documents', kycData.business_licence_url)
+                            if (url) window.open(url, '_blank')
+                          }}
+                          className="fb-doc-view-btn"
+                          title="View Document"
+                        >
+                          <Eye size={16} />
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Contract Documents */}
+                    {contractDocs.map(doc => (
+                      <div key={doc.id} className="fb-doc-item">
+                        <div className="fb-doc-icon" style={{ color: '#10b981' }}><CheckCircle2 size={18} /></div>
+                        <div className="fb-doc-info">
+                          <span className="fb-doc-name">{doc.document_type}</span>
+                          <span className="fb-doc-meta">Verified Contract Doc</span>
+                        </div>
+                        <button
+                          type="button"
+                          disabled={docLoading === doc.id}
+                          onClick={async () => {
+                            setDocLoading(doc.id)
+                            const url = await getSecureUrl('agent-documents', doc.fulfilled_doc_url)
+                            setDocLoading(null)
+                            if (url) window.open(url, '_blank')
+                          }}
+                          className="fb-doc-view-btn"
+                          title="View Document"
+                        >
+                          {docLoading === doc.id ? <span className="spinner" style={{ width: 14, height: 14 }} /> : <Eye size={16} />}
+                        </button>
+                      </div>
+                    ))}
+
+                    {!kycData?.business_licence_url && contractDocs.length === 0 && (
+                      <div className="fb-docs-empty">
+                        <Clipboard size={32} style={{ opacity: 0.3 }} />
+                        <p>No documents available</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* KYC Registration Details */}
                 {kycData && (
                   <div className="fb-card">
                     <h3 className="fb-card-title">
@@ -1133,19 +1204,6 @@ export default function AgentProfilePage() {
                             {new Date(kycData.incorporation_date).toLocaleDateString()}
                           </span>
                         </div>
-                      )}
-                      {kycData.business_licence_url && (
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            const url = await getSecureUrl('kyc-documents', kycData.business_licence_url)
-                            if (url) window.open(url, '_blank')
-                          }}
-                          className="fb-btn fb-btn-outline"
-                        >
-                          <Eye size={14} />
-                          {t('profile.documents.viewDocument')}
-                        </button>
                       )}
                     </div>
                   </div>

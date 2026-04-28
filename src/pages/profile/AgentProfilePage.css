@@ -2088,3 +2088,88 @@
     gap: 0.5rem;
   }
 }
+
+/* Business Documents List */
+.fb-docs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.fb-doc-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  transition: all 0.2s;
+}
+
+.fb-doc-item:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.fb-doc-icon {
+  width: 40px;
+  height: 40px;
+  background: white;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #3A4391;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+.fb-doc-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.fb-doc-name {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.fb-doc-meta {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.fb-doc-view-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: white;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.fb-doc-view-btn:hover {
+  background: #3A4391;
+  color: white;
+  border-color: #3A4391;
+}
+
+.fb-docs-empty {
+  text-align: center;
+  padding: 30px 10px;
+  color: #94a3b8;
+}
+
+.fb-docs-empty p {
+  margin: 10px 0 0;
+  font-size: 0.85rem;
+}
+

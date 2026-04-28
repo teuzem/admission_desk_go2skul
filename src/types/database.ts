@@ -2,7 +2,7 @@
 
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[]
 
-export type UserRole = 'agent' | 'admin' | 'editor' | 'admission_manager' | 'program_manager' | 'technical_team'
+export type UserRole = 'agent' | 'admin' | 'editor' | 'admission_manager' | 'program_manager' | 'technical_team' | 'contract_manager'
 export type KycStatus = 'pending' | 'under_review' | 'approved' | 'rejected'
 export type TeamMemberStatus = 'pending' | 'active' | 'disabled'
 export type ApplicationStatus = 'draft' | 'submitted' | 'under_review' | 'offer' | 'accepted' | 'rejected' | 'enrolled'

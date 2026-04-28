@@ -146,7 +146,7 @@ export default function AdminDashboard() {
 
   const fetchAdminUsers = useCallback(async () => {
     const [usersRes, invitesRes] = await Promise.all([
-      supabase.from('profiles').select('id, first_name, last_name, email, role, is_super_admin, is_active, is_technical_team, approved_by, approved_at, created_at').in('role', ['admin', 'admission_manager', 'program_manager', 'technical_team']).order('created_at', { ascending: false }),
+      supabase.from('profiles').select('id, first_name, last_name, email, role, is_super_admin, is_active, is_technical_team, approved_by, approved_at, created_at').in('role', ['admin', 'admission_manager', 'program_manager', 'technical_team', 'contract_manager']).order('created_at', { ascending: false }),
       supabase.from('admin_user_invites').select('*, profiles:invited_by(first_name, last_name, email)').order('created_at', { ascending: false }),
     ])
     setAdminUsers(usersRes.data || [])
@@ -357,6 +357,7 @@ export default function AdminDashboard() {
     admission_manager: 'Admission Manager',
     program_manager: 'Program Manager',
     technical_team: 'Technical Team',
+    contract_manager: 'Contract Manager',
     agent: 'Agent',
   }
 
@@ -368,7 +369,7 @@ export default function AdminDashboard() {
     const userId = (await supabase.auth.getUser()).data.user?.id
     // Check if user already exists with an admin role
     const { data: existing } = await supabase.from('profiles').select('id, role').eq('email', normalizedEmail).maybeSingle()
-    if (existing && ['admin', 'admission_manager', 'program_manager', 'technical_team'].includes(existing.role)) {
+    if (existing && ['admin', 'admission_manager', 'program_manager', 'technical_team', 'contract_manager'].includes(existing.role)) {
       toast.error(`A user with this email already exists as ${ROLE_LABELS[existing.role] || existing.role}`)
       setInviteSubmitting(false)
       return
@@ -440,7 +441,7 @@ export default function AdminDashboard() {
     fetchAdminUsers()
   }
 
-  const changeAdminUserRole = async (userId: string, newRole: 'admin' | 'admission_manager' | 'program_manager' | 'technical_team' | 'agent') => {
+  const changeAdminUserRole = async (userId: string, newRole: 'admin' | 'admission_manager' | 'program_manager' | 'technical_team' | 'contract_manager' | 'agent') => {
     const isTech = newRole === 'technical_team';
     const updatePayload: any = { role: newRole, is_technical_team: isTech }
     // When revoking to agent, also clear technical team flag
@@ -466,7 +467,7 @@ export default function AdminDashboard() {
     if (error) { toast.error('Error finding user: ' + error.message); return; }
     if (data) {
       setSearchedUser(data);
-      setSelectedRole(data.role && ['admin', 'admission_manager', 'program_manager', 'technical_team'].includes(data.role) ? data.role : 'admission_manager');
+      setSelectedRole(data.role && ['admin', 'admission_manager', 'program_manager', 'technical_team', 'contract_manager'].includes(data.role) ? data.role : 'admission_manager');
     } else {
       toast.error('No user found with this email. You can invite them instead.');
     }
@@ -1467,6 +1468,7 @@ export default function AdminDashboard() {
                   <select className="form-input" value={inviteForm.role} onChange={e => setInviteForm(p => ({ ...p, role: e.target.value }))}>
                     <option value="admission_manager">Admission Manager</option>
                     <option value="program_manager">Program Manager</option>
+                    <option value="contract_manager">Contract Manager</option>
                     <option value="technical_team">Technical Team</option>
                     <option value="admin">Full Admin</option>
                   </select>
@@ -1563,6 +1565,7 @@ export default function AdminDashboard() {
                     <select className="form-input" style={{ width: '200px', height: '38px', fontSize: '0.85rem' }} value={selectedRole} onChange={e => setSelectedRole(e.target.value)}>
                       <option value="admission_manager">Admission Management</option>
                       <option value="program_manager">Program Management</option>
+                      <option value="contract_manager">Contract Management</option>
                       <option value="technical_team">Technical Team</option>
                       <option value="admin">Super Admin</option>
                       <option value="agent">Revoke Admin (Agent)</option>
@@ -1611,12 +1614,12 @@ export default function AdminDashboard() {
                           <span style={{
                             display: 'inline-flex', alignItems: 'center', gap: '4px',
                             padding: '3px 10px', borderRadius: '99px', fontSize: '0.72rem', fontWeight: 700,
-                            background: u.role === 'admin' ? '#eff6ff' : u.role === 'program_manager' ? '#ecfdf5' : u.role === 'technical_team' ? '#fdf2f8' : '#f5f3ff',
-                            color: u.role === 'admin' ? '#3A4391' : u.role === 'program_manager' ? '#10b981' : u.role === 'technical_team' ? '#db2777' : '#8b5cf6',
-                            border: `1px solid ${u.role === 'admin' ? '#3A439125' : u.role === 'program_manager' ? '#10b98125' : u.role === 'technical_team' ? '#db277725' : '#8b5cf625'}`
+                            background: u.role === 'admin' ? '#eff6ff' : u.role === 'program_manager' ? '#ecfdf5' : u.role === 'contract_manager' ? '#eff6ff' : u.role === 'technical_team' ? '#fdf2f8' : '#f5f3ff',
+                            color: u.role === 'admin' ? '#3A4391' : u.role === 'program_manager' ? '#10b981' : u.role === 'contract_manager' ? '#3b82f6' : u.role === 'technical_team' ? '#db2777' : '#8b5cf6',
+                            border: `1px solid ${u.role === 'admin' ? '#3A439125' : u.role === 'program_manager' ? '#10b98125' : u.role === 'contract_manager' ? '#3b82f625' : u.role === 'technical_team' ? '#db277725' : '#8b5cf625'}`
                           }}>
-                            {u.role === 'admin' ? <Shield size={10} /> : u.role === 'program_manager' ? <BookOpen size={10} /> : u.role === 'technical_team' ? <Settings size={10} /> : <ShieldCheck size={10} />}
-                            {u.role === 'admin' ? 'Admin' : u.role === 'program_manager' ? 'Program Manager' : u.role === 'technical_team' ? 'Technical Team' : 'Admission Manager'}
+                            {u.role === 'admin' ? <Shield size={10} /> : u.role === 'program_manager' ? <BookOpen size={10} /> : u.role === 'contract_manager' ? <FileText size={10} /> : u.role === 'technical_team' ? <Settings size={10} /> : <ShieldCheck size={10} />}
+                            {u.role === 'admin' ? 'Admin' : u.role === 'program_manager' ? 'Program Manager' : u.role === 'contract_manager' ? 'Contract Manager' : u.role === 'technical_team' ? 'Technical Team' : 'Admission Manager'}
                           </span>
                         </td>
                         <td>
@@ -1704,6 +1707,7 @@ export default function AdminDashboard() {
                                 admin: { bg: '#eff6ff', c: '#3A4391', label: 'Full Admin' },
                                 admission_manager: { bg: '#f5f3ff', c: '#8b5cf6', label: 'Adm. Manager' },
                                 program_manager: { bg: '#ecfdf5', c: '#10b981', label: 'Prog. Manager' },
+                                contract_manager: { bg: '#eff6ff', c: '#3b82f6', label: 'Cont. Manager' },
                                 technical_team: { bg: '#fff7ed', c: '#ea580c', label: 'Technical Team' },
                               }
                               const rs = roleStyles[inv.role] || { bg: '#f1f5f9', c: '#64748b', label: inv.role }
