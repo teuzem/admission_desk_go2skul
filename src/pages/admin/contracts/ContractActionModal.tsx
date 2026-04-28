@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { X, ShieldCheck, ShieldX, ShieldOff, AlertTriangle, Clock, Ban, CheckCircle } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
+import { KycStatus } from '../../../types/database'
 import toast from 'react-hot-toast'
 import { AgentWithContract, ContractStatus, ContractCategory, CATEGORY_CONFIG } from './ContractTypes'
 import { StatusBadge, CategoryBadge, AgentAvatar, Spinner } from './ContractUtils'
@@ -72,7 +73,7 @@ export default function ContractActionModal({ agent, currentUserId, onClose, onR
       }
 
       // Update agent KYC status to match
-      const kycMap: Partial<Record<ContractStatus, string>> = {
+      const kycMap: Partial<Record<ContractStatus, KycStatus>> = {
         approved: 'approved', rejected: 'rejected', revoked: 'rejected', blocked: 'rejected'
       }
       if (kycMap[selectedAction]) {
