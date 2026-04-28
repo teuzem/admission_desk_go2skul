@@ -1134,7 +1134,7 @@ export default function AgentProfilePage() {
                         <div className="fb-doc-icon"><FileText size={18} /></div>
                         <div className="fb-doc-info">
                           <span className="fb-doc-name">{t('profile.documents.businessLicense') || 'Business License'}</span>
-                          <span className="fb-doc-meta">Primary KYC</span>
+                          <span className="fb-doc-meta">{t('profile.documents.primaryKyc') || 'Primary KYC'}</span>
                         </div>
                         <button
                           type="button"
@@ -1143,7 +1143,7 @@ export default function AgentProfilePage() {
                             if (url) window.open(url, '_blank')
                           }}
                           className="fb-doc-view-btn"
-                          title="View Document"
+                          title={t('profile.documents.viewDocument') || 'View Document'}
                         >
                           <Eye size={16} />
                         </button>
@@ -1156,7 +1156,7 @@ export default function AgentProfilePage() {
                         <div className="fb-doc-icon" style={{ color: '#10b981' }}><CheckCircle2 size={18} /></div>
                         <div className="fb-doc-info">
                           <span className="fb-doc-name">{doc.document_type}</span>
-                          <span className="fb-doc-meta">Verified Contract Doc</span>
+                          <span className="fb-doc-meta">{t('profile.documents.verifiedContractDoc') || 'Verified Contract Doc'}</span>
                         </div>
                         <button
                           type="button"
@@ -1168,7 +1168,7 @@ export default function AgentProfilePage() {
                             if (url) window.open(url, '_blank')
                           }}
                           className="fb-doc-view-btn"
-                          title="View Document"
+                          title={t('profile.documents.viewDocument') || 'View Document'}
                         >
                           {docLoading === doc.id ? <span className="spinner" style={{ width: 14, height: 14 }} /> : <Eye size={16} />}
                         </button>
@@ -1178,7 +1178,7 @@ export default function AgentProfilePage() {
                     {!kycData?.business_licence_url && contractDocs.length === 0 && (
                       <div className="fb-docs-empty">
                         <Clipboard size={32} style={{ opacity: 0.3 }} />
-                        <p>No documents available</p>
+                        <p>{t('profile.documents.noDocuments') || 'No business documents available'}</p>
                       </div>
                     )}
                   </div>

@@ -1,4 +1,5 @@
 // Contract Management — Shared Types
+import { UserRole } from '../../../types/database'
 
 export type ContractStatus =
   | 'pending_review'
@@ -47,14 +48,36 @@ export interface AgentWithContract {
   first_name: string | null
   last_name: string | null
   agency_name: string | null
+  trading_name: string | null
+  designation: string | null
   avatar_url: string | null
   phone: string | null
   country: string | null
   city: string | null
+  office_address: string | null
+  office_city: string | null
+  office_country: string | null
   website: string | null
+  bio: string | null
   account_type: string | null
   kyc_status: string
+  founded_year: number | string | null
+  number_of_employees: string | null
+  primary_market: string | null
+  languages_spoken: string[] | string | null
+  facebook_url: string | null
+  twitter_url: string | null
+  linkedin_url: string | null
+  instagram_url: string | null
+  youtube_url: string | null
+  tiktok_url: string | null
+  whatsapp_number: string | null
+  telegram_id: string | null
+  skype_id: string | null
+  role: UserRole
+  cover_image_url: string | null
   created_at: string
+  updated_at: string
   contract: AgentContract | null
 }
 

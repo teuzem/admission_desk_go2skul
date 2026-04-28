@@ -800,9 +800,12 @@
     },
     "documents": {
       "title": "Documents",
-      "businessLicence": "Business Licence",
+      "businessLicense": "Business License",
       "viewDocument": "View Document",
-      "uploadNew": "Upload New"
+      "uploadNew": "Upload New",
+      "noDocuments": "No business documents available.",
+      "primaryKyc": "Primary KYC",
+      "verifiedContractDoc": "Verified Contract Doc"
     }
   },
 

@@ -37,7 +37,7 @@ export default function ContractManagementDashboard() {
     setLoading(true)
     const { data: profiles } = await supabase
       .from('profiles')
-      .select('id,email,first_name,last_name,agency_name,avatar_url,phone,country,city,website,account_type,kyc_status,created_at')
+      .select('*')
       .eq('role', 'agent')
       .order('created_at', { ascending: false })
 

@@ -1,6 +1,6 @@
 // Contract Management — Agent Detail Side Panel
 import { useState, useEffect } from 'react'
-import { X, User, ExternalLink, Globe, Phone, MapPin, Calendar, Activity, FileText, MessageSquare, ShieldCheck, Download, Eye, Building2 } from 'lucide-react'
+import { X, User, ExternalLink, Globe, Phone, MapPin, Calendar, Activity, FileText, MessageSquare, ShieldCheck, Download, Eye, Building2, Clock } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
 import { getSecureUrl } from '../../../lib/storageHelpers'
 import { AgentWithContract, ContractActivity, ContractDocRequest, ContractNote } from './ContractTypes'
@@ -117,6 +117,133 @@ export default function AgentDetailPanel({ agent, currentUserId, onClose, onRefr
                     {item.href ? <a href={item.href} target="_blank" rel="noreferrer" style={{ color: '#3A4391', textDecoration: 'none' }}>{item.value} <ExternalLink size={10} /></a> : <span>{item.value}</span>}
                   </div>
                 ))}
+              </div>
+
+              {/* Agency Details */}
+              <div style={{ background: '#f8fafc', borderRadius: 12, padding: '1rem', border: '1px solid #e2e8f0' }}>
+                <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 10 }}>Agency Details</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div>
+                    <div style={{ fontSize: '0.65rem', color: '#94a3b8', marginBottom: 2 }}>Trading Name</div>
+                    <div style={{ fontSize: '0.82rem', fontWeight: 600, color: '#1e293b' }}>{agent.trading_name || '—'}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.65rem', color: '#94a3b8', marginBottom: 2 }}>Designation</div>
+                    <div style={{ fontSize: '0.82rem', fontWeight: 600, color: '#1e293b' }}>{agent.designation || '—'}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.65rem', color: '#94a3b8', marginBottom: 2 }}>Founded</div>
+                    <div style={{ fontSize: '0.82rem', fontWeight: 600, color: '#1e293b' }}>{agent.founded_year || '—'}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.65rem', color: '#94a3b8', marginBottom: 2 }}>Employees</div>
+                    <div style={{ fontSize: '0.82rem', fontWeight: 600, color: '#1e293b' }}>{agent.number_of_employees || '—'}</div>
+                  </div>
+                </div>
+                <div style={{ marginTop: 12 }}>
+                  <div style={{ fontSize: '0.65rem', color: '#94a3b8', marginBottom: 2 }}>Office Address</div>
+                  <div style={{ fontSize: '0.82rem', color: '#475569' }}>
+                    {agent.office_address ? (
+                      <>
+                        {agent.office_address}<br />
+                        {agent.office_city}, {agent.office_country}
+                      </>
+                    ) : '—'}
+                  </div>
+                </div>
+                {agent.primary_market && (
+                  <div style={{ marginTop: 12 }}>
+                    <div style={{ fontSize: '0.65rem', color: '#94a3b8', marginBottom: 2 }}>Primary Market</div>
+                    <div style={{ fontSize: '0.82rem', color: '#475569' }}>{agent.primary_market}</div>
+                  </div>
+                )}
+                {agent.languages_spoken && (
+                  <div style={{ marginTop: 12 }}>
+                    <div style={{ fontSize: '0.65rem', color: '#94a3b8', marginBottom: 2 }}>Languages Spoken</div>
+                    <div style={{ fontSize: '0.82rem', color: '#475569' }}>
+                      {Array.isArray(agent.languages_spoken) ? agent.languages_spoken.join(', ') : agent.languages_spoken}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* KYC Registration Details */}
+              {kycData && (
+                <div style={{ background: '#f8fafc', borderRadius: 12, padding: '1rem', border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 10 }}>KYC Info</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <div>
+                      <div style={{ fontSize: '0.65rem', color: '#94a3b8', marginBottom: 2 }}>Reg Number</div>
+                      <div style={{ fontSize: '0.82rem', fontWeight: 600, color: '#1e293b' }}>{kycData.company_registration_number || '—'}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.65rem', color: '#94a3b8', marginBottom: 2 }}>Incorp. Date</div>
+                      <div style={{ fontSize: '0.82rem', fontWeight: 600, color: '#1e293b' }}>{kycData.incorporation_date ? new Date(kycData.incorporation_date).toLocaleDateString() : '—'}</div>
+                    </div>
+                  </div>
+                  {kycData.job_roles?.length > 0 && (
+                    <div style={{ marginTop: 12 }}>
+                      <div style={{ fontSize: '0.65rem', color: '#94a3b8', marginBottom: 2 }}>Job Roles</div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                        {kycData.job_roles.map((role: string, i: number) => (
+                          <span key={i} style={{ background: '#e2e8f0', color: '#475569', padding: '2px 8px', borderRadius: 6, fontSize: '0.68rem', fontWeight: 600 }}>{role}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {kycData.recruitment_regions?.length > 0 && (
+                    <div style={{ marginTop: 12 }}>
+                      <div style={{ fontSize: '0.65rem', color: '#94a3b8', marginBottom: 2 }}>Recruitment Regions</div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                        {kycData.recruitment_regions.map((region: string, i: number) => (
+                          <span key={i} style={{ background: '#e2e8f0', color: '#475569', padding: '2px 8px', borderRadius: 6, fontSize: '0.68rem', fontWeight: 600 }}>{region}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Bio */}
+              {agent.bio && (
+                <div style={{ background: '#f8fafc', borderRadius: 12, padding: '1rem', border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 8 }}>About Agency</div>
+                  <p style={{ margin: 0, fontSize: '0.82rem', color: '#475569', lineHeight: 1.6 }}>{agent.bio}</p>
+                </div>
+              )}
+
+              {/* Social Media */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {[
+                  { icon: 'Facebook', url: agent.facebook_url },
+                  { icon: 'Twitter', url: agent.twitter_url },
+                  { icon: 'LinkedIn', url: agent.linkedin_url },
+                  { icon: 'Instagram', url: agent.instagram_url },
+                  { icon: 'YouTube', url: agent.youtube_url },
+                  { icon: 'WhatsApp', url: agent.whatsapp_number ? `https://wa.me/${agent.whatsapp_number}` : null },
+                ].filter(s => s.url).map((s, i) => (
+                  <a key={i} href={s.url!} target="_blank" rel="noreferrer" style={{
+                    display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px',
+                    background: '#f1f5f9', borderRadius: 6, fontSize: '0.65rem',
+                    fontWeight: 700, color: '#475569', textDecoration: 'none'
+                  }}>
+                    {s.icon}
+                  </a>
+                ))}
+              </div>
+
+              {/* Request Documents Shortcut */}
+              <div style={{ background: 'linear-gradient(135deg, #eff6ff, #dbeafe)', borderRadius: 12, padding: '1rem', border: '1px solid #bfdbfe', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#1e3a8a' }}>Missing documents?</div>
+                  <div style={{ fontSize: '0.72rem', color: '#1e40af' }}>Request additional files from the agent</div>
+                </div>
+                <button 
+                  onClick={() => setPanelTab('docs')}
+                  style={{ padding: '6px 12px', background: '#1e40af', color: 'white', border: 'none', borderRadius: 8, fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}
+                >
+                  Go to Documents
+                </button>
               </div>
 
               {/* Compliance */}
