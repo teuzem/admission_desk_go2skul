@@ -70,6 +70,7 @@ export default function AdminLoginPage() {
             admission_manager: 'Admission Manager',
             program_manager: 'Program Manager',
             technical_team: 'Technical Team',
+            contract_manager: 'Contract Manager',
           }
           toast.success(`Welcome! You've been assigned as ${roleLabels[invite.role] || invite.role}.`)
         }
@@ -106,6 +107,9 @@ export default function AdminLoginPage() {
           break
         case 'technical_team':
           navigate('/admin/support', { replace: true })
+          break
+        case 'contract_manager':
+          navigate('/admin/contracts', { replace: true })
           break
         case 'admin':
           navigate('/admin', { replace: true })

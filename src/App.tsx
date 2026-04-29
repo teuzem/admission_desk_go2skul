@@ -145,7 +145,7 @@ function StaffRoute({ children }: { children: React.ReactNode }) {
   if (loading) return <LoadingScreen />
   if (!user || !session) return <Navigate to="/admin/login" replace />
   if (profile?.is_active === false) return <ForbiddenPage />
-  if (profile?.role !== 'admin' && profile?.role !== 'admission_manager' && profile?.role !== 'program_manager' && profile?.role !== 'technical_team' && !profile?.is_technical_team) {
+  if (profile?.role !== 'admin' && profile?.role !== 'admission_manager' && profile?.role !== 'program_manager' && profile?.role !== 'technical_team' && profile?.role !== 'contract_manager' && !profile?.is_technical_team) {
     return <ForbiddenPage />
   }
   return <Suspense fallback={<LoadingScreen />}>{children}</Suspense>
