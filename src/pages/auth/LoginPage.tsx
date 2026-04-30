@@ -32,13 +32,25 @@ export default function LoginPage() {
 
   const onSubmit = async (values: LoginForm) => {
     setLoading(true)
-    const { error } = await signIn(values.email, values.password)
+    const { error, profile } = await signIn(values.email, values.password)
     setLoading(false)
 
     if (error) {
       toast.error(t('auth.login.invalidCredentials'))
     } else {
-      navigate('/dashboard')
+      if (profile && profile.role && profile.role !== 'agent' && profile.role !== 'editor') {
+        // Admin or staff roles attempting to login via the agent portal. Redirect instantly.
+        switch (profile.role) {
+          case 'admin': return navigate('/admin', { replace: true })
+          case 'admission_manager': return navigate('/admin/admissions', { replace: true })
+          case 'program_manager': return navigate('/admin/programs', { replace: true })
+          case 'technical_team': return navigate('/admin/support', { replace: true })
+          case 'contract_manager': return navigate('/admin/contracts', { replace: true })
+          default: return navigate('/admin', { replace: true })
+        }
+      }
+      // Standard agent login
+      navigate('/dashboard', { replace: true })
     }
   }
 

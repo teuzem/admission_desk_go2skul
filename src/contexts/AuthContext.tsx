@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef, ReactNode } from 'react'
 import { User, Session } from '@supabase/supabase-js'
-import { supabase } from '../lib/supabase'
+import { supabase, queryCache } from '../lib/supabase'
 import type { Database, UserRole, KycStatus } from '../types/database'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
@@ -12,10 +12,10 @@ interface AuthContextValue {
   session: Session | null
   profile: ExtendedProfile | null
   loading: boolean
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>
+  signIn: (email: string, password: string) => Promise<{ error: Error | null; profile?: ExtendedProfile | null }>
   signUp: (email: string, password: string) => Promise<{ error: Error | null }>
   signOut: () => Promise<void>
-  refreshProfile: () => Promise<void>
+  refreshProfile: () => Promise<ExtendedProfile | null>
   isAdmin: boolean
   isSuperAdmin: boolean
   isAdmissionManager: boolean
@@ -28,6 +28,36 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 
+// ── Profile Cache Keys ──
+const PROFILE_CACHE_KEY = (id: string) => `profile-${id}`
+const PROFILE_CACHE_TTL = 10 * 60 * 1000 // 10 minutes
+
+// ── Retry helper for profile fetching on slow connections ──
+async function fetchWithRetry<T>(
+  fn: () => PromiseLike<{ data: T | null; error: any }>,
+  retries = 3,
+  baseDelay = 800
+): Promise<{ data: T | null; error: any }> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const result = await fn()
+      if (!result.error) return result
+      // Don't retry on "row not found" (PGRST116) — that's a real result
+      if (result.error.code === 'PGRST116') return result
+      // Don't retry on permission errors
+      if (result.error.code === '42501' || result.error.code === 'PGRST301') return result
+      console.warn(`[Auth] Fetch attempt ${attempt + 1} failed:`, result.error.message)
+    } catch (err: any) {
+      console.warn(`[Auth] Fetch attempt ${attempt + 1} threw:`, err?.message)
+      if (attempt === retries) return { data: null, error: err }
+    }
+    if (attempt < retries) {
+      await new Promise(r => setTimeout(r, baseDelay * Math.pow(2, attempt)))
+    }
+  }
+  return { data: null, error: new Error('All retry attempts failed') }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<Session | null>(null)
@@ -36,19 +66,66 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const initializedRef = useRef(false)
   const profileFetchedForRef = useRef<string | null>(null)
 
+  // ── Core profile fetcher with retry + cache + self-healing ──
   const fetchProfile = useCallback(async (sessionUser: User): Promise<ExtendedProfile | null> => {
+    const cacheKey = PROFILE_CACHE_KEY(sessionUser.id)
+
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', sessionUser.id)
-        .single()
+      // Step 1: Try fetching from Supabase with retry
+      const { data, error } = await fetchWithRetry(() =>
+        supabase.from('profiles').select('*').eq('id', sessionUser.id).single()
+      )
 
       if (error) {
+        if (error.code === 'PGRST116') {
+          // No rows returned — profile is genuinely missing
+          console.warn('[Auth] Profile missing for user, auto-creating:', sessionUser.email)
+
+          // Self-healing: create the profile
+          const { data: newData, error: createError } = await fetchWithRetry(() =>
+            supabase.from('profiles').insert({
+              id: sessionUser.id,
+              email: sessionUser.email,
+              role: 'agent' as any,
+              is_active: true,
+              preferred_language: 'English',
+            }).select().single()
+          )
+
+          if (createError) {
+            console.error('[Auth] Failed to auto-create profile:', createError)
+            // Last resort: return a synthetic profile from cache or fabricate one
+            const cached = queryCache.get<ExtendedProfile>(cacheKey)
+            if (cached) {
+              console.log('[Auth] Returning cached profile after create failure')
+              return cached
+            }
+            // Fabricate minimal profile so the user isn't locked out
+            return {
+              id: sessionUser.id,
+              email: sessionUser.email || '',
+              role: 'agent' as any,
+              is_active: true,
+              effective_agency_id: sessionUser.id,
+            } as ExtendedProfile
+          }
+
+          const created: ExtendedProfile = { ...newData, effective_agency_id: newData.id }
+          queryCache.set(cacheKey, created, PROFILE_CACHE_TTL)
+          return created
+        }
+
+        // Network/timeout error — try cache
         console.error('[Auth] Error fetching profile:', error)
+        const cached = queryCache.get<ExtendedProfile>(cacheKey)
+        if (cached) {
+          console.log('[Auth] Returning cached profile after fetch error')
+          return cached
+        }
         return null
       }
 
+      // Step 2: Build extended profile
       let extendedData: ExtendedProfile = { ...data, effective_agency_id: data.id }
 
       if (data.role === 'agent' || data.role === 'editor') {
@@ -61,19 +138,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             .eq('invited_email', data.email)
             .eq('status', 'active')
             .maybeSingle()
-            
+
           if (teamData?.agency_id) parentId = teamData.agency_id
         }
 
         if (parentId) {
           extendedData.effective_agency_id = parentId
-          
+
           const { data: parentData } = await supabase
             .from('profiles')
             .select('*')
             .eq('id', parentId)
             .single()
-            
+
           if (parentData) {
             extendedData = {
               ...extendedData,
@@ -101,18 +178,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
+      // Step 3: Cache the result
+      queryCache.set(cacheKey, extendedData, PROFILE_CACHE_TTL)
       return extendedData
     } catch (err) {
       console.error('[Auth] Profile fetch failed:', err)
+      // Try returning cached profile on any unexpected error
+      const cached = queryCache.get<ExtendedProfile>(cacheKey)
+      if (cached) {
+        console.log('[Auth] Returning cached profile after unexpected error')
+        return cached
+      }
       return null
     }
   }, [])
 
-  const refreshProfile = useCallback(async () => {
+  const refreshProfile = useCallback(async (): Promise<ExtendedProfile | null> => {
     if (user) {
       const p = await fetchProfile(user)
       setProfile(p)
+      return p
     }
+    return null
   }, [user, fetchProfile])
 
   // ── Initialize auth state ──
@@ -120,13 +207,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (initializedRef.current) return
     initializedRef.current = true
 
-    // Hard safety timeout
+    // Hard safety timeout — never leave the app stuck on loading
     const safetyTimer = setTimeout(() => {
       setLoading(prev => {
         if (prev) console.warn('[Auth] Safety timeout – forcing loading=false')
         return false
       })
-    }, 8000)
+    }, 12000) // Increased to 12s for slow connections
 
     // Single getSession call on app startup
     supabase.auth.getSession().then(async ({ data: { session: s } }) => {
@@ -145,11 +232,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false)
     })
 
-    // ── Auth state change listener ──
-    // CRITICAL: Keep this callback SYNCHRONOUS. 
-    // Only set React state here — do NOT call any async Supabase methods
-    // (getSession, getUser, etc.) because that causes Web Locks deadlocks.
-    // Profile fetching is triggered by the `user` state change via a separate useEffect.
+    // Auth state change listener — SYNCHRONOUS only, no async Supabase calls
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
       setSession(s)
       setUser(s?.user ?? null)
@@ -165,12 +248,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [fetchProfile])
 
-  // ── Separate effect to fetch profile when user changes ──
-  // This runs OUTSIDE the onAuthStateChange callback to avoid lock contention
+  // ── Fetch profile when user changes (outside onAuthStateChange to avoid lock) ──
   useEffect(() => {
     if (!user) return
-    
-    // Initial fetch if needed
+
     if (profileFetchedForRef.current !== user.id || !profile) {
       profileFetchedForRef.current = user.id
       fetchProfile(user).then(p => {
@@ -181,17 +262,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Subscribe to profile changes for real-time updates
     const profileSubscription = supabase
       .channel(`profile-realtime-${user.id}`)
-      .on('postgres_changes', 
-        { 
-          event: '*', 
-          schema: 'public', 
-          table: 'profiles', 
-          filter: `id=eq.${user.id}` 
-        }, 
+      .on('postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${user.id}`
+        },
         async (payload) => {
           console.log('[Auth] Profile change detected:', payload.eventType)
-          // We need to re-fetch because the payload might not have 
-          // the computed fields if we had any, and to ensure consistency
           const p = await fetchProfile(user)
           if (p) setProfile(p)
         }
@@ -205,14 +284,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    let p: ExtendedProfile | null = null
     if (data?.session) {
       setSession(data.session)
       setUser(data.session.user)
       profileFetchedForRef.current = data.session.user.id
-      const p = await fetchProfile(data.session.user)
+      p = await fetchProfile(data.session.user)
       setProfile(p)
     }
-    return { error: error as Error | null, session: data?.session }
+    return { error: error as Error | null, session: data?.session, profile: p }
   }
 
   const signUp = async (email: string, password: string) => {
@@ -236,6 +316,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null)
     setProfile(null)
     profileFetchedForRef.current = null
+    queryCache.invalidateAll()
   }
 
   const isAdmin = profile?.role === 'admin'

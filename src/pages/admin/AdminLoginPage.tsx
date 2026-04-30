@@ -29,16 +29,18 @@ export default function AdminLoginPage() {
 
   const onSubmit = async (values: Form) => {
     setLoading(true)
-    const { error } = await signIn(values.email, values.password)
-
-    if (error) {
-      setLoading(false)
-      toast.error(t('auth.login.invalidCredentials'))
-      return
-    }
 
     try {
-      // Get the authenticated user
+      // Step 1: Sign in — this also triggers self-healing profile creation
+      const { error, profile: signInProfile } = await signIn(values.email, values.password)
+
+      if (error) {
+        setLoading(false)
+        toast.error(t('auth.login.invalidCredentials'))
+        return
+      }
+
+      // Step 2: Check for pending admin invite and auto-assign role
       const { data: { user: authUser } } = await supabase.auth.getUser()
       if (!authUser) {
         setLoading(false)
@@ -46,14 +48,12 @@ export default function AdminLoginPage() {
         return
       }
 
-      // Check for an approved invite and auto-assign role if needed
       const { data: invite } = await supabase
         .from('admin_user_invites').select('id, role, status')
         .eq('email', values.email.toLowerCase()).eq('status', 'approved').maybeSingle()
 
       if (invite) {
         const isTech = invite.role === 'technical_team'
-        // Update the user's profile with the invited role
         const { error: updateErr } = await supabase.from('profiles').update({
           role: invite.role as any,
           is_active: true,
@@ -61,7 +61,6 @@ export default function AdminLoginPage() {
         }).eq('id', authUser.id)
 
         if (!updateErr) {
-          // Mark invite as registered
           await supabase.from('admin_user_invites').update({
             status: 'registered'
           }).eq('id', invite.id)
@@ -76,29 +75,29 @@ export default function AdminLoginPage() {
         }
       }
 
-      // Refresh the AuthContext profile so route guards get updated role
-      await refreshProfile()
+      // Step 3: Refresh profile to pick up any invite-based role changes
+      const updatedProfile = await refreshProfile()
 
-      // Re-fetch the profile by user ID (most reliable) for redirect logic
-      const { data: profileData } = await supabase
-        .from('profiles').select('role, is_active, is_technical_team').eq('id', authUser.id).single()
+      // Use whichever profile we have — refreshed takes priority, then signIn result
+      const finalProfile = updatedProfile || signInProfile
 
       setLoading(false)
 
-      if (!profileData) {
-        toast.error('Profile not found. Contact administrator.')
+      if (!finalProfile) {
+        // This should almost never happen now with self-healing + cache + synthetic fallback
+        toast.error('Unable to load your profile. Please check your connection and try again.')
         await supabase.auth.signOut()
         return
       }
 
-      if (profileData.is_active === false) {
+      if (finalProfile.is_active === false) {
         toast.error('Your account has been suspended or blocked. Please contact the administrator.')
         await supabase.auth.signOut()
         return
       }
 
-      // Redirect based on role to their specific dashboard
-      switch (profileData.role) {
+      // Step 4: Redirect based on role
+      switch (finalProfile.role) {
         case 'admission_manager':
           navigate('/admin/admissions', { replace: true })
           break
@@ -115,7 +114,6 @@ export default function AdminLoginPage() {
           navigate('/admin', { replace: true })
           break
         default:
-          // Not an admin user - deny access
           toast.error('Access denied. This login is for admin staff users only.')
           await supabase.auth.signOut()
       }

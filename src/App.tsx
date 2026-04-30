@@ -70,6 +70,10 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   if (loading) return <LoadingScreen />
   if (!user || !session) return <Navigate to="/login" replace />
+  
+  // CRITICAL: If we have a user but the profile is still fetching, block rendering to prevent layout flicker
+  if (!profile) return <LoadingScreen />
+
   if (profile?.is_active === false) return <ForbiddenPage />
 
   // Admin-role users should NEVER be on the agent /dashboard — redirect to their specific admin dashboard
@@ -80,7 +84,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   if (profile?.role === 'contract_manager') return <Navigate to="/admin/contracts" replace />
 
   // KYC Enforcement — only non-admin users reach here (admin roles are redirected above)
-  if (profile && !profile.kyc_status) {
+  if (!profile.kyc_status) {
     return <Navigate to="/register/step1" replace />
   }
 
@@ -100,6 +104,8 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
 
   if (loading) return <LoadingScreen />
   if (!user || !session) return <Navigate to="/admin/login" replace />
+  if (!profile) return <LoadingScreen />
+
   if (profile?.is_active === false) return <ForbiddenPage />
   // Only full admins can access regular admin routes
   if (profile?.role !== 'admin') {
@@ -118,6 +124,8 @@ function AdmissionRoute({ children }: { children: React.ReactNode }) {
 
   if (loading) return <LoadingScreen />
   if (!user || !session) return <Navigate to="/admin/login" replace />
+  if (!profile) return <LoadingScreen />
+
   if (profile?.is_active === false) return <ForbiddenPage />
   if (profile?.role !== 'admin' && profile?.role !== 'admission_manager') {
     return <ForbiddenPage />
@@ -131,6 +139,8 @@ function ProgramRoute({ children }: { children: React.ReactNode }) {
 
   if (loading) return <LoadingScreen />
   if (!user || !session) return <Navigate to="/admin/login" replace />
+  if (!profile) return <LoadingScreen />
+
   if (profile?.is_active === false) return <ForbiddenPage />
   if (profile?.role !== 'admin' && profile?.role !== 'program_manager') {
     return <ForbiddenPage />
@@ -144,6 +154,8 @@ function StaffRoute({ children }: { children: React.ReactNode }) {
 
   if (loading) return <LoadingScreen />
   if (!user || !session) return <Navigate to="/admin/login" replace />
+  if (!profile) return <LoadingScreen />
+
   if (profile?.is_active === false) return <ForbiddenPage />
   if (profile?.role !== 'admin' && profile?.role !== 'admission_manager' && profile?.role !== 'program_manager' && profile?.role !== 'technical_team' && profile?.role !== 'contract_manager' && !profile?.is_technical_team) {
     return <ForbiddenPage />
@@ -157,6 +169,8 @@ function TechnicalRoute({ children }: { children: React.ReactNode }) {
 
   if (loading) return <LoadingScreen />
   if (!user || !session) return <Navigate to="/admin/login" replace />
+  if (!profile) return <LoadingScreen />
+
   if (profile?.is_active === false) return <ForbiddenPage />
   if (profile?.role !== 'admin' && profile?.role !== 'technical_team' && !profile?.is_technical_team) {
     return <ForbiddenPage />
@@ -170,6 +184,8 @@ function ContractRoute({ children }: { children: React.ReactNode }) {
 
   if (loading) return <LoadingScreen />
   if (!user || !session) return <Navigate to="/admin/login" replace />
+  if (!profile) return <LoadingScreen />
+
   if (profile?.is_active === false) return <ForbiddenPage />
   if (profile?.role !== 'admin' && profile?.role !== 'contract_manager') {
     return <ForbiddenPage />
@@ -182,6 +198,7 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 
   if (loading) return <LoadingScreen />
   if (user) {
+    if (!profile) return <LoadingScreen />
     if (profile?.is_active === false) return <ForbiddenPage />
     if (profile?.role === 'admission_manager') return <Navigate to="/admin/admissions" replace />
     if (profile?.role === 'program_manager') return <Navigate to="/admin/programs" replace />
