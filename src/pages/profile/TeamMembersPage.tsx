@@ -131,7 +131,15 @@ export default function TeamMembersPage() {
       status: finalStatus
     } as any)
 
-    if (error) throw error
+    if (error) throw error;
+    
+    // Log activity
+    (supabase as any).from('agent_global_activities').insert({
+      agent_id: profile?.id,
+      activity_type: 'team_member_added',
+      description: `Invited new team member: ${email}`
+    }).then()
+    
     toast.success(t('team.messages.inviteSent', { email }))
     
     return generatedPassword
@@ -140,7 +148,7 @@ export default function TeamMembersPage() {
   const handleRemove = async (id: string) => {
     try {
       const { error } = await supabase.from('team_members').delete().eq('id', id)
-      if (error) throw error
+      if (error) throw error;
       toast.success(t('team.messages.memberRemoved'))
     } catch (error: any) {
       toast.error(error.message || t('errors.generic'))

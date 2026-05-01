@@ -1,6 +1,6 @@
 // Contract Management — Shared UI Utilities
 import React from 'react'
-import { Loader2 } from 'lucide-react'
+import { Loader2, X, Download, FileText } from 'lucide-react'
 import { STATUS_CONFIG, CATEGORY_CONFIG, COMPLIANCE_CONFIG, ContractStatus, ContractCategory, ComplianceStatus } from './ContractTypes'
 
 // ─── Spinner ───
@@ -100,3 +100,37 @@ export const StatCard = ({ icon, value, label, color, bg, onClick }: {
     </div>
   </div>
 )
+
+// ─── Document Preview Modal ───
+export const DocumentPreviewModal = ({ 
+  previewDoc, 
+  onClose 
+}: { 
+  previewDoc: { name: string, url: string } | null, 
+  onClose: () => void 
+}) => {
+  if (!previewDoc) return null;
+  return (
+    <div className="cm-modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.85)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
+      <div className="cm-modal" style={{ width: '90%', height: '90%', maxWidth: '1200px', display: 'flex', flexDirection: 'column', background: '#0f172a', border: '1px solid #334155', borderRadius: '12px', overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
+        <div className="cm-modal-header" style={{ padding: '16px 20px', borderBottom: '1px solid #334155', background: '#1e293b', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <FileText size={20} style={{ color: '#38bdf8' }} />
+            <h2 style={{ color: 'white', margin: 0, fontSize: '1.1rem' }}>{previewDoc.name}</h2>
+          </div>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <a href={previewDoc.url} download className="cm-btn" style={{ background: '#38bdf8', color: '#0f172a', border: 'none', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, padding: '8px 16px', borderRadius: '8px', textDecoration: 'none' }}><Download size={16} /> Download</a>
+            <button className="cm-modal-close" style={{ color: '#cbd5e1', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}><X size={24} /></button>
+          </div>
+        </div>
+        <div style={{ flex: 1, position: 'relative', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', padding: '1rem' }}>
+          {previewDoc.name.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp)$/) ? (
+            <img src={previewDoc.url} alt={previewDoc.name} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+          ) : (
+            <iframe src={`${previewDoc.url}#toolbar=0`} style={{ width: '100%', height: '100%', border: 'none', background: 'white', borderRadius: '8px' }} title={previewDoc.name} />
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}

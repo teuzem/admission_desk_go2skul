@@ -4,7 +4,7 @@ import { X, User, ExternalLink, Globe, Phone, MapPin, Calendar, Activity, FileTe
 import { supabase } from '../../../lib/supabase'
 import { getSecureUrl } from '../../../lib/storageHelpers'
 import { AgentWithContract, ContractActivity, ContractDocRequest, ContractNote } from './ContractTypes'
-import { StatusBadge, CategoryBadge, ComplianceBadge, AgentAvatar } from './ContractUtils'
+import { StatusBadge, CategoryBadge, ComplianceBadge, AgentAvatar, DocumentPreviewModal } from './ContractUtils'
 import ContractActionModal from './ContractActionModal'
 import ContractDocRequests from './ContractDocRequests'
 import { ActivityLog, TeamNotes } from './ContractActivityLog'
@@ -25,24 +25,54 @@ export default function AgentDetailPanel({ agent, currentUserId, onClose, onRefr
   const [docRequests, setDocRequests] = useState<ContractDocRequest[]>([])
   const [notes, setNotes] = useState<ContractNote[]>([])
   const [kycData, setKycData] = useState<any>(null)
+  const [previewDoc, setPreviewDoc] = useState<{name: string, url: string} | null>(null)
 
   const contractId = agent.contract?.id
 
   const loadData = async () => {
     if (!contractId) return
-    const [actRes, docRes, noteRes, kycRes] = await Promise.all([
-      supabase.from('agent_contract_activity' as any).select('*, performer:performed_by(first_name,last_name,email)').eq('contract_id', contractId).order('created_at', { ascending: false }) as any,
-      supabase.from('contract_document_requests' as any).select('*').eq('contract_id', contractId).order('created_at', { ascending: false }) as any,
+    const [actRes, globalActRes, docRes, noteRes, kycRes] = await Promise.all([
+      (supabase as any).from('agent_contract_activity').select('*, performer:performed_by(first_name,last_name,email)').eq('contract_id', contractId).order('created_at', { ascending: false }) as any,
+      (supabase as any).from('agent_global_activities').select('*').eq('agent_id', agent.id).order('created_at', { ascending: false }) as any,
+      (supabase as any).from('contract_document_requests').select('*').eq('contract_id', contractId).order('created_at', { ascending: false }) as any,
       supabase.from('contract_team_notes' as any).select('*, author:author_id(first_name,last_name,email)').eq('contract_id', contractId).order('is_pinned', { ascending: false }).order('created_at', { ascending: false }) as any,
       supabase.from('agent_kyc').select('*').eq('agent_id', agent.id).maybeSingle(),
     ])
-    setActivities(actRes.data || [])
+
+    // Normalize global activities to look like contract activities for the ActivityLog component
+    const normalizedGlobalActivities = (globalActRes.data || []).map((ga: any) => ({
+      id: ga.id,
+      contract_id: contractId,
+      agent_id: ga.agent_id,
+      action: ga.activity_type,
+      notes: ga.description,
+      performed_by: ga.agent_id,
+      created_at: ga.created_at,
+      performer: { first_name: agent.first_name, last_name: agent.last_name, email: agent.email }
+    }))
+
+    const combinedActivities = [...(actRes.data || []), ...normalizedGlobalActivities].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+
+    setActivities(combinedActivities)
     setDocRequests(docRes.data || [])
     setNotes(noteRes.data || [])
     setKycData(kycRes.data || null)
   }
 
-  useEffect(() => { loadData() }, [contractId])
+  useEffect(() => { 
+    loadData() 
+    
+    if (!contractId) return
+
+    const ch = supabase.channel(`panel-rt-${contractId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'contract_team_notes', filter: `contract_id=eq.${contractId}` }, () => { loadData() })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'contract_document_requests', filter: `contract_id=eq.${contractId}` }, () => { loadData() })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'agent_contract_activity', filter: `contract_id=eq.${contractId}` }, () => { loadData() })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'agent_global_activities', filter: `agent_id=eq.${agent.id}` }, () => { loadData() })
+      .subscribe()
+
+    return () => { supabase.removeChannel(ch) }
+  }, [contractId, agent.id])
 
   const TABS: [PanelTab, string, React.ReactNode][] = [
     ['overview', 'Overview', <User size={14} />],
@@ -307,7 +337,7 @@ export default function AgentDetailPanel({ agent, currentUserId, onClose, onRefr
                           <button 
                             onClick={async () => {
                               const url = await getSecureUrl('kyc-documents', kycData.business_licence_url)
-                              if (url) window.open(url, '_blank')
+                              if (url) setPreviewDoc({ name: 'Business License', url })
                             }}
                             className="cm-btn cm-btn-outline cm-btn-sm" title="View"
                           >
@@ -345,6 +375,7 @@ export default function AgentDetailPanel({ agent, currentUserId, onClose, onRefr
                   contractId={contractId} agentId={agent.id}
                   currentUserId={currentUserId} requests={docRequests}
                   onRefresh={loadData}
+                  onViewDoc={(name, url) => setPreviewDoc({ name, url })}
                 />
               )}
             </div>
@@ -367,6 +398,8 @@ export default function AgentDetailPanel({ agent, currentUserId, onClose, onRefr
           onRefresh={() => { onRefresh(); loadData() }}
         />
       )}
+
+      {previewDoc && <DocumentPreviewModal previewDoc={previewDoc} onClose={() => setPreviewDoc(null)} />}
 
       <style>{`
         @keyframes slideRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }

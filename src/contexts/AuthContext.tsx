@@ -291,6 +291,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       profileFetchedForRef.current = data.session.user.id
       p = await fetchProfile(data.session.user)
       setProfile(p)
+
+      // Log login activity for agents
+      if (p && (p.role === 'agent' || p.role === 'editor')) {
+        (supabase as any).from('agent_global_activities').insert({
+          agent_id: p.id,
+          activity_type: 'login',
+          description: 'User logged in to the portal'
+        }).then() // Fire and forget
+      }
     }
     return { error: error as Error | null, session: data?.session, profile: p }
   }
@@ -308,6 +317,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     try {
+      // Log logout activity for agents
+      if (profile && (profile.role === 'agent' || profile.role === 'editor')) {
+        await (supabase as any).from('agent_global_activities').insert({
+          agent_id: profile.id,
+          activity_type: 'logout',
+          description: 'User logged out of the portal'
+        })
+      }
       await supabase.auth.signOut()
     } catch (err) {
       console.error('[Auth] signOut error:', err)

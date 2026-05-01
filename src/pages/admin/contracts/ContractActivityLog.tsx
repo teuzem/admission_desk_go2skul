@@ -14,6 +14,9 @@ const ACTION_COLORS: Record<string, string> = {
   approved: '#10b981', rejected: '#64748b', blocked: '#dc2626',
   suspended: '#f97316', revoked: '#ef4444', pending_review: '#f59e0b',
   under_verification: '#3b82f6', information_requested: '#8b5cf6',
+  // Global activities
+  login: '#14b8a6', logout: '#94a3b8', document_uploaded: '#3b82f6',
+  team_member_added: '#8b5cf6', application_submitted: '#0ea5e9'
 }
 
 export function ActivityLog({ activities }: ActivityLogProps) {

@@ -135,6 +135,7 @@ const CATEGORY_ICONS: Record<string, React.ElementType> = {
 
 export default function AgentCategoryManagement({ userId, userRole, isSuperAdmin }: AgentCategoryManagementProps) {
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<'all' | 'review_queue' | 'classified'>('all');
   const [agents, setAgents] = useState<AgentWithCategory[]>([]);
   const [reviewQueue, setReviewQueue] = useState<ReviewQueueItem[]>([]);
@@ -149,12 +150,14 @@ export default function AgentCategoryManagement({ userId, userRole, isSuperAdmin
   const [kycDocs, setKycDocs] = useState<KycDocument[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(false);
   const [isRealtime, setIsRealtime] = useState(false);
+  const [previewDoc, setPreviewDoc] = useState<{name: string, url: string} | null>(null);
 
   const canManageCategories = isSuperAdmin || userRole === 'admin' || userRole === 'contract_manager' || userRole === 'admission_manager';
 
   // Fetch agents
-  const fetchAgents = useCallback(async () => {
-    setLoading(true);
+  const fetchAgents = useCallback(async (isSilentRefresh = false) => {
+    if (!isSilentRefresh) setLoading(true);
+    else setIsRefreshing(true);
     try {
       // Fetch all agents with full profile info
       const { data: agentsData, error: agentsError } = await supabase
@@ -210,7 +213,8 @@ export default function AgentCategoryManagement({ userId, userRole, isSuperAdmin
       console.error('Error fetching agents:', error);
       toast.error('Failed to load agents');
     } finally {
-      setLoading(false);
+      if (!isSilentRefresh) setLoading(false);
+      setIsRefreshing(false);
     }
   }, []);
 
@@ -219,9 +223,12 @@ export default function AgentCategoryManagement({ userId, userRole, isSuperAdmin
   // Real-time subscription
   useEffect(() => {
     const ch = supabase.channel('agent_cat_rt')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'agent_categories' }, () => { setIsRealtime(true); fetchAgents(); setTimeout(() => setIsRealtime(false), 2000); })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'agent_category_review_queue' }, () => { setIsRealtime(true); fetchAgents(); setTimeout(() => setIsRealtime(false), 2000); })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => { fetchAgents(); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'agent_categories' }, () => { setIsRealtime(true); fetchAgents(true); setTimeout(() => setIsRealtime(false), 2000); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'agent_category_review_queue' }, () => { setIsRealtime(true); fetchAgents(true); setTimeout(() => setIsRealtime(false), 2000); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => { fetchAgents(true); })
+      .on('postgres_changes', { event: '*', schema: 'storage', table: 'objects' }, () => { 
+        if (selectedAgent) fetchKycDocuments(selectedAgent.id);
+      })
       .subscribe((status) => {
         if (status === 'TIMED_OUT' || status === 'CHANNEL_ERROR') {
           console.warn('[AgentCategoryManagement] channel error:', status)
@@ -301,11 +308,25 @@ export default function AgentCategoryManagement({ userId, userRole, isSuperAdmin
         await (supabase.from('agent_category_review_queue' as any).insert({ agent_id: selectedAgent.id, ...queuePayload }) as any);
       }
 
+      // Sync category to agent_contracts if approved
+      if (reviewForm.status === 'approved') {
+        const { data: existingContract } = await supabase.from('agent_contracts' as any).select('id').eq('agent_id', selectedAgent.id).maybeSingle() as any;
+        if (existingContract) {
+          await supabase.from('agent_contracts' as any).update({ category: reviewForm.category }).eq('id', existingContract.id) as any;
+        } else {
+          await supabase.from('agent_contracts' as any).insert({
+            agent_id: selectedAgent.id,
+            category: reviewForm.category,
+            status: 'under_verification'
+          }) as any;
+        }
+      }
+
       toast.success(`Agent classified as ${AGENT_CATEGORY_CONFIG[reviewForm.category]?.label}`);
       setShowReviewModal(false);
       setSelectedAgent(null);
       setReviewForm({ category: '' as AgentCategory, notes: '', investigatorNotes: '', externalVerificationUrl: '', status: 'approved' });
-      fetchAgents();
+      fetchAgents(true);
     } catch (error: any) {
       console.error('Error classifying agent:', error);
       toast.error(error.message || 'Failed to classify agent');
@@ -430,8 +451,8 @@ export default function AgentCategoryManagement({ userId, userRole, isSuperAdmin
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <button onClick={fetchAgents} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', borderRadius: '10px', border: '1px solid #e2e8f0', background: '#f8fafc', cursor: 'pointer', fontSize: '0.82rem', color: '#475569', fontWeight: 600 }}>
-            <RefreshCw size={14} /> Refresh
+          <button onClick={() => fetchAgents(true)} disabled={loading || isRefreshing} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', borderRadius: '10px', border: '1px solid #e2e8f0', background: '#f8fafc', cursor: (loading || isRefreshing) ? 'not-allowed' : 'pointer', fontSize: '0.82rem', color: '#475569', fontWeight: 600, opacity: (loading || isRefreshing) ? 0.7 : 1 }}>
+            <RefreshCw size={14} style={{ animation: isRefreshing ? 'spin 1s linear infinite' : 'none' }} /> Refresh
           </button>
           {canManageCategories && <span className="acm-info-badge"><Info size={14} /> You can classify agents</span>}
         </div>
@@ -579,9 +600,9 @@ export default function AgentCategoryManagement({ userId, userRole, isSuperAdmin
                         </div>
                         {doc.url && (
                           <div style={{ display: 'flex', gap: '6px' }}>
-                            <a href={doc.url} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 10px', borderRadius: '8px', background: '#eff6ff', color: '#3A4391', fontSize: '0.72rem', fontWeight: 600, textDecoration: 'none' }}>
+                            <button onClick={() => setPreviewDoc({name: doc.name, url: doc.url!})} style={{ border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 10px', borderRadius: '8px', background: '#eff6ff', color: '#3A4391', fontSize: '0.72rem', fontWeight: 600 }}>
                               <Eye size={12} /> View
-                            </a>
+                            </button>
                             <a href={doc.url} download style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 10px', borderRadius: '8px', background: '#f0fdf4', color: '#10b981', fontSize: '0.72rem', fontWeight: 600, textDecoration: 'none' }}>
                               <Download size={12} /> Download
                             </a>
@@ -653,6 +674,30 @@ export default function AgentCategoryManagement({ userId, userRole, isSuperAdmin
                 {submitting ? <LoadingSpinner /> : <FileCheck size={16} />}
                 Submit Classification
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Document Preview Modal */}
+      {previewDoc && (
+        <div className="acm-modal-overlay" style={{ zIndex: 9999 }} onClick={() => setPreviewDoc(null)}>
+          <div className="acm-modal" style={{ width: '90%', height: '90%', maxWidth: '1200px', display: 'flex', flexDirection: 'column', background: '#0f172a', border: '1px solid #334155' }} onClick={(e) => e.stopPropagation()}>
+            <div className="acm-modal-header" style={{ borderBottom: '1px solid #334155', background: '#1e293b', color: 'white' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <FileText size={20} style={{ color: '#38bdf8' }} />
+                <h2 style={{ color: 'white', margin: 0, fontSize: '1.1rem' }}>{previewDoc.name}</h2>
+              </div>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <a href={previewDoc.url} download className="acm-btn" style={{ background: '#38bdf8', color: '#0f172a', border: 'none', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, padding: '8px 16px', borderRadius: '8px', textDecoration: 'none' }}><Download size={16} /> Download</a>
+                <button className="acm-modal-close" style={{ color: '#cbd5e1' }} onClick={() => setPreviewDoc(null)}><X size={24} /></button>
+              </div>
+            </div>
+            <div style={{ flex: 1, position: 'relative', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', padding: '1rem' }}>
+              {previewDoc.name.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp)$/) ? (
+                <img src={previewDoc.url} alt={previewDoc.name} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+              ) : (
+                <iframe src={`${previewDoc.url}#toolbar=0`} style={{ width: '100%', height: '100%', border: 'none', background: 'white', borderRadius: '8px' }} title={previewDoc.name} />
+              )}
             </div>
           </div>
         </div>

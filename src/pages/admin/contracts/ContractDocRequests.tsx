@@ -13,6 +13,7 @@ interface Props {
   currentUserId: string
   requests: ContractDocRequest[]
   onRefresh: () => void
+  onViewDoc?: (name: string, url: string) => void
 }
 
 const DOC_TYPES = [
@@ -21,7 +22,7 @@ const DOC_TYPES = [
   'Letter of Intent', 'Reference Letter', 'Partnership Agreement', 'Other',
 ]
 
-export default function ContractDocRequests({ contractId, agentId, currentUserId, requests, onRefresh }: Props) {
+export default function ContractDocRequests({ contractId, agentId, currentUserId, requests, onRefresh, onViewDoc }: Props) {
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ document_type: DOC_TYPES[0], description: '', is_mandatory: true, priority: 'normal' })
   const [submitting, setSubmitting] = useState(false)
@@ -43,7 +44,7 @@ export default function ContractDocRequests({ contractId, agentId, currentUserId
     onRefresh()
   }
 
-  const handleViewDoc = async (docUrl: string, requestId: string, download = false) => {
+  const handleViewDoc = async (docUrl: string, requestId: string, docName: string, download = false) => {
     if (!docUrl) return
     setLoadingDoc(requestId)
     try {
@@ -56,6 +57,8 @@ export default function ContractDocRequests({ contractId, agentId, currentUserId
           document.body.appendChild(link)
           link.click()
           link.remove()
+        } else if (onViewDoc) {
+          onViewDoc(docName, url)
         } else {
           window.open(url, '_blank')
         }
@@ -148,6 +151,11 @@ export default function ContractDocRequests({ contractId, agentId, currentUserId
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#1e293b' }}>{r.document_type}</div>
               {r.description && <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: 2 }}>{r.description}</div>}
+              {r.agent_note && (
+                <div style={{ fontSize: '0.72rem', color: '#3A4391', marginTop: 4, padding: '4px 8px', background: '#e0e7ff', borderRadius: 4 }}>
+                  <strong>Agent Note:</strong> {r.agent_note}
+                </div>
+              )}
               <div style={{ display: 'flex', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
                 {r.is_mandatory && <span style={{ fontSize: '0.65rem', fontWeight: 700, color: '#ef4444', background: '#fef2f2', padding: '1px 6px', borderRadius: 99 }}>REQUIRED</span>}
                 <span style={{ fontSize: '0.65rem', fontWeight: 700, color: priorityColors[r.priority], background: `${priorityColors[r.priority]}15`, padding: '1px 6px', borderRadius: 99 }}>{r.priority.toUpperCase()}</span>
@@ -159,7 +167,7 @@ export default function ContractDocRequests({ contractId, agentId, currentUserId
               {r.is_fulfilled && r.fulfilled_doc_url && (
                 <>
                   <button 
-                    onClick={() => handleViewDoc(r.fulfilled_doc_url!, r.id)} 
+                    onClick={() => handleViewDoc(r.fulfilled_doc_url!, r.id, r.document_type)} 
                     disabled={loadingDoc === r.id}
                     title="View Document"
                     style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #e2e8f0', background: 'white', color: '#3b82f6', cursor: 'pointer' }}
@@ -167,7 +175,7 @@ export default function ContractDocRequests({ contractId, agentId, currentUserId
                     {loadingDoc === r.id ? <Spinner size={11} /> : <Eye size={14} />}
                   </button>
                   <button 
-                    onClick={() => handleViewDoc(r.fulfilled_doc_url!, r.id, true)} 
+                    onClick={() => handleViewDoc(r.fulfilled_doc_url!, r.id, r.document_type, true)} 
                     disabled={loadingDoc === r.id}
                     title="Download"
                     style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #e2e8f0', background: 'white', color: '#3b82f6', cursor: 'pointer' }}

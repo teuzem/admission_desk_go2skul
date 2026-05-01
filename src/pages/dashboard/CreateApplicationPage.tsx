@@ -644,6 +644,15 @@ export default function CreateApplicationPage() {
         return
       }
 
+      // Log activity
+      if (effectiveId) {
+        (supabase as any).from('agent_global_activities').insert({
+          agent_id: effectiveId,
+          activity_type: 'application_submitted',
+          description: `Submitted new application for ${studentName.replace('_', ' ')} (${submissionRef})`
+        }).then()
+      }
+
       toast.success(`Application submitted! Reference: ${submissionRef}`, { duration: 6000 })
       navigate('/dashboard/applications')
     } catch (err: any) {

@@ -8,11 +8,11 @@ import {
   Users as UsersIcon, Link as LinkIcon, Copy, ExternalLink, GraduationCap,
   Facebook, Twitter, Linkedin, Instagram, Youtube, MessageCircle, Navigation, Briefcase,
   Monitor, Tablet, ShieldCheck, ShieldAlert, Key, Download, Info, Check, ChevronDown,
-  Activity, RefreshCw, UserX, FileText, Clipboard
+  Activity, RefreshCw, UserX, FileText, Clipboard, Upload
 } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
-import { getSecureUrl, uploadAvatar, uploadCoverImage } from '../../lib/storageHelpers'
+import { getSecureUrl, uploadAvatar, uploadCoverImage, uploadAgentContractDoc } from '../../lib/storageHelpers'
 import toast from 'react-hot-toast'
 import ImageCropperModal from '../../components/ui/ImageCropperModal'
 import VerifiedBadge from '../../components/ui/VerifiedBadge'
@@ -46,6 +46,11 @@ export default function AgentProfilePage() {
   const [teamMembers, setTeamMembers] = useState<any[]>([])
   const [contractDocs, setContractDocs] = useState<any[]>([])
   const [docLoading, setDocLoading] = useState<string | null>(null)
+  const [showDocUploadModal, setShowDocUploadModal] = useState(false)
+  const [selectedDocReq, setSelectedDocReq] = useState<any>(null)
+  const [docFile, setDocFile] = useState<File | null>(null)
+  const [docAgentNote, setDocAgentNote] = useState('')
+  const [isUploadingDoc, setIsUploadingDoc] = useState(false)
 
   // Avatar and cover state
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
@@ -162,61 +167,65 @@ export default function AgentProfilePage() {
   }, [profile])
 
   // Fetch KYC and partner data
-  useEffect(() => {
+  // Memoized fetcher for all profile-related data
+  const fetchProfileData = useCallback(async () => {
     if (!user) return
     const effectiveTargetId = (profile as any)?.effective_agency_id || user.id
 
-    const fetchProfileData = async () => {
-      try {
-        const [kycRes, appsRes, partnerSelectionsRes, teamRes, contractRes] = await Promise.all([
-          supabase.from('agent_kyc').select('*').eq('agent_id', effectiveTargetId).maybeSingle(),
-          supabase.from('applications').select('id', { count: 'exact', head: true }).eq('agent_id', effectiveTargetId),
-          supabase.from('agent_partner_selections')
-            .select('*, universities(*, programs(*))')
-            .eq('agent_id', effectiveTargetId),
-          supabase.from('team_members')
-            .select('*')
-            .eq('agency_id', effectiveTargetId),
-          (supabase as any).from('contract_document_requests')
-            .select('*')
-            .eq('agent_id', effectiveTargetId)
-            .eq('is_fulfilled', true)
-        ])
+    try {
+      const [kycRes, appsRes, partnerSelectionsRes, teamRes, contractRes] = await Promise.all([
+        supabase.from('agent_kyc').select('*').eq('agent_id', effectiveTargetId).maybeSingle(),
+        supabase.from('applications').select('id', { count: 'exact', head: true }).eq('agent_id', effectiveTargetId),
+        supabase.from('agent_partner_selections')
+          .select('*, universities(*, programs(*))')
+          .eq('agent_id', effectiveTargetId),
+        supabase.from('team_members')
+          .select('*')
+          .eq('agency_id', effectiveTargetId),
+        (supabase as any).from('contract_document_requests')
+          .select('*')
+          .eq('agent_id', effectiveTargetId)
+          .order('created_at', { ascending: false })
+      ])
 
-        if (kycRes.data) {
-          setKycData(kycRes.data)
-          // Auto-fill form with KYC data if profile fields are empty
-          setFormData(prev => ({
-            ...prev,
-            office_country: (kycRes.data as any)?.registered_country || prev.office_country,
-            office_city: (kycRes.data as any)?.registered_city || prev.office_city,
-            office_address: (kycRes.data as any)?.registered_address || prev.office_address,
-            postal_code: (kycRes.data as any)?.registered_postal_code || prev.postal_code,
-          }))
-        }
-
-        // Extract partner universities from selections with full data including programs
-        const selections = partnerSelectionsRes.data || []
-        const partners = selections
-          .map((s: any) => s.universities)
-          .filter(Boolean)
-
-        setPartnerData(partners)
-        setPartnerUniversities(partners)
-
-        // Set team members
-        if (teamRes.data) {
-          setTeamMembers(teamRes.data)
-        }
-
-        setAppCount(appsRes.count || 0)
-        setPartnerCount(partners.length)
-        setContractDocs(contractRes?.data || [])
-
-      } catch (error) {
-        console.error('Error fetching profile data:', error)
+      if (kycRes.data) {
+        setKycData(kycRes.data)
+        // Auto-fill form with KYC data if profile fields are empty
+        setFormData(prev => ({
+          ...prev,
+          office_country: (kycRes.data as any)?.registered_country || prev.office_country,
+          office_city: (kycRes.data as any)?.registered_city || prev.office_city,
+          office_address: (kycRes.data as any)?.registered_address || prev.office_address,
+          postal_code: (kycRes.data as any)?.registered_postal_code || prev.postal_code,
+        }))
       }
+
+      // Extract partner universities from selections with full data including programs
+      const selections = partnerSelectionsRes.data || []
+      const partners = selections
+        .map((s: any) => s.universities)
+        .filter(Boolean)
+
+      setPartnerData(partners)
+      setPartnerUniversities(partners)
+
+      // Set team members
+      if (teamRes.data) {
+        setTeamMembers(teamRes.data)
+      }
+
+      setAppCount(appsRes.count || 0)
+      setPartnerCount(partners.length)
+      setContractDocs(contractRes?.data || [])
+
+    } catch (error) {
+      console.error('Error fetching profile data:', error)
     }
+  }, [user, (profile as any)?.effective_agency_id])
+
+  useEffect(() => {
+    if (!user) return
+    const effectiveTargetId = (profile as any)?.effective_agency_id || user.id
 
     fetchProfileData()
 
@@ -228,12 +237,19 @@ export default function AgentProfilePage() {
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'agent_kyc', filter: `agent_id=eq.${effectiveTargetId}` }, fetchProfileData)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'team_members', filter: `agency_id=eq.${effectiveTargetId}` }, fetchProfileData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'contract_document_requests', filter: `agent_id=eq.${effectiveTargetId}` }, fetchProfileData)
       .subscribe()
 
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [user, refreshProfile, (profile as any)?.effective_agency_id])
+  }, [user, refreshProfile, (profile as any)?.effective_agency_id, fetchProfileData])
+
+  // Also define fetchProfileData at a higher scope so it can be called manually
+  // Actually, it's already inside useEffect. Let's move it out or use the refreshProfile trigger.
+  // Given the structure, adding the subscription above is the best way to ensure real-time updates.
+  // But let's also make sure handleDocUploadSubmit calls it if needed.
+  // Actually, handleDocUploadSubmit is inside the component, it can access fetchProfileData if we move it.
 
   // Auto-save specific individual field to database on blur
   const handleFieldBlur = async (field: keyof typeof formData, value: string) => {
@@ -348,6 +364,47 @@ export default function AgentProfilePage() {
       toast.error(err.message || t('profile.couldNotSave'))
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleDocUploadSubmit = async () => {
+    if (!docFile || !selectedDocReq || !profile) {
+      toast.error('Please select a file to upload')
+      return
+    }
+    setIsUploadingDoc(true)
+    try {
+      // 1. Upload to storage
+      const url = await uploadAgentContractDoc(profile.id, selectedDocReq.id, docFile)
+      
+      // 2. Update the contract document request row
+      const { error } = await (supabase as any).from('contract_document_requests').update({
+        is_fulfilled: true,
+        fulfilled_at: new Date().toISOString(),
+        fulfilled_doc_url: url,
+        agent_note: docAgentNote || null
+      }).eq('id', selectedDocReq.id)
+
+      if (error) throw error
+
+      // 3. Log activity
+      await (supabase as any).from('agent_global_activities').insert({
+        agent_id: profile.id,
+        activity_type: 'document_uploaded',
+        description: `Uploaded document for request: ${selectedDocReq.document_type}`
+      })
+
+      toast.success('Document uploaded successfully')
+      setShowDocUploadModal(false)
+      setDocFile(null)
+      setDocAgentNote('')
+      setSelectedDocReq(null)
+      fetchProfileData() // Refresh the local document list
+      refreshProfile?.() // Refresh global profile state
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to upload document')
+    } finally {
+      setIsUploadingDoc(false)
     }
   }
 
@@ -1153,25 +1210,41 @@ export default function AgentProfilePage() {
                     {/* Contract Documents */}
                     {contractDocs.map(doc => (
                       <div key={doc.id} className="fb-doc-item">
-                        <div className="fb-doc-icon" style={{ color: '#10b981' }}><CheckCircle2 size={18} /></div>
+                        <div className="fb-doc-icon" style={{ color: doc.is_fulfilled ? '#10b981' : '#f59e0b' }}>
+                          {doc.is_fulfilled ? <CheckCircle2 size={18} /> : <AlertTriangle size={18} />}
+                        </div>
                         <div className="fb-doc-info">
                           <span className="fb-doc-name">{doc.document_type}</span>
-                          <span className="fb-doc-meta">{t('profile.documents.verifiedContractDoc') || 'Verified Contract Doc'}</span>
+                          <span className="fb-doc-meta" style={{ color: doc.is_fulfilled ? undefined : '#f59e0b', fontWeight: doc.is_fulfilled ? undefined : 600 }}>
+                            {doc.is_fulfilled ? (t('profile.documents.verifiedContractDoc') || 'Verified Contract Doc') : (t('profile.documents.actionRequired') || 'Action Required: Upload Document')}
+                          </span>
                         </div>
-                        <button
-                          type="button"
-                          disabled={docLoading === doc.id}
-                          onClick={async () => {
-                            setDocLoading(doc.id)
-                            const url = await getSecureUrl('agent-documents', doc.fulfilled_doc_url)
-                            setDocLoading(null)
-                            if (url) window.open(url, '_blank')
-                          }}
-                          className="fb-doc-view-btn"
-                          title={t('profile.documents.viewDocument') || 'View Document'}
-                        >
-                          {docLoading === doc.id ? <span className="spinner" style={{ width: 14, height: 14 }} /> : <Eye size={16} />}
-                        </button>
+                        {doc.is_fulfilled ? (
+                          <button
+                            type="button"
+                            disabled={docLoading === doc.id}
+                            onClick={async () => {
+                              setDocLoading(doc.id)
+                              const url = await getSecureUrl('agent-documents', doc.fulfilled_doc_url)
+                              setDocLoading(null)
+                              if (url) window.open(url, '_blank')
+                            }}
+                            className="fb-doc-view-btn"
+                            title={t('profile.documents.viewDocument') || 'View Document'}
+                          >
+                            {docLoading === doc.id ? <span className="spinner" style={{ width: 14, height: 14 }} /> : <Eye size={16} />}
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => { setSelectedDocReq(doc); setShowDocUploadModal(true); }}
+                            className="fb-doc-view-btn"
+                            style={{ color: '#3b82f6', borderColor: '#bfdbfe', background: '#eff6ff' }}
+                            title={t('profile.documents.upload') || 'Upload Document'}
+                          >
+                            <Upload size={16} />
+                          </button>
+                        )}
                       </div>
                     ))}
 
@@ -2140,6 +2213,88 @@ export default function AgentProfilePage() {
               <button className="fb-btn fb-btn-danger" onClick={handleDeleteAccount} disabled={deleteConfirmText !== 'DELETE' || accountLoading}>
                 {accountLoading ? <span className="spinner" /> : <Trash2 size={16} />}
                 {t('profile.account.deleteAccount.button')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Document Upload Modal */}
+      {showDocUploadModal && selectedDocReq && (
+        <div className="fb-modal-overlay" onClick={() => setShowDocUploadModal(false)}>
+          <div className="fb-modal" onClick={e => e.stopPropagation()}>
+            <div className="fb-modal-header" style={{ paddingBottom: '16px', borderBottom: '1px solid #e2e8f0', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ padding: '8px', background: '#eff6ff', borderRadius: '8px', color: '#3b82f6' }}>
+                  <Upload size={20} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#1e293b' }}>Upload Document</h3>
+                  <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748b' }}>{selectedDocReq.document_type}</p>
+                </div>
+              </div>
+              <button onClick={() => setShowDocUploadModal(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#94a3b8' }}>
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="fb-form-group">
+              <label className="fb-form-label">Select File (PDF, JPG, PNG)</label>
+              <div 
+                style={{ 
+                  border: '2px dashed #cbd5e1', 
+                  borderRadius: '12px', 
+                  padding: '32px 24px', 
+                  textAlign: 'center',
+                  background: '#f8fafc',
+                  cursor: 'pointer',
+                  position: 'relative'
+                }}
+                onClick={() => document.getElementById('docUploadInput')?.click()}
+              >
+                <input 
+                  id="docUploadInput"
+                  type="file" 
+                  accept=".pdf,.jpg,.jpeg,.png" 
+                  style={{ display: 'none' }}
+                  onChange={e => setDocFile(e.target.files?.[0] || null)}
+                />
+                {docFile ? (
+                  <div>
+                    <FileText size={32} style={{ color: '#3b82f6', marginBottom: '12px' }} />
+                    <p style={{ margin: 0, fontWeight: 600, color: '#1e293b' }}>{docFile.name}</p>
+                    <p style={{ margin: 0, fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>Click to change file</p>
+                  </div>
+                ) : (
+                  <div>
+                    <Upload size={32} style={{ color: '#94a3b8', marginBottom: '12px' }} />
+                    <p style={{ margin: 0, fontWeight: 600, color: '#1e293b' }}>Click to browse files</p>
+                    <p style={{ margin: 0, fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>Maximum size: 10MB</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="fb-form-group">
+              <label className="fb-form-label">Note to Contract Manager (Optional)</label>
+              <textarea 
+                className="fb-form-textarea" 
+                rows={3} 
+                placeholder="Add any extra details about this document..."
+                value={docAgentNote}
+                onChange={e => setDocAgentNote(e.target.value)}
+              />
+            </div>
+
+            <div className="fb-modal-actions" style={{ marginTop: '24px', paddingTop: '16px', borderTop: '1px solid #e2e8f0' }}>
+              <button className="fb-btn fb-btn-outline" onClick={() => setShowDocUploadModal(false)}>Cancel</button>
+              <button 
+                className="fb-btn fb-btn-primary" 
+                onClick={handleDocUploadSubmit} 
+                disabled={isUploadingDoc || !docFile}
+              >
+                {isUploadingDoc ? <span className="spinner" /> : <Check size={16} />}
+                Submit Document
               </button>
             </div>
           </div>

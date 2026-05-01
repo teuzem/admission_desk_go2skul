@@ -100,12 +100,27 @@ export interface ContractDocRequest {
   contract_id: string
   agent_id: string
   document_type: string
-  description: string | null
+  description?: string
   is_mandatory: boolean
   is_fulfilled: boolean
-  fulfilled_at: string | null
-  fulfilled_doc_url: string | null
-  priority: string
+  fulfilled_at?: string
+  fulfilled_doc_url?: string
+  agent_note?: string
+  requested_by: string
+  priority: 'low' | 'normal' | 'high' | 'urgent'
+  due_date?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface AgentGlobalActivity {
+  id: string
+  agent_id: string
+  activity_type: string
+  description: string
+  metadata?: any
+  ip_address?: string
+  user_agent?: string
   created_at: string
 }
 
