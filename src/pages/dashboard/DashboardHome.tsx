@@ -451,10 +451,10 @@ export default function DashboardHome() {
       const allCountries = Array.from(new Set([...uniCountries, ...campusCountries])).sort()
       setPfAllCountries(allCountries)
 
-      const allLevels = Array.from(new Set(progs.map((p: any) => p.level).filter(Boolean))).sort()
+      const allLevels = Array.from(new Set(progs.map((p: any) => p.level).filter(Boolean))).sort() as string[]
       setPfAllLevels(allLevels)
 
-      const allSubjects = Array.from(new Set(progs.map((p: any) => p.category).filter(Boolean))).sort()
+      const allSubjects = Array.from(new Set(progs.map((p: any) => p.category).filter(Boolean))).sort() as string[]
       setPfAllSubjects(allSubjects)
 
       if (user) {

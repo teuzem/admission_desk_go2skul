@@ -1,6 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef, ReactNode } from 'react'
-import { User, Session } from '@supabase/supabase-js'
-import { supabase, queryCache } from '../lib/supabase'
+import { supabase, queryCache, type User, type Session, type MfaChallenge } from '../lib/supabase'
 import type { Database, UserRole, KycStatus } from '../types/database'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
@@ -12,7 +11,8 @@ interface AuthContextValue {
   session: Session | null
   profile: ExtendedProfile | null
   loading: boolean
-  signIn: (email: string, password: string) => Promise<{ error: Error | null; profile?: ExtendedProfile | null }>
+  signIn: (email: string, password: string) => Promise<{ error: Error | null; session?: Session | null; mfa?: MfaChallenge | null; profile?: ExtendedProfile | null }>
+  completeSignIn: (session: Session) => Promise<ExtendedProfile | null>
   signUp: (email: string, password: string) => Promise<{ error: Error | null }>
   signOut: () => Promise<void>
   refreshProfile: () => Promise<ExtendedProfile | null>
@@ -282,26 +282,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [user, fetchProfile])
 
+  const completeSignIn = useCallback(async (nextSession: Session): Promise<ExtendedProfile | null> => {
+    setSession(nextSession)
+    setUser(nextSession.user)
+    profileFetchedForRef.current = nextSession.user.id
+    const nextProfile = await fetchProfile(nextSession.user)
+    setProfile(nextProfile)
+    if (nextProfile && (nextProfile.role === 'agent' || nextProfile.role === 'editor')) {
+      void (supabase as any).from('agent_global_activities').insert({
+        agent_id: nextProfile.id,
+        activity_type: 'login',
+        description: 'User logged in to the portal'
+      }).then()
+    }
+    return nextProfile
+  }, [fetchProfile])
+
   const signIn = async (email: string, password: string) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-    let p: ExtendedProfile | null = null
-    if (data?.session) {
-      setSession(data.session)
-      setUser(data.session.user)
-      profileFetchedForRef.current = data.session.user.id
-      p = await fetchProfile(data.session.user)
-      setProfile(p)
-
-      // Log login activity for agents
-      if (p && (p.role === 'agent' || p.role === 'editor')) {
-        (supabase as any).from('agent_global_activities').insert({
-          agent_id: p.id,
-          activity_type: 'login',
-          description: 'User logged in to the portal'
-        }).then() // Fire and forget
-      }
-    }
-    return { error: error as Error | null, session: data?.session, profile: p }
+    const nextProfile = data?.session ? await completeSignIn(data.session) : null
+    return { error: error as Error | null, session: data?.session, mfa: data?.mfa, profile: nextProfile }
   }
 
   const signUp = async (email: string, password: string) => {
@@ -352,6 +352,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       profile,
       loading,
       signIn,
+      completeSignIn,
       signUp,
       signOut,
       refreshProfile,

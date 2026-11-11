@@ -6,7 +6,7 @@ import {
   ImageIcon, CheckCircle2, Plus, X, Upload, Loader2, Save, MapPin
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
-import { uploadProgramCover } from '../../lib/storageHelpers'
+import { uploadProgramCover, IMAGE_FILE_ACCEPT, validateImageFile } from '../../lib/storageHelpers'
 import toast from 'react-hot-toast'
 import AdminHeader from '../../components/layout/AdminHeader'
 import AdminFooter from '../../components/layout/AdminFooter'
@@ -225,7 +225,8 @@ export default function AdminAddProgram() {
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    if (file.size > 5 * 1024 * 1024) { toast.error('Image must be under 5MB'); return }
+    const validationError = validateImageFile(file)
+    if (validationError) { toast.error(validationError); return }
     setCoverImage(file)
     setCoverPreview(URL.createObjectURL(file))
   }
@@ -311,10 +312,9 @@ export default function AdminAddProgram() {
 
           if (inserted) {
             if (coverImage) {
-              try { 
-                const url = await uploadProgramCover(inserted.id, coverImage)
-                await supabase.from('programs').update({ img_url: url }).eq('id', inserted.id)
-              } catch (e) { }
+              const url = await uploadProgramCover(inserted.id, coverImage)
+              const { error: mediaError } = await supabase.from('programs').update({ img_url: url }).eq('id', inserted.id)
+              if (mediaError) throw mediaError
             }
 
             if (!form.is_all_campuses && form.campus_ids.length > 0) {
@@ -361,11 +361,7 @@ export default function AdminAddProgram() {
             img_url: form.img_url
         }
 
-        if (coverImage) {
-          try { 
-            payload.img_url = await uploadProgramCover(newId, coverImage)
-          } catch (e) { console.error('Cover upload failed:', e) }
-        }
+        if (coverImage) payload.img_url = await uploadProgramCover(newId, coverImage)
 
         const { error } = await supabase.from('pending_submissions').insert({
           submitted_by: user?.id, submission_type: 'program', payload, status: 'pending'
@@ -403,10 +399,9 @@ export default function AdminAddProgram() {
         if (inserted) {
           // Upload cover image
           if (coverImage) {
-            try {
-              const imgUrl = await uploadProgramCover(inserted.id, coverImage)
-              await supabase.from('programs').update({ img_url: imgUrl }).eq('id', inserted.id)
-            } catch (imgErr) { console.error('Cover upload failed:', imgErr) }
+            const imgUrl = await uploadProgramCover(inserted.id, coverImage)
+            const { error: mediaError } = await supabase.from('programs').update({ img_url: imgUrl }).eq('id', inserted.id)
+            if (mediaError) throw mediaError
           }
           // Insert campus assignments for campus-specific programs
           if (!form.is_all_campuses && form.campus_ids.length > 0) {
@@ -807,7 +802,7 @@ export default function AdminAddProgram() {
                     <small>JPG, PNG, WebP — Max 5MB</small>
                   </div>
                 )}
-                <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageChange} style={{ display: 'none' }} />
+                <input ref={fileInputRef} type="file" accept={IMAGE_FILE_ACCEPT} onChange={handleImageChange} style={{ display: 'none' }} />
               </div>
             </div>
 

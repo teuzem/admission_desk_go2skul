@@ -6,7 +6,7 @@ import {
   Upload, X, Loader2, Save, MapPin, Plus, Trash2
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
-import { uploadUniversityLogo, uploadUniversityCampusImage } from '../../lib/storageHelpers'
+import { uploadUniversityLogo, uploadUniversityCampusImage, IMAGE_FILE_ACCEPT, validateImageFile } from '../../lib/storageHelpers'
 import toast from 'react-hot-toast'
 import AdminHeader from '../../components/layout/AdminHeader'
 import AdminFooter from '../../components/layout/AdminFooter'
@@ -162,7 +162,8 @@ export default function AdminAddUniversity() {
 
   const handleFileChange = (file: File | undefined, setFile: (f: File | null) => void, setPreview: (p: string | null) => void) => {
     if (!file) return
-    if (file.size > 5 * 1024 * 1024) { toast.error('File must be under 5MB'); return }
+    const validationError = validateImageFile(file)
+    if (validationError) { toast.error(validationError); return }
     setFile(file)
     setPreview(URL.createObjectURL(file))
   }
@@ -240,9 +241,12 @@ export default function AdminAddUniversity() {
             // Handle images (if provided in form or already in payload - note: images are usually separate)
             // For now, if Super Admin uploads new ones during review:
             const updates: any = {}
-            if (logoFile) { try { updates.logo_url = await uploadUniversityLogo(inserted.id, logoFile) } catch (e) { } }
-            if (campusFile) { try { updates.image_url = await uploadUniversityCampusImage(inserted.id, campusFile) } catch (e) { } }
-            if (Object.keys(updates).length > 0) await supabase.from('universities').update(updates).eq('id', inserted.id)
+            if (logoFile) updates.logo_url = await uploadUniversityLogo(inserted.id, logoFile)
+            if (campusFile) updates.image_url = await uploadUniversityCampusImage(inserted.id, campusFile)
+            if (Object.keys(updates).length > 0) {
+              const { error: mediaError } = await supabase.from('universities').update(updates).eq('id', inserted.id)
+              if (mediaError) throw mediaError
+            }
 
             // 2. Create campuses
             if (form.is_multisite && campuses.length > 0) {
@@ -286,14 +290,8 @@ export default function AdminAddUniversity() {
           image_url: form.image_url
         }
 
-        if (logoFile) { 
-          try { payload.logo_url = await uploadUniversityLogo(newId, logoFile) } 
-          catch (e) { console.error('Logo upload failed:', e) } 
-        }
-        if (campusFile) { 
-          try { payload.image_url = await uploadUniversityCampusImage(newId, campusFile) } 
-          catch (e) { console.error('Campus image upload failed:', e) } 
-        }
+        if (logoFile) payload.logo_url = await uploadUniversityLogo(newId, logoFile)
+        if (campusFile) payload.image_url = await uploadUniversityCampusImage(newId, campusFile)
 
         const { error } = await supabase.from('pending_submissions').insert({
           submitted_by: user?.id, submission_type: 'university', payload, status: 'pending'
@@ -322,9 +320,12 @@ export default function AdminAddUniversity() {
         if (inserted) {
           // Upload images
           const updates: any = {}
-          if (logoFile) { try { updates.logo_url = await uploadUniversityLogo(inserted.id, logoFile) } catch (e) { console.error('Logo upload failed:', e) } }
-          if (campusFile) { try { updates.image_url = await uploadUniversityCampusImage(inserted.id, campusFile) } catch (e) { console.error('Campus image upload failed:', e) } }
-          if (Object.keys(updates).length > 0) await supabase.from('universities').update(updates).eq('id', inserted.id)
+          if (logoFile) updates.logo_url = await uploadUniversityLogo(inserted.id, logoFile)
+          if (campusFile) updates.image_url = await uploadUniversityCampusImage(inserted.id, campusFile)
+          if (Object.keys(updates).length > 0) {
+            const { error: mediaError } = await supabase.from('universities').update(updates).eq('id', inserted.id)
+            if (mediaError) throw mediaError
+          }
 
           // Insert campuses for multisite
           if (form.is_multisite && campuses.length > 0) {
@@ -335,7 +336,7 @@ export default function AdminAddUniversity() {
               website_url: c.website_url || null, student_count: c.student_count, is_main: c.is_main
             }))
             const { error: campErr } = await supabase.from('university_campuses').insert(campusRows)
-            if (campErr) console.error('Campus insert failed:', campErr)
+            if (campErr) throw campErr
           }
 
           // Create an approved submission record for history/tracking
@@ -628,7 +629,7 @@ export default function AdminAddUniversity() {
                         <Upload size={22} /><span>Upload Logo</span><small>Max 5MB</small>
                       </div>
                     )}
-                    <input ref={logoInputRef} type="file" accept="image/*" onChange={e => handleFileChange(e.target.files?.[0], setLogoFile, setLogoPreview)} style={{ display: 'none' }} />
+                    <input ref={logoInputRef} type="file" accept={IMAGE_FILE_ACCEPT} onChange={e => handleFileChange(e.target.files?.[0], setLogoFile, setLogoPreview)} style={{ display: 'none' }} />
                   </div>
                 </div>
                 <div className="form-group">
@@ -644,7 +645,7 @@ export default function AdminAddUniversity() {
                         <Upload size={22} /><span>Upload Campus Image</span><small>Max 5MB</small>
                       </div>
                     )}
-                    <input ref={campusInputRef} type="file" accept="image/*" onChange={e => handleFileChange(e.target.files?.[0], setCampusFile, setCampusPreview)} style={{ display: 'none' }} />
+                    <input ref={campusInputRef} type="file" accept={IMAGE_FILE_ACCEPT} onChange={e => handleFileChange(e.target.files?.[0], setCampusFile, setCampusPreview)} style={{ display: 'none' }} />
                   </div>
                 </div>
               </div>

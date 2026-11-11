@@ -456,15 +456,13 @@ export default function AdmissionManagerDashboard() {
     let logo_url = null
     let image_url = null
     const tempId = crypto.randomUUID()
-    if (uniLogoFile) {
-      try {
-        logo_url = await uploadUniversityLogo(tempId, uniLogoFile)
-      } catch (e) { console.error('Logo upload failed:', e) }
-    }
-    if (uniCampusFile) {
-      try {
-        image_url = await uploadUniversityCampusImage(tempId, uniCampusFile)
-      } catch (e) { console.error('Campus image upload failed:', e) }
+    try {
+      if (uniLogoFile) logo_url = await uploadUniversityLogo(tempId, uniLogoFile)
+      if (uniCampusFile) image_url = await uploadUniversityCampusImage(tempId, uniCampusFile)
+    } catch (err: any) {
+      setSubmitting(false)
+      toast.error(err.message || 'Failed to upload university images')
+      return
     }
     // Build slug from name
     const slug = uniForm.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') + '-' + tempId.slice(0, 8)

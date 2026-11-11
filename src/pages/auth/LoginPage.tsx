@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../contexts/AuthContext'
@@ -9,6 +9,8 @@ import toast from 'react-hot-toast'
 import { Eye, EyeOff, Mail, Lock, GraduationCap, Clock, Shield, Globe } from 'lucide-react'
 import LanguageToggle from '../../components/ui/LanguageToggle'
 import SEOHead from '../../components/seo/SEOHead'
+import MfaChallenge, { PasskeySignInButton } from '../../components/auth/MfaChallenge'
+import { supabase, type MfaChallenge as MfaChallengeData, type Session } from '../../lib/supabase'
 import './AuthPages.css'
 
 const loginSchema = z.object({
@@ -21,37 +23,62 @@ type LoginForm = z.infer<typeof loginSchema>
 
 export default function LoginPage() {
   const { t, i18n } = useTranslation()
-  const { signIn } = useAuth()
+  const { signIn, completeSignIn } = useAuth()
   const navigate = useNavigate()
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [mfaChallenge, setMfaChallenge] = useState<MfaChallengeData | null>(null)
+
+  useEffect(() => {
+    let mounted = true
+    void supabase.auth.getPendingMfaChallenge().then(({ data }) => {
+      if (mounted && data) setMfaChallenge(data)
+    })
+    return () => { mounted = false }
+  }, [])
+
+  const cancelMfa = () => {
+    supabase.auth.clearPendingMfaChallenge()
+    setMfaChallenge(null)
+  }
 
   const { register, handleSubmit, formState: { errors } } = useForm<LoginForm>({
     resolver: zodResolver(loginSchema)
   })
 
+  const redirectAfterLogin = (profile: any) => {
+    if (profile?.role && profile.role !== 'agent' && profile.role !== 'editor') {
+      switch (profile.role) {
+        case 'admin': return navigate('/admin', { replace: true })
+        case 'admission_manager': return navigate('/admin/admissions', { replace: true })
+        case 'program_manager': return navigate('/admin/programs', { replace: true })
+        case 'technical_team': return navigate('/admin/support', { replace: true })
+        case 'contract_manager': return navigate('/admin/contracts', { replace: true })
+        default: return navigate('/admin', { replace: true })
+      }
+    }
+    navigate('/dashboard', { replace: true })
+  }
+
+  const finishLogin = async (session: Session) => {
+    setLoading(true)
+    try {
+      redirectAfterLogin(await completeSignIn(session))
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const onSubmit = async (values: LoginForm) => {
     setLoading(true)
-    const { error, profile } = await signIn(values.email, values.password)
+    const { error, profile, mfa } = await signIn(values.email, values.password)
     setLoading(false)
-
-    if (error) {
-      toast.error(t('auth.login.invalidCredentials'))
-    } else {
-      if (profile && profile.role && profile.role !== 'agent' && profile.role !== 'editor') {
-        // Admin or staff roles attempting to login via the agent portal. Redirect instantly.
-        switch (profile.role) {
-          case 'admin': return navigate('/admin', { replace: true })
-          case 'admission_manager': return navigate('/admin/admissions', { replace: true })
-          case 'program_manager': return navigate('/admin/programs', { replace: true })
-          case 'technical_team': return navigate('/admin/support', { replace: true })
-          case 'contract_manager': return navigate('/admin/contracts', { replace: true })
-          default: return navigate('/admin', { replace: true })
-        }
-      }
-      // Standard agent login
-      navigate('/dashboard', { replace: true })
+    if (error) return toast.error(t('auth.login.invalidCredentials'))
+    if (mfa) {
+      setMfaChallenge(mfa)
+      return
     }
+    redirectAfterLogin(profile)
   }
 
   const features = [
@@ -129,6 +156,10 @@ export default function LoginPage() {
         </div>
 
         <div className="auth-form-container">
+          {mfaChallenge ? (
+            <MfaChallenge challenge={mfaChallenge} onSuccess={finishLogin} onCancel={cancelMfa} />
+          ) : (
+          <>
           <div className="auth-form-header">
             <h2 className="auth-form-title">{t('auth.login.title')}</h2>
             <p className="auth-form-subtitle">{t('auth.login.subtitle')}</p>
@@ -207,6 +238,8 @@ export default function LoginPage() {
               )}
             </button>
 
+            <PasskeySignInButton onSuccess={finishLogin} />
+
             {/* Divider */}
             <div className="divider">{t('common.or')}</div>
 
@@ -227,6 +260,8 @@ export default function LoginPage() {
               <Link to="/signup" className="auth-link-accent">{t('auth.login.createAccount')}</Link>
             </p>
           </form>
+          </>
+          )}
         </div>
       </div>
       </div>

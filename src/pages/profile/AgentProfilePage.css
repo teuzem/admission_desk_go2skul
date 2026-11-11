@@ -1024,6 +1024,56 @@
   text-align: center;
 }
 
+.fb-passkey-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+.fb-security-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  margin-top: 1rem;
+  padding: 0.85rem;
+  border-radius: 10px;
+  background: #eef2ff;
+  color: #4338ca;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.fb-security-note svg {
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+}
+
+.fb-security-note p {
+  margin: 0;
+}
+
+.fb-security-note.warning {
+  background: #fffbeb;
+  color: #92400e;
+}
+
+.fb-recovery-modal {
+  max-width: 600px;
+}
+
+.fb-recovery-modal .fb-code-grid {
+  grid-template-columns: repeat(2, 1fr);
+  padding: 1rem;
+  border-radius: 12px;
+  background: #fffbeb;
+}
+
+.fb-recovery-modal .fb-btn-group {
+  flex-wrap: wrap;
+  margin-top: 1.25rem;
+}
+
 .fb-btn-group {
   display: flex;
   gap: 0.75rem;
@@ -2078,8 +2128,14 @@
     grid-template-columns: 1fr;
   }
 
-  .fb-recovery-codes-grid {
+  .fb-recovery-codes-grid,
+  .fb-recovery-modal .fb-code-grid {
     grid-template-columns: 1fr;
+  }
+
+  .fb-passkey-form {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .fb-setting-row {

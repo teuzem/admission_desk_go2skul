@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { supabase } from '../../lib/supabase'
+import { supabase, type MfaChallenge as MfaChallengeData } from '../../lib/supabase'
+import MfaChallenge from '../../components/auth/MfaChallenge'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -23,6 +24,21 @@ export default function ResetPasswordPage() {
   const [showPass, setShowPass] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [ready, setReady] = useState(false)
+  const [challenge, setChallenge] = useState<MfaChallengeData | null>(null)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let mounted = true
+    void Promise.all([supabase.auth.getSession(), supabase.auth.getPendingMfaChallenge()]).then(([session, mfa]) => {
+      if (!mounted) return
+      if (mfa.error) setError(mfa.error.message)
+      else if (mfa.data) setChallenge(mfa.data)
+      else if (session.data.session) setReady(true)
+      else setError('This recovery link is invalid or expired. Please request a new link.')
+    })
+    return () => { mounted = false }
+  }, [])
 
   const { register, handleSubmit, formState: { errors } } = useForm<Form>({ resolver: zodResolver(schema) })
 
@@ -56,6 +72,23 @@ export default function ResetPasswordPage() {
       </div>
       <div className="auth-centered-card">
         <div className="auth-card">
+          {challenge ? (
+            <MfaChallenge challenge={challenge} firstStep="email" onSuccess={() => {
+              setChallenge(null)
+              setReady(true)
+            }} onCancel={() => {
+              supabase.auth.clearPendingMfaChallenge()
+              navigate('/login', { replace: true })
+            }} />
+          ) : error ? (
+            <>
+              <p role="alert">{error}</p>
+              <Link to="/auth/forgot-password" className="btn btn-primary btn-full">{t('auth.login.forgotPassword')}</Link>
+            </>
+          ) : !ready ? (
+            <p role="status">{t('common.loading')}</p>
+          ) : (
+          <>
           <div className="auth-card-icon email"><Lock size={36} /></div>
           <h2 className="auth-card-title">{t('auth.resetPassword.title')}</h2>
           <p className="auth-card-subtitle">{t('auth.resetPassword.subtitle')}</p>
@@ -82,6 +115,8 @@ export default function ResetPasswordPage() {
               {loading ? <><span className="spinner" />{t('common.loading')}</> : t('auth.resetPassword.setPassword')}
             </button>
           </form>
+          </>
+          )}
         </div>
       </div>
     </div>

@@ -6,7 +6,7 @@ import {
   ImageIcon, CheckCircle2, Plus, X, Upload, Loader2, Save, MapPin
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
-import { uploadProgramCover } from '../../lib/storageHelpers'
+import { uploadProgramCover, IMAGE_FILE_ACCEPT, validateImageFile } from '../../lib/storageHelpers'
 import toast from 'react-hot-toast'
 import AdminHeader from '../../components/layout/AdminHeader'
 import AdminFooter from '../../components/layout/AdminFooter'
@@ -221,7 +221,8 @@ export default function AdminEditProgram() {
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    if (file.size > 5 * 1024 * 1024) { toast.error('Image must be under 5MB'); return }
+    const validationError = validateImageFile(file)
+    if (validationError) { toast.error(validationError); return }
     setCoverImage(file)
     setCoverPreview(URL.createObjectURL(file))
   }
@@ -295,11 +296,7 @@ export default function AdminEditProgram() {
           slug: updates.slug
         }
 
-        if (coverImage) {
-          try { 
-            payload.img_url = await uploadProgramCover(id, coverImage)
-          } catch (e) { console.error('Cover upload failed:', e) }
-        }
+        if (coverImage) payload.img_url = await uploadProgramCover(id, coverImage)
 
         payload.campuses_details = !form.is_all_campuses && campuses.length > 0
             ? campuses.filter(c => form.campus_ids.includes(c.id)).map(c => ({
@@ -318,9 +315,7 @@ export default function AdminEditProgram() {
         toast.success('Update submitted for approval!')
         navigate('/admin/programs')
       } else {
-        if (coverImage) {
-          try { updates.img_url = await uploadProgramCover(id, coverImage) } catch (e) { console.error('Cover upload failed:', e) }
-        }
+        if (coverImage) updates.img_url = await uploadProgramCover(id, coverImage)
         const { error } = await supabase.from('programs').update(updates).eq('id', id)
         if (error) throw error
 
@@ -714,7 +709,7 @@ export default function AdminEditProgram() {
                     <small>JPG, PNG, WebP — Max 5MB</small>
                   </div>
                 )}
-                <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageChange} style={{ display: 'none' }} />
+                <input ref={fileInputRef} type="file" accept={IMAGE_FILE_ACCEPT} onChange={handleImageChange} style={{ display: 'none' }} />
               </div>
             </div>
 

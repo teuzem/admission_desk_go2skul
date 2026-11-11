@@ -4,6 +4,21 @@
  */
 import { supabase } from './supabase'
 
+const IMAGE_EXTENSIONS: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+}
+
+export const IMAGE_FILE_ACCEPT = Object.keys(IMAGE_EXTENSIONS).join(',')
+
+export function validateImageFile(file: File, maxSizeMB = 5): string | null {
+  if (!IMAGE_EXTENSIONS[file.type.toLowerCase()]) return 'Choose a JPG, PNG, or WebP image'
+  if (file.size === 0) return 'The selected image is empty'
+  if (file.size > maxSizeMB * 1024 * 1024) return `Image must be under ${maxSizeMB}MB`
+  return null
+}
+
 /** Gets the public URL for a file in a public bucket */
 export function getPublicUrl(bucket: string, path: string): string {
   const { publicUrl } = supabase.storage.from(bucket).getPublicUrl(path).data
@@ -18,6 +33,12 @@ async function uploadFile(
   file: File,
   isPublic: boolean = true
 ): Promise<string> {
+  if (isPublic) {
+    const validationError = validateImageFile(file)
+    if (validationError) throw new Error(validationError)
+    path = path.replace(/\.[^./]+$/, `.${IMAGE_EXTENSIONS[file.type.toLowerCase()]}`)
+  }
+
   const { error } = await supabase.storage
     .from(bucket)
     .upload(path, file, { upsert: true, contentType: file.type })

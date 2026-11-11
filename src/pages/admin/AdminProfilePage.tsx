@@ -58,6 +58,7 @@ import {
   Cpu
 } from 'lucide-react'
 import { toast } from 'react-hot-toast'
+import { startRegistration } from '@simplewebauthn/browser'
 import PhoneInput, { isValidPhoneNumber } from 'react-phone-number-input'
 import 'react-phone-number-input/style.css'
 import Select from 'react-select'
@@ -203,15 +204,8 @@ const AdminProfilePage: React.FC = () => {
   const [showSecurityKeyModal, setShowSecurityKeyModal] = useState(false)
   const [securityKeyName, setSecurityKeyName] = useState('')
   const [recoveryEmailInput, setRecoveryEmailInput] = useState('')
-  const [isVerifyingPhone, setIsVerifyingPhone] = useState(false)
-  const [phoneOtp, setPhoneOtp] = useState(['', '', '', '', '', ''])
-  const [isPhoneModalOpen, setIsPhoneModalOpen] = useState(false)
   const [auditLog, setAuditLog] = useState<any[]>([])
   const [auditLogLoading, setAuditLogLoading] = useState(false)
-  const [phoneInput, setPhoneInput] = useState('')
-  const [phoneOtpSent, setPhoneOtpSent] = useState(false)
-  const [showPhoneModal, setShowPhoneModal] = useState(false)
-  const [phoneOtpValue, setPhoneOtpValue] = useState('')
   const otpRefs = useRef<(HTMLInputElement | null)[]>([])
 
   // Calculate profile completion percentage
@@ -334,8 +328,8 @@ const AdminProfilePage: React.FC = () => {
 
   const fetchSecurityKeys = useCallback(async () => {
     if (!user) return
-    const { data } = await (supabase as any).from('user_security_keys').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
-    setSecurityKeys(data || [])
+    const { data, error } = await supabase.auth.passkeys.list()
+    if (!error) setSecurityKeys(data || [])
   }, [user])
 
   const handleUpdateRecoveryEmail = async () => {
@@ -361,27 +355,10 @@ const AdminProfilePage: React.FC = () => {
     if (!user) return
     try {
       setMfaLoading(true)
-      // Generate 10 random 8-character codes
-      const codes = Array.from({ length: 10 }, () => 
-        Math.random().toString(36).substring(2, 10).toUpperCase()
-      )
-      
-      // Delete old codes first
-      await (supabase as any).from('user_backup_codes').delete().eq('user_id', user.id)
-      
-      // In a real app, you should hash these. For this demo, we'll store them or just show them.
-      // We'll store a timestamp to show they've been generated.
-      const codeInserts = codes.map(c => ({
-        user_id: user.id,
-        code_hash: c, // In production, hash this!
-        is_used: false
-      }))
-      
-      await (supabase as any).from('user_backup_codes').insert(codeInserts)
-      await supabase.from('user_security_settings').update({ 
-        backup_codes_generated_at: new Date().toISOString() 
-      }).eq('user_id', user.id)
-      
+      const { data, error } = await supabase.auth.mfa.generateRecoveryCodes()
+      if (error || !data?.codes) throw error || new Error('Unable to generate recovery codes')
+      const codes = data.codes as string[]
+      setSecuritySettings(prev => ({ ...prev, backup_codes_generated_at: data.generated_at }))
       setBackupCodes(codes)
       setShowBackupCodesModal(true)
       
@@ -406,76 +383,23 @@ const AdminProfilePage: React.FC = () => {
     }
   }
 
-  const handleStartPhoneVerify = async () => {
-    if (!user || !profile?.phone) {
-      toast.error('Please add a phone number to your profile first')
-      return
-    }
-    setShowPhoneModal(true)
-    // In a real app, trigger Supabase Auth OTP or SMS service here
-    toast.success('Verification code sent to ' + (phoneInput || profile.phone))
-    setPhoneOtpSent(true)
-  }
-
-  const handleVerifyPhoneOtp = async () => {
-    const code = phoneOtpValue
-    if (code.length < 6) {
-      toast.error('Please enter a 6-digit code')
-      return
-    }
-    
-    setIsVerifyingPhone(true)
-    try {
-      // Simulate verification
-      await new Promise(resolve => setTimeout(resolve, 1500))
-      
-      const { error } = await supabase
-        .from('user_security_settings')
-        .update({ 
-          is_phone_verified: true,
-          phone_verified_at: new Date().toISOString()
-        })
-        .eq('user_id', user.id)
-      
-      if (error) throw error
-      await logSecurityEvent('phone_verified')
-      toast.success('Phone number verified successfully')
-      setShowPhoneModal(false)
-      setSecuritySettings(prev => ({ ...prev, is_phone_verified: true }))
-    } catch (err: any) {
-      toast.error(err.message)
-    } finally {
-      setIsVerifyingPhone(false)
-    }
-  }
-
   const handleAddSecurityKey = async () => {
-    if (!user || !securityKeyName) return
+    if (!user) return
     try {
       setMfaLoading(true)
-      // WebAuthn simulation - in a real app, use @simplewebauthn/browser
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      
-      const { error } = await (supabase as any).from('user_security_keys').insert({
-        user_id: user.id,
-        key_name: securityKeyName,
-        credential_id: 'simulated_' + Math.random().toString(36).substring(7),
-        public_key: 'simulated_pk'
-      })
-      
+      const { data: options, error: optionsError } = await supabase.auth.passkeys.registerOptions()
+      if (optionsError || !options) throw optionsError || new Error('Unable to start passkey registration')
+      const { challenge_ticket: ticket, ...optionsJSON } = options
+      const response = await startRegistration({ optionsJSON })
+      const { error } = await supabase.auth.passkeys.verifyRegistration({ ticket, response, name: securityKeyName.trim() || 'My passkey' })
       if (error) throw error
-      
-      await supabase.from('user_security_settings').update({ 
-        security_keys_enabled: true 
-      }).eq('user_id', user.id)
-      
-      await logSecurityEvent('security_key_added', { name: securityKeyName })
-      toast.success('Wait, security keys are handled via browser biometric prompt.')
-      setShowSecurityKeyModal(false)
+      toast.success('Passkey registered successfully')
       setSecurityKeyName('')
-      fetchSecurityKeys()
+      await fetchSecurityKeys()
+      await fetchSecuritySettings()
     } catch (err: any) {
-      toast.error(err.message)
+      const message = err?.name === 'NotAllowedError' ? 'Passkey registration was cancelled or timed out' : err.message
+      toast.error(message)
     } finally {
       setMfaLoading(false)
     }
@@ -483,9 +407,11 @@ const AdminProfilePage: React.FC = () => {
 
   const handleDeleteSecurityKey = async (id: string) => {
     try {
-      await supabase.from('user_security_keys').delete().eq('id', id)
-      toast.success('Security key removed')
-      fetchSecurityKeys()
+      const { error } = await supabase.auth.passkeys.remove(id)
+      if (error) throw error
+      toast.success('Passkey removed')
+      await fetchSecurityKeys()
+      await fetchSecuritySettings()
     } catch (err: any) {
       toast.error(err.message)
     }
@@ -710,17 +636,30 @@ const AdminProfilePage: React.FC = () => {
     }
   }, [activeTab, registerCurrentDevice, fetchDevices, fetchAuditLog, fetchSecuritySettings, fetchSecurityKeys])
 
+  useEffect(() => {
+    if (!user) return
+    let mounted = true
+    void supabase.auth.mfa.listFactors().then(({ data, error }) => {
+      if (!mounted) return
+      if (error) {
+        toast.error(error.message)
+        return
+      }
+      const factor = data?.totp[0]
+      setTwoFactorEnabled(Boolean(factor))
+      setMfaFactorId(factor?.id ?? '')
+    })
+    return () => { mounted = false }
+  }, [user?.id])
+
   const handlePasswordUpdate = async () => {
     if (!passwordForm.currentPassword || !passwordForm.newPassword) return
     setPasswordLoading(true)
     try {
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: user?.email || '',
-        password: passwordForm.currentPassword
+      const { error } = await supabase.auth.updateUser({
+        password: passwordForm.newPassword,
+        current_password: passwordForm.currentPassword,
       })
-      if (signInError) throw new Error('Current password incorrect')
-
-      const { error } = await supabase.auth.updateUser({ password: passwordForm.newPassword })
       if (error) throw error
 
       await logSecurityEvent('password_change')
@@ -759,11 +698,31 @@ const AdminProfilePage: React.FC = () => {
       const { error: verifyError } = await supabase.auth.mfa.verify({ factorId: mfaFactorId, challengeId: challengeData.id, code })
       if (verifyError) throw verifyError
       setTwoFactorEnabled(true)
-      setMfaStep(3)
+      setShow2FASetup(false)
+      setMfaStep(1)
+      setMfaVerifyCode(['', '', '', '', '', ''])
       await logSecurityEvent('2fa_enabled')
       toast.success('2FA enabled successfully')
     } catch (err: any) {
       toast.error(err.message)
+    } finally {
+      setMfaLoading(false)
+    }
+  }
+
+  const handleMfaDisable = async () => {
+    if (!mfaFactorId) return
+    setMfaLoading(true)
+    try {
+      const { error } = await supabase.auth.mfa.unenroll({ factorId: mfaFactorId })
+      if (error) throw error
+      setTwoFactorEnabled(false)
+      setMfaFactorId('')
+      setShow2FASetup(false)
+      await logSecurityEvent('2fa_disabled')
+      toast.success('Two-factor authentication disabled')
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to disable two-factor authentication')
     } finally {
       setMfaLoading(false)
     }
@@ -1655,9 +1614,6 @@ const AdminProfilePage: React.FC = () => {
                             <span className={`status-badge ${twoFactorEnabled ? 'active' : 'inactive'}`}>
                               TOTP: {twoFactorEnabled ? 'ACTIVE' : 'OFF'}
                             </span>
-                            <span className={`status-badge ${securitySettings.is_phone_verified ? 'active' : 'inactive'}`}>
-                              SMS: {securitySettings.is_phone_verified ? 'VERIFIED' : 'PENDING'}
-                            </span>
                           </div>
                         </div>
 
@@ -1674,27 +1630,10 @@ const AdminProfilePage: React.FC = () => {
                                   <span className="text-green-600 text-xs font-bold flex items-center gap-1">
                                     <ShieldCheck size={14} /> ACTIVE
                                   </span>
-                                  <button className="text-[10px] text-slate-400 hover:text-red-500 transition-colors" onClick={() => setShow2FASetup(true)}>Disable</button>
+                                  <button className="text-[10px] text-slate-400 hover:text-red-500 transition-colors" onClick={handleMfaDisable} disabled={mfaLoading}>Disable</button>
                                 </div>
                               ) : (
                                 <button className="btn-sm btn-primary" onClick={handleStartMfaEnroll}>Setup</button>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className={`mfa-method-card ${securitySettings.is_phone_verified ? 'method-active' : ''}`}>
-                            <div className="method-icon"><PhoneIcon size={24} /></div>
-                            <div className="method-info">
-                              <h4>Phone Verification</h4>
-                              <p>Verify your phone number for account recovery and SMS alerts.</p>
-                            </div>
-                            <div className="method-action">
-                              {securitySettings.is_phone_verified ? (
-                                <div className="flex items-center text-green-600 text-xs font-bold gap-1">
-                                  <ShieldCheck size={14} /> VERIFIED
-                                </div>
-                              ) : (
-                                <button className="btn-sm btn-primary" onClick={handleStartPhoneVerify}>Verify Now</button>
                               )}
                             </div>
                           </div>
@@ -2103,61 +2042,6 @@ const AdminProfilePage: React.FC = () => {
         </div>
       )}
 
-      {/* Phone Verification Modal */}
-      {showPhoneModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[1100] flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
-            <div className="p-8">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-2xl font-bold text-slate-900">Phone Verification</h3>
-                <button onClick={() => setShowPhoneModal(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
-                  <X size={20} className="text-slate-400" />
-                </button>
-              </div>
-
-              {!phoneOtpSent ? (
-                <div className="space-y-6">
-                  <p className="text-slate-500">Enter your phone number to receive a verification code via SMS.</p>
-                  <div className="form-group">
-                    <label className="form-label">Phone Number</label>
-                    <input 
-                      type="tel" 
-                      className="form-input" 
-                      placeholder="+1234567890"
-                      value={phoneInput}
-                      onChange={e => setPhoneInput(e.target.value)}
-                    />
-                  </div>
-                  <button className="btn btn-primary w-full" onClick={handleStartPhoneVerify} disabled={saving}>
-                    {saving ? <RefreshCw className="animate-spin" /> : 'Send Code'}
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  <p className="text-slate-500 text-center">We've sent a 6-digit code to <strong>{phoneInput}</strong></p>
-                  <div className="otp-input-group justify-center">
-                    <input 
-                      type="text" 
-                      className="form-input text-center text-2xl tracking-[0.5em] font-bold" 
-                      maxLength={6}
-                      placeholder="000000"
-                      value={phoneOtpValue}
-                      onChange={e => setPhoneOtpValue(e.target.value)}
-                    />
-                  </div>
-                  <button className="btn btn-primary w-full" onClick={handleVerifyPhoneOtp} disabled={saving}>
-                    {saving ? <RefreshCw className="animate-spin" /> : 'Verify & Link Phone'}
-                  </button>
-                  <button className="btn btn-ghost w-full" onClick={() => setPhoneOtpSent(false)}>
-                    Use a different number
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Security Key Modal */}
       {showSecurityKeyModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[1100] flex items-center justify-center p-4">
@@ -2187,7 +2071,7 @@ const AdminProfilePage: React.FC = () => {
                         <div className="key-name">{key.key_name}</div>
                         <div className="key-date">Added on {new Date(key.created_at).toLocaleDateString()}</div>
                       </div>
-                      <button className="text-slate-400 hover:text-red-500 transition-colors">
+                      <button className="text-slate-400 hover:text-red-500 transition-colors" onClick={() => handleDeleteSecurityKey(key.id)} aria-label={`Remove ${key.key_name}`}>
                         <Trash2 size={16} />
                       </button>
                     </div>
@@ -2195,8 +2079,12 @@ const AdminProfilePage: React.FC = () => {
                 )}
               </div>
 
-              <button className="btn btn-primary w-full mt-6" onClick={handleAddSecurityKey} disabled={saving}>
-                <Plus size={16} /> Register New Key
+              <div className="mt-6">
+                <label className="block text-xs font-semibold text-slate-600 mb-2" htmlFor="security-key-name">Passkey name</label>
+                <input id="security-key-name" className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm" value={securityKeyName} onChange={event => setSecurityKeyName(event.target.value)} placeholder="MacBook, YubiKey, Pixel…" maxLength={80} />
+              </div>
+              <button className="btn btn-primary w-full mt-4" onClick={handleAddSecurityKey} disabled={mfaLoading}>
+                {mfaLoading ? <RefreshCw size={16} className="animate-spin" /> : <Plus size={16} />} {mfaLoading ? 'Follow your device prompt…' : 'Register New Passkey'}
               </button>
               
               <div className="mt-6 p-4 bg-blue-50 rounded-xl flex gap-3 text-blue-700 text-xs">

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../contexts/AuthContext'
@@ -9,6 +9,8 @@ import { z } from 'zod'
 import toast from 'react-hot-toast'
 import { Eye, EyeOff, Mail, Lock, Shield, AlertTriangle } from 'lucide-react'
 import LanguageToggle from '../../components/ui/LanguageToggle'
+import MfaChallenge, { PasskeySignInButton } from '../../components/auth/MfaChallenge'
+import type { MfaChallenge as MfaChallengeData, Session } from '../../lib/supabase'
 import '../auth/AuthPages.css'
 import './AdminPages.css'
 
@@ -20,107 +22,87 @@ type Form = z.infer<typeof schema>
 
 export default function AdminLoginPage() {
   const { t } = useTranslation()
-  const { signIn, refreshProfile } = useAuth()
+  const { signIn, completeSignIn, refreshProfile } = useAuth()
   const navigate = useNavigate()
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [mfaChallenge, setMfaChallenge] = useState<MfaChallengeData | null>(null)
+
+  useEffect(() => {
+    let mounted = true
+    void supabase.auth.getPendingMfaChallenge().then(({ data }) => {
+      if (mounted && data) setMfaChallenge(data)
+    })
+    return () => { mounted = false }
+  }, [])
+
+  const cancelMfa = () => {
+    supabase.auth.clearPendingMfaChallenge()
+    setMfaChallenge(null)
+  }
 
   const { register, handleSubmit, formState: { errors } } = useForm<Form>({ resolver: zodResolver(schema) })
 
+  const finishAdminLogin = async (signInProfile: any) => {
+    const { data: inviteResult } = await supabase.auth.acceptAdminInvite()
+    if (inviteResult?.profile?.role) {
+      const roleLabels: Record<string, string> = {
+        admin: 'Admin', admission_manager: 'Admission Manager', program_manager: 'Program Manager',
+        technical_team: 'Technical Team', contract_manager: 'Contract Manager',
+      }
+      toast.success(`Welcome! You've been assigned as ${roleLabels[inviteResult.profile.role] || inviteResult.profile.role}.`)
+    }
+    const updatedProfile = await refreshProfile()
+    const finalProfile = updatedProfile || signInProfile
+    if (!finalProfile) {
+      toast.error('Unable to load your profile. Please check your connection and try again.')
+      await supabase.auth.signOut()
+      return
+    }
+    if (finalProfile.is_active === false) {
+      toast.error('Your account has been suspended or blocked. Please contact the administrator.')
+      await supabase.auth.signOut()
+      return
+    }
+    switch (finalProfile.role) {
+      case 'admission_manager': return navigate('/admin/admissions', { replace: true })
+      case 'program_manager': return navigate('/admin/programs', { replace: true })
+      case 'technical_team': return navigate('/admin/support', { replace: true })
+      case 'contract_manager': return navigate('/admin/contracts', { replace: true })
+      case 'admin': return navigate('/admin', { replace: true })
+      default:
+        toast.error('Access denied. This login is for admin staff users only.')
+        await supabase.auth.signOut()
+    }
+  }
+
+  const finishMfaLogin = async (session: Session) => {
+    setLoading(true)
+    try {
+      await finishAdminLogin(await completeSignIn(session))
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const onSubmit = async (values: Form) => {
     setLoading(true)
-
     try {
-      // Step 1: Sign in — this also triggers self-healing profile creation
-      const { error, profile: signInProfile } = await signIn(values.email, values.password)
-
+      const { error, profile, mfa } = await signIn(values.email, values.password)
       if (error) {
-        setLoading(false)
         toast.error(t('auth.login.invalidCredentials'))
         return
       }
-
-      // Step 2: Check for pending admin invite and auto-assign role
-      const { data: { user: authUser } } = await supabase.auth.getUser()
-      if (!authUser) {
-        setLoading(false)
-        toast.error('Authentication failed. Please try again.')
+      if (mfa) {
+        setMfaChallenge(mfa)
         return
       }
-
-      const { data: invite } = await supabase
-        .from('admin_user_invites').select('id, role, status')
-        .eq('email', values.email.toLowerCase()).eq('status', 'approved').maybeSingle()
-
-      if (invite) {
-        const isTech = invite.role === 'technical_team'
-        const { error: updateErr } = await supabase.from('profiles').update({
-          role: invite.role as any,
-          is_active: true,
-          is_technical_team: isTech,
-        }).eq('id', authUser.id)
-
-        if (!updateErr) {
-          await supabase.from('admin_user_invites').update({
-            status: 'registered'
-          }).eq('id', invite.id)
-          const roleLabels: Record<string, string> = {
-            admin: 'Admin',
-            admission_manager: 'Admission Manager',
-            program_manager: 'Program Manager',
-            technical_team: 'Technical Team',
-            contract_manager: 'Contract Manager',
-          }
-          toast.success(`Welcome! You've been assigned as ${roleLabels[invite.role] || invite.role}.`)
-        }
-      }
-
-      // Step 3: Refresh profile to pick up any invite-based role changes
-      const updatedProfile = await refreshProfile()
-
-      // Use whichever profile we have — refreshed takes priority, then signIn result
-      const finalProfile = updatedProfile || signInProfile
-
-      setLoading(false)
-
-      if (!finalProfile) {
-        // This should almost never happen now with self-healing + cache + synthetic fallback
-        toast.error('Unable to load your profile. Please check your connection and try again.')
-        await supabase.auth.signOut()
-        return
-      }
-
-      if (finalProfile.is_active === false) {
-        toast.error('Your account has been suspended or blocked. Please contact the administrator.')
-        await supabase.auth.signOut()
-        return
-      }
-
-      // Step 4: Redirect based on role
-      switch (finalProfile.role) {
-        case 'admission_manager':
-          navigate('/admin/admissions', { replace: true })
-          break
-        case 'program_manager':
-          navigate('/admin/programs', { replace: true })
-          break
-        case 'technical_team':
-          navigate('/admin/support', { replace: true })
-          break
-        case 'contract_manager':
-          navigate('/admin/contracts', { replace: true })
-          break
-        case 'admin':
-          navigate('/admin', { replace: true })
-          break
-        default:
-          toast.error('Access denied. This login is for admin staff users only.')
-          await supabase.auth.signOut()
-      }
+      await finishAdminLogin(profile)
     } catch (err) {
-      setLoading(false)
       console.error('[AdminLogin] Error during login flow:', err)
       toast.error('An error occurred during login. Please try again.')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -142,6 +124,10 @@ export default function AdminLoginPage() {
 
       <div className="auth-centered-card">
         <div className="auth-card admin-card">
+          {mfaChallenge ? (
+            <MfaChallenge challenge={mfaChallenge} onSuccess={finishMfaLogin} onCancel={cancelMfa} />
+          ) : (
+          <>
           {/* Admin Badge */}
           <div className="admin-badge">
             <Shield size={12} />
@@ -182,10 +168,14 @@ export default function AdminLoginPage() {
               {loading ? <><span className="spinner" />{t('common.loading')}</> : <><Shield size={16} /> Sign In as Admin</>}
             </button>
 
+            <PasskeySignInButton admin onSuccess={finishMfaLogin} />
+
             <Link to="/login" className="btn btn-ghost btn-full" style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:'0.5rem', marginTop:'0.5rem' }}>
               ← Back to Agent Login
             </Link>
           </form>
+          </>
+          )}
         </div>
       </div>
     </div>

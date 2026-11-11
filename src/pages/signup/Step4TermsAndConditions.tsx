@@ -47,7 +47,6 @@ export default function Step4TermsAndConditions() {
         const { error: profileError } = await supabase.from('profiles').update({
           first_name: data.firstName,
           last_name: data.lastName,
-          role: 'agent' as any,
           is_super_agent: true,
           agency_name: data.registeredCompanyName,
           phone: data.mobileNumber,

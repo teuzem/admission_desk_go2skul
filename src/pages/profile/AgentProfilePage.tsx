@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { startRegistration } from '@simplewebauthn/browser'
 import {
   Camera, Save, User as UserIcon, Building, MapPin, Globe, Phone, Mail,
   Shield, Clock, Lock, Smartphone, LogOut, Trash2, AlertTriangle,
@@ -8,7 +9,7 @@ import {
   Users as UsersIcon, Link as LinkIcon, Copy, ExternalLink, GraduationCap,
   Facebook, Twitter, Linkedin, Instagram, Youtube, MessageCircle, Navigation, Briefcase,
   Monitor, Tablet, ShieldCheck, ShieldAlert, Key, Download, Info, Check, ChevronDown,
-  Activity, RefreshCw, UserX, FileText, Clipboard, Upload
+  Activity, RefreshCw, UserX, FileText, Clipboard, Upload, Fingerprint
 } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
@@ -27,6 +28,15 @@ const KYC_STATUS_CONFIG: Record<string, { labelKey: string; color: string; bg: s
 }
 
 type TabType = 'profile' | 'security' | 'account'
+
+type Passkey = {
+  id: string
+  key_name: string
+  device_type: string | null
+  backed_up: boolean
+  created_at: string
+  last_used_at: string | null
+}
 
 export default function AgentProfilePage() {
   const { t } = useTranslation()
@@ -93,6 +103,15 @@ export default function AgentProfilePage() {
   const [mfaLoading, setMfaLoading] = useState(false)
   const [mfaChallengeId, setMfaChallengeId] = useState('')
   const otpRefs = useRef<(HTMLInputElement | null)[]>([])
+  const [passkeys, setPasskeys] = useState<Passkey[]>([])
+  const [passkeysLoading, setPasskeysLoading] = useState(false)
+  const [passkeyLoading, setPasskeyLoading] = useState(false)
+  const [passkeyName, setPasskeyName] = useState('')
+  const [recoveryLoading, setRecoveryLoading] = useState(false)
+  const [recoveryRemaining, setRecoveryRemaining] = useState(0)
+  const [recoveryGeneratedAt, setRecoveryGeneratedAt] = useState<string | null>(null)
+  const [recoveryCodes, setRecoveryCodes] = useState<string[]>([])
+  const [showRecoveryCodes, setShowRecoveryCodes] = useState(false)
 
   // Device management state
   const [devices, setDevices] = useState<any[]>([])
@@ -443,14 +462,10 @@ export default function AgentProfilePage() {
     }
     setPasswordLoading(true)
     try {
-      // Verify current password first
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: user?.email || '',
-        password: passwordForm.currentPassword
+      const { error } = await supabase.auth.updateUser({
+        password: passwordForm.newPassword,
+        current_password: passwordForm.currentPassword,
       })
-      if (signInError) throw new Error(t('profile.security.password.error'))
-
-      const { error } = await supabase.auth.updateUser({ password: passwordForm.newPassword })
       if (error) throw error
 
       // Log to audit
@@ -485,6 +500,30 @@ export default function AgentProfilePage() {
     }
     if (user) checkMfaStatus()
   }, [user])
+
+  const fetchAdvancedSecurity = useCallback(async () => {
+    if (!user) return
+    setPasskeysLoading(true)
+    try {
+      const [passkeyResult, recoveryResult] = await Promise.all([
+        supabase.auth.passkeys.list(),
+        supabase.auth.mfa.getRecoveryCodes(),
+      ])
+      if (passkeyResult.error) throw passkeyResult.error
+      if (recoveryResult.error) throw recoveryResult.error
+      setPasskeys((passkeyResult.data || []) as Passkey[])
+      setRecoveryRemaining(recoveryResult.data?.remaining || 0)
+      setRecoveryGeneratedAt(recoveryResult.data?.generated_at || null)
+    } catch (err) {
+      console.error('Advanced security status error:', err)
+    } finally {
+      setPasskeysLoading(false)
+    }
+  }, [user])
+
+  useEffect(() => {
+    if (user) fetchAdvancedSecurity()
+  }, [user, fetchAdvancedSecurity])
 
   const handleStartMfaEnroll = async () => {
     setMfaLoading(true)
@@ -545,6 +584,80 @@ export default function AgentProfilePage() {
     } finally {
       setMfaLoading(false)
     }
+  }
+
+  const handleAddPasskey = async () => {
+    setPasskeyLoading(true)
+    try {
+      const { data: options, error: optionsError } = await supabase.auth.passkeys.registerOptions()
+      if (optionsError || !options) throw optionsError || new Error(t('profile.security.passkeys.error'))
+      const { challenge_ticket: ticket, ...optionsJSON } = options
+      const response = await startRegistration({ optionsJSON })
+      const { error } = await supabase.auth.passkeys.verifyRegistration({
+        ticket,
+        response,
+        name: passkeyName.trim() || 'My passkey',
+      })
+      if (error) throw error
+      setPasskeyName('')
+      await Promise.all([fetchAdvancedSecurity(), refreshProfile()])
+      await logSecurityEvent('passkey_registered')
+      toast.success(t('profile.security.passkeys.addSuccess'))
+    } catch (err: any) {
+      const message = err?.name === 'NotAllowedError'
+        ? t('profile.security.passkeys.cancelled')
+        : err?.name === 'SecurityError'
+          ? t('profile.security.passkeys.secureContext')
+          : err.message || t('profile.security.passkeys.error')
+      toast.error(message)
+    } finally {
+      setPasskeyLoading(false)
+    }
+  }
+
+  const handleRemovePasskey = async (id: string) => {
+    setPasskeyLoading(true)
+    try {
+      const { error } = await supabase.auth.passkeys.remove(id)
+      if (error) throw error
+      await Promise.all([fetchAdvancedSecurity(), refreshProfile()])
+      await logSecurityEvent('passkey_removed')
+      toast.success(t('profile.security.passkeys.removeSuccess'))
+    } catch (err: any) {
+      toast.error(err.message || t('profile.security.passkeys.error'))
+    } finally {
+      setPasskeyLoading(false)
+    }
+  }
+
+  const handleGenerateRecoveryCodes = async () => {
+    setRecoveryLoading(true)
+    try {
+      const { data, error } = await supabase.auth.mfa.generateRecoveryCodes()
+      if (error || !data?.codes) throw error || new Error(t('profile.security.recovery.error'))
+      setRecoveryCodes(data.codes)
+      setRecoveryRemaining(data.remaining)
+      setRecoveryGeneratedAt(data.generated_at)
+      setShowRecoveryCodes(true)
+      await logSecurityEvent('backup_codes_generated')
+      toast.success(t('profile.security.recovery.generated'))
+    } catch (err: any) {
+      toast.error(err.message || t('profile.security.recovery.error'))
+    } finally {
+      setRecoveryLoading(false)
+    }
+  }
+
+  const downloadRecoveryCodes = () => {
+    const content = `ADMISSION DESK - ${t('profile.security.recovery.title').toUpperCase()}\n${new Date().toLocaleString()}\n\n${t('profile.security.recovery.fileWarning')}\n\n${recoveryCodes.map((code, index) => `${index + 1}. ${code}`).join('\n')}\n`
+    const url = URL.createObjectURL(new Blob([content], { type: 'text/plain;charset=utf-8' }))
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'admission-desk-recovery-codes.txt'
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
   }
 
   const handleOtpChange = (index: number, value: string) => {
@@ -1824,6 +1937,89 @@ export default function AgentProfilePage() {
                 )}
               </div>
 
+              {/* Passkeys & Security Keys */}
+              <div className="fb-card fb-security-card">
+                <div className="fb-security-header">
+                  <div className="fb-security-icon" style={{ background: passkeys.length ? '#eef2ff' : '#f8fafc', color: passkeys.length ? '#4f46e5' : '#64748b' }}>
+                    <Fingerprint size={24} />
+                  </div>
+                  <div className="fb-security-info">
+                    <h3>{t('profile.security.passkeys.title')}</h3>
+                    <p>{t('profile.security.passkeys.subtitle')}</p>
+                  </div>
+                  {passkeys.length > 0 && (
+                    <div className="fb-security-badge" style={{ background: '#eef2ff', color: '#4f46e5' }}>
+                      {t('profile.security.passkeys.active', { count: passkeys.length })}
+                    </div>
+                  )}
+                </div>
+
+                {passkeysLoading ? (
+                  <div style={{ textAlign: 'center', padding: '1.5rem' }}><span className="spinner" /></div>
+                ) : passkeys.length === 0 ? (
+                  <div className="fb-no-devices">
+                    <Fingerprint size={32} />
+                    <p>{t('profile.security.passkeys.empty')}</p>
+                  </div>
+                ) : (
+                  <div className="fb-device-list">
+                    {passkeys.map(passkey => (
+                      <div key={passkey.id} className="fb-device-card">
+                        <div className="fb-device-icon" style={{ background: '#eef2ff', color: '#4f46e5' }}><Key size={20} /></div>
+                        <div className="fb-device-info">
+                          <div className="fb-device-name">
+                            {passkey.key_name}
+                            {passkey.backed_up && <span className="fb-trusted-badge">{t('profile.security.passkeys.synced')}</span>}
+                          </div>
+                          <div className="fb-device-details">
+                            <span className="fb-device-detail">{t('profile.security.passkeys.added', { date: new Date(passkey.created_at).toLocaleDateString() })}</span>
+                            {passkey.last_used_at && (
+                              <span className="fb-device-detail">{t('profile.security.passkeys.lastUsed', { date: new Date(passkey.last_used_at).toLocaleDateString() })}</span>
+                            )}
+                          </div>
+                        </div>
+                        <button className="fb-device-btn fb-device-btn-revoke" onClick={() => handleRemovePasskey(passkey.id)} disabled={passkeyLoading} aria-label={`${t('profile.security.passkeys.remove')} ${passkey.key_name}`}>
+                          <Trash2 size={12} /> {t('profile.security.passkeys.remove')}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <form className="fb-passkey-form" onSubmit={event => { event.preventDefault(); handleAddPasskey() }}>
+                  <div style={{ flex: 1 }}>
+                    <label htmlFor="agent-passkey-name" style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#65676b', marginBottom: '0.35rem' }}>
+                      {t('profile.security.passkeys.nameLabel')}
+                    </label>
+                    <input id="agent-passkey-name" className="fb-form-input" value={passkeyName} onChange={event => setPasskeyName(event.target.value)} placeholder={t('profile.security.passkeys.namePlaceholder')} maxLength={80} disabled={passkeyLoading} />
+                  </div>
+                  <button type="submit" className="fb-btn fb-btn-primary" disabled={passkeyLoading}>
+                    {passkeyLoading ? <span className="spinner" /> : <Plus size={16} />}
+                    {passkeyLoading ? t('profile.security.passkeys.adding') : t('profile.security.passkeys.add')}
+                  </button>
+                </form>
+                <div className="fb-security-note"><Info size={16} /><p>{t('profile.security.passkeys.note')}</p></div>
+              </div>
+
+              {/* Recovery Codes */}
+              <div className="fb-card fb-security-card">
+                <div className="fb-security-header">
+                  <div className="fb-security-icon" style={{ background: recoveryRemaining ? '#f0fdf4' : '#fffbeb', color: recoveryRemaining ? '#10b981' : '#f59e0b' }}><Key size={24} /></div>
+                  <div className="fb-security-info">
+                    <h3>{t('profile.security.recovery.title')}</h3>
+                    <p>{t('profile.security.recovery.subtitle')}</p>
+                  </div>
+                  <div className="fb-security-badge" style={{ background: recoveryRemaining ? '#f0fdf4' : '#fffbeb', color: recoveryRemaining ? '#10b981' : '#f59e0b' }}>
+                    {recoveryGeneratedAt ? t('profile.security.recovery.remaining', { count: recoveryRemaining }) : t('profile.security.recovery.notGenerated')}
+                  </div>
+                </div>
+                <p className="fb-modal-message">{t('profile.security.recovery.warning')}</p>
+                <button className="fb-btn fb-btn-outline" onClick={handleGenerateRecoveryCodes} disabled={recoveryLoading}>
+                  {recoveryLoading ? <span className="spinner" /> : <Key size={16} />}
+                  {recoveryGeneratedAt ? t('profile.security.recovery.regenerate') : t('profile.security.recovery.generate')}
+                </button>
+              </div>
+
               {/* Device Management */}
               <div className="fb-card fb-security-card">
                 <div className="fb-security-header">
@@ -2116,6 +2312,30 @@ export default function AgentProfilePage() {
       </div>
 
       {/* ═══ MODALS ═══ */}
+      {showRecoveryCodes && (
+        <div className="fb-modal-overlay" onClick={() => setShowRecoveryCodes(false)}>
+          <div className="fb-modal fb-recovery-modal" role="dialog" aria-modal="true" aria-labelledby="recovery-codes-title" onClick={event => event.stopPropagation()}>
+            <div className="fb-modal-header">
+              <Key size={24} style={{ color: '#4f46e5' }} />
+              <div style={{ flex: 1 }}>
+                <h3 id="recovery-codes-title">{t('profile.security.recovery.modalTitle')}</h3>
+                <p style={{ margin: '0.25rem 0 0', fontSize: '0.8rem', color: '#65676b' }}>{t('profile.security.recovery.modalDescription')}</p>
+              </div>
+              <button className="fb-device-btn" onClick={() => setShowRecoveryCodes(false)} aria-label="Close"><X size={16} /></button>
+            </div>
+            <div className="fb-code-grid">
+              {recoveryCodes.map((code, index) => <code className="fb-backup-code" key={code}>{String(index + 1).padStart(2, '0')}. {code}</code>)}
+            </div>
+            <div className="fb-security-note warning"><ShieldAlert size={18} /><p>{t('profile.security.recovery.showOnce')}</p></div>
+            <div className="fb-btn-group">
+              <button className="fb-btn fb-btn-outline" onClick={downloadRecoveryCodes}><Download size={16} />{t('profile.security.recovery.download')}</button>
+              <button className="fb-btn fb-btn-outline" onClick={() => navigator.clipboard.writeText(recoveryCodes.join('\n')).then(() => toast.success(t('profile.security.recovery.copied'))).catch(() => toast.error(t('profile.security.recovery.error')))}><Copy size={16} />{t('profile.security.recovery.copy')}</button>
+              <button className="fb-btn fb-btn-primary" onClick={() => setShowRecoveryCodes(false)}><Check size={16} />{t('common.done')}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showLogoutModal && (
         <div className="fb-modal-overlay" onClick={() => setShowLogoutModal(false)}>
           <div className="fb-modal" onClick={e => e.stopPropagation()}>

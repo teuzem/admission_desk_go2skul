@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next'
 import toast from 'react-hot-toast'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
-import { createClient } from '@supabase/supabase-js'
 import TeamMemberModal from './TeamMemberModal'
 import './TeamMemberModal.css'
 import '../dashboard/DashboardPages.css'
@@ -77,72 +76,28 @@ export default function TeamMembersPage() {
       throw new Error(t('team.messages.maxReached', { max: 2 }))
     }
 
-    const { data: existingUser } = await supabase.from('profiles').select('id').eq('email', email).maybeSingle()
-
-    let generatedPassword = null
-    let finalStatus = 'pending'
-
-    if (!existingUser) {
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-      const tempClient = createClient(supabaseUrl, supabaseAnonKey, { auth: { persistSession: false } })
-      
-      generatedPassword = `Agent${Math.floor(Math.random() * 900000) + 100000}!`
-      
-      const { data: authData, error: authError } = await tempClient.auth.signUp({
-        email,
-        password: generatedPassword,
-        options: {
-          data: {
-            first_name: name.split(' ')[0] || '',
-            last_name: name.split(' ').slice(1).join(' ') || '',
-            agency_name: profile?.agency_name || '',
-            country: profile?.country || '',
-            city: profile?.city || '',
-            phone: profile?.phone || '',
-            role: 'editor',
-            parent_agency_id: profile?.id
-          }
-        }
-      })
-      if (authError) throw authError
-      
-      if (authData?.user) {
-        await tempClient.from('profiles').update({
-          agency_name: profile?.agency_name || '',
-          country: profile?.country || '',
-          city: profile?.city || '',
-          office_address: profile?.office_address || '',
-          office_country: profile?.office_country || '',
-          office_city: profile?.office_city || '',
-          website: profile?.website || '',
-          role: 'editor',
-          is_active: true
-        }).eq('id', authData.user.id)
-      }
-      finalStatus = 'active'
-    }
-
+    // Invitations are stored pending; the invitee either signs up (the backend
+    // links them to this agency automatically) or accepts from their account.
     const { error } = await supabase.from('team_members').insert({
       agency_id: profile?.id,
       invited_email: email,
       name: name || 'Team Member',
       role: 'editor',
-      status: finalStatus
+      status: 'pending'
     } as any)
 
     if (error) throw error;
-    
+
     // Log activity
     (supabase as any).from('agent_global_activities').insert({
       agent_id: profile?.id,
       activity_type: 'team_member_added',
       description: `Invited new team member: ${email}`
     }).then()
-    
+
     toast.success(t('team.messages.inviteSent', { email }))
-    
-    return generatedPassword
+
+    return null
   }
 
   const handleRemove = async (id: string) => {
@@ -157,12 +112,7 @@ export default function TeamMembersPage() {
 
   const handleAcceptInvite = async (invitationId: string) => {
     try {
-      const { data: inviteData } = await supabase.from('team_members').select('agency_id').eq('id', invitationId).single()
-      if (inviteData?.agency_id) {
-         await supabase.auth.updateUser({ data: { parent_agency_id: inviteData.agency_id } })
-         await supabase.from('profiles').update({ role: 'editor' }).eq('id', profile?.id)
-      }
-      const { error } = await supabase.from('team_members').update({ status: 'active' }).eq('id', invitationId)
+      const { error } = await supabase.rpc('accept_team_invite', { invitation_id: invitationId })
       if (error) throw error
       toast.success(t('team.messages.inviteAccepted', 'Invitation accepted!'))
       setReceivedInvitations(prev => prev.filter(i => i.id !== invitationId))
